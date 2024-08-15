@@ -8,6 +8,8 @@ int main()
 {
 	nt::AstralApp app{};
 
+  std::cout << "°˖✧ Welcome to the Noctuary Engine ✧˖°" << std::endl;
+
 	try {
 		app.run();
 	}

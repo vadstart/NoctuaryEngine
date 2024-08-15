@@ -4,6 +4,7 @@
 namespace nt
 {
 	void AstralApp::run() {
+
 		while (!ntWindow.shouldClose()) {
 			glfwPollEvents();
 		}
