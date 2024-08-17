@@ -29,6 +29,7 @@ link_libraries(${GLFW_LIB})
 
 # Gather all source files
 file(GLOB SOURCES "src/*.cpp" "src/*.h")
+message(STATUS "Source files: ${SOURCES}")
 
 # Add the executable
 add_executable(NoctuaryEngine ${SOURCES})

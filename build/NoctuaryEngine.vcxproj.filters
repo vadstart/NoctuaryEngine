@@ -7,12 +7,30 @@
     <ClCompile Include="C:\GameProjects\NoctuaryEngine\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\GameProjects\NoctuaryEngine\src\nt_device.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\GameProjects\NoctuaryEngine\src\nt_pipeline.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="C:\GameProjects\NoctuaryEngine\src\nt_swap_chain.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="C:\GameProjects\NoctuaryEngine\src\nt_window.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="C:\GameProjects\NoctuaryEngine\src\astral_app.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\GameProjects\NoctuaryEngine\src\nt_device.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\GameProjects\NoctuaryEngine\src\nt_pipeline.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="C:\GameProjects\NoctuaryEngine\src\nt_swap_chain.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="C:\GameProjects\NoctuaryEngine\src\nt_window.h">
