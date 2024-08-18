@@ -37,3 +37,36 @@ add_executable(NoctuaryEngine ${SOURCES})
 # Link the libraries to the executable
 target_link_libraries(NoctuaryEngine ${Vulkan_LIBRARIES} ${GLFW_LIB})
 
+# Shader Compilation Step
+set(SHADER_SRC_DIR "${CMAKE_SOURCE_DIR}/src/shaders")
+set(SHADER_BINARY_DIR "${CMAKE_SOURCE_DIR}/src/shaders")
+
+# List of shaders to compile
+set(SHADER_FILES
+    simple_shader.vert
+    simple_shader.frag
+)
+
+# Ensure the shader output directory exists
+file(MAKE_DIRECTORY ${SHADER_BINARY_DIR})
+
+foreach(SHADER ${SHADER_FILES})
+    set(SHADER_SOURCE ${SHADER_SRC_DIR}/${SHADER})
+    set(SHADER_OUTPUT ${SHADER_BINARY_DIR}/${SHADER}.spv)
+
+    add_custom_command(
+        OUTPUT ${SHADER_OUTPUT}
+        COMMAND ${Vulkan_GLSLC_EXECUTABLE} ${SHADER_SOURCE} -o ${SHADER_OUTPUT}
+        DEPENDS ${SHADER_SOURCE}
+        COMMENT "Compiling shader: ${SHADER}"
+    )
+
+    list(APPEND SHADER_OUTPUTS ${SHADER_OUTPUT})
+endforeach()
+
+# Add the shaders as dependencies to the build
+add_custom_target(Shaders DEPENDS ${SHADER_OUTPUTS})
+
+# Ensure shaders are built before the main executable
+add_dependencies(NoctuaryEngine Shaders)
+
