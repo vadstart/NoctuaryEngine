@@ -1,4 +1,0 @@
-C:/GameProjects/NoctuaryEngine/build/CMakeFiles/NoctuaryEngine.dir
-C:/GameProjects/NoctuaryEngine/build/CMakeFiles/Shaders.dir
-C:/GameProjects/NoctuaryEngine/build/CMakeFiles/ALL_BUILD.dir
-C:/GameProjects/NoctuaryEngine/build/CMakeFiles/ZERO_CHECK.dir
