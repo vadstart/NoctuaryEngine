@@ -8,11 +8,25 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
 # Paths to GLFW and GLM
-set(GLFW_INCLUDE_DIR "C:/Program Files/Microsoft Visual Studio/2022/Community/Libraries/glfw-3.4.bin.WIN64/include")
-set(GLFW_LIBRARY_DIR "C:/Program Files/Microsoft Visual Studio/2022/Community/Libraries/glfw-3.4.bin.WIN64/lib-vc2022")
-set(GLFW_LIB "C:/Program Files/Microsoft Visual Studio/2022/Community/Libraries/glfw-3.4.bin.WIN64/lib-vc2022/glfw3.lib")
+# Platform specific
+if (WIN32)
+  set(GLFW_INCLUDE_DIR "C:/Program Files/Microsoft Visual Studio/2022/Community/Libraries/glfw-3.4.bin.WIN64/include")
+  set(GLFW_LIBRARY_DIR "C:/Program Files/Microsoft Visual Studio/2022/Community/Libraries/glfw-3.4.bin.WIN64/lib-vc2022")
+  set(GLFW_LIB "C:/Program Files/Microsoft Visual Studio/2022/Community/Libraries/glfw-3.4.bin.WIN64/lib-vc2022/glfw3.lib")
 
-set(GLM_INCLUDE_DIR "C:/Program Files/Microsoft Visual Studio/2022/Community/Libraries/glm-1.0.1")
+  set(GLM_INCLUDE_DIR "C:/Program Files/Microsoft Visual Studio/2022/Community/Libraries/glm-1.0.1")
+elseif (APPLE)
+  find_package(PkgConfig REQUIRED)
+  pkg_check_modules(GLFW REQUIRED glfw3)
+  include_directories(${GLFW_INCLUDE_DIRS})
+  link_directories(${GLFW_LIBRARY_DIRS})
+
+  find_package(GLM REQUIRED)
+  include_directories(${GLM_INCLUDE_DIRS})
+
+else()
+  message(FATAL_ERROR "Unsupported platform")
+endif()
 
 # Find Vulkan SDK
 find_package(Vulkan REQUIRED)
@@ -35,11 +49,11 @@ message(STATUS "Source files: ${SOURCES}")
 add_executable(NoctuaryEngine ${SOURCES})
 
 # Link the libraries to the executable
-target_link_libraries(NoctuaryEngine ${Vulkan_LIBRARIES} ${GLFW_LIB})
+target_link_libraries(NoctuaryEngine ${Vulkan_LIBRARIES} ${GLFW_LIB} ${GLFW_LIBRARIES})
 
 # Shader Compilation Step
 set(SHADER_SRC_DIR "${CMAKE_SOURCE_DIR}/src/shaders")
-set(SHADER_BINARY_DIR "${CMAKE_SOURCE_DIR}/src/shaders")
+set(SHADER_BINARY_DIR "${CMAKE_BINARY_DIR}/shaders")
 
 # List of shaders to compile
 set(SHADER_FILES

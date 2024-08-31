@@ -47,8 +47,8 @@ void AstralApp::run() {
     ntPipeline = std::make_unique<NtPipeline>(
         ntDevice,
         pipelineConfig,
-        "src/shaders/simple_shader.vert.spv",
-        "src/shaders/simple_shader.frag.spv");
+        "shaders/simple_shader.vert.spv",
+        "shaders/simple_shader.frag.spv");
   }
 
 void AstralApp::createCommandBuffers() {

@@ -3,12 +3,23 @@
 ##
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
+# Ignore build directories
+/build/
+/Debug/
+/Release/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+
 # User-specific files
 *.rsuser
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
+*.sln
+*.vcxproj
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -34,7 +45,6 @@ bld/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/
-/build/
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
 

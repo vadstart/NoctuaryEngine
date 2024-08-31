@@ -81,11 +81,17 @@ void NtDevice::createInstance() {
   appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
   appInfo.apiVersion = VK_API_VERSION_1_0;
 
+  auto extensions = getRequiredExtensions();
   VkInstanceCreateInfo createInfo = {};
+
+  #ifdef __APPLE__
+    // Enabling VK_KHR_portability_enumeration extension on MacOS
+    extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+  #endif
+  
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
-
-  auto extensions = getRequiredExtensions();
   createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   createInfo.ppEnabledExtensionNames = extensions.data();
 
@@ -262,8 +268,7 @@ bool NtDevice::checkValidationLayerSupport() {
 
 std::vector<const char *> NtDevice::getRequiredExtensions() {
   uint32_t glfwExtensionCount = 0;
-  const char **glfwExtensions;
-  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
+  const char **glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
 
   std::vector<const char *> extensions(glfwExtensions, glfwExtensions + glfwExtensionCount);
 
