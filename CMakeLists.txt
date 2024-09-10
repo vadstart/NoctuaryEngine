@@ -84,3 +84,5 @@ add_custom_target(Shaders DEPENDS ${SHADER_OUTPUTS})
 # Ensure shaders are built before the main executable
 add_dependencies(NoctuaryEngine Shaders)
 
+# Enable compile_commands.json generation
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
