@@ -1,5 +1,6 @@
 #include "astral_app.h"
 
+/*#include <filesystem>*/
 #include <array>
 #include <cstdint>
 #include <stdexcept>
@@ -44,11 +45,18 @@ void AstralApp::run() {
     auto pipelineConfig = NtPipeline::defaultPipelineConfigInfo(ntSwapChain.width(), ntSwapChain.height());
     pipelineConfig.renderPass = ntSwapChain.getRenderPass();
     pipelineConfig.pipelineLayout = pipelineLayout;
+
+    /*std::filesystem::path exePath = std::filesystem::current_path();*/
+    /*std::filesystem::path shaderPath = exePath / "shaders";*/
+
     ntPipeline = std::make_unique<NtPipeline>(
         ntDevice,
         pipelineConfig,
         "shaders/simple_shader.vert.spv",
         "shaders/simple_shader.frag.spv");
+
+        /*(shaderPath / "simple_shader.vert.spv").string(),*/
+        /*(shaderPath / "simple_shader.frag.spv").string());*/
   }
 
 void AstralApp::createCommandBuffers() {
