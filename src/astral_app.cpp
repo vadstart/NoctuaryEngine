@@ -63,7 +63,7 @@ std::unique_ptr<NtModel> createCubeModel(NtDevice& device, glm::vec3 offset) {
   using Vertex = NtModel::Vertex;
 
   // Define the 8 corners of the cube and assign each a unique color (rainbow-ish)
-  std::array<Vertex, 8> corners = {
+  std::vector<Vertex> corners = {
     Vertex{{-.5f, -.5f, -.5f}, {1.0f, 0.0f, 0.0f}}, // 0: red
     Vertex{{.5f, -.5f, -.5f}, {1.0f, 0.5f, 0.0f}},  // 1: orange
     Vertex{{.5f, .5f, -.5f}, {1.0f, 1.0f, 0.0f}},   // 2: yellow
