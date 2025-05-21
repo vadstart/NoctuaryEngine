@@ -1,5 +1,5 @@
 #include "nt_window.h"
-#include <stdexcept>  
+#include <stdexcept>
 
 namespace nt
 {
@@ -15,13 +15,30 @@ namespace nt
 	}
 
 	void NtWindow::initWindow()
-	{
-		glfwInit();
-		glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);	// No need for a standard OpenGL_API
-		glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-		window = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
+		{
+			glfwInit();
+			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);	// No need for a standard OpenGL_API
+			glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+			window = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
+
+			glfwSetWindowUserPointer (window, this);
+			glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+
+			glfwSetKeyCallback(window, keyCallback);
+		}
+
+	void NtWindow::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
+		auto ntWindow = reinterpret_cast<NtWindow *>(glfwGetWindowUserPointer(window));
+		ntWindow->framebufferResized = true;
+    ntWindow->width = width;
+    ntWindow->height = height;
 	}
 
+	void NtWindow::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
+	{
+		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+			glfwSetWindowShouldClose(window, GLFW_TRUE);
+	}
 
   void NtWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface) {
     if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {

@@ -28,7 +28,8 @@ void setWorkingDirectory() {
     }
 #elif defined(_WIN32)
     if (GetModuleFileNameA(NULL, exePath, sizeof(exePath))) {
-        std::filesystem::path path = std::filesystem::path(exePath).parent_path();
+        // std::filesystem::path path = std::filesystem::path(exePath).parent_path();
+        std::filesystem::path path = "C:\\Users\\vadsama\\Documents\\Projects\\NoctuaryEngine";
         std::filesystem::current_path(path);
         std::cout << "Working directory set to: " << std::filesystem::current_path() << std::endl;
     } else {
@@ -53,9 +54,9 @@ int main()
 {
   setWorkingDirectory();
 
-	nt::AstralApp app{};
+  nt::AstralApp app{};
 
-  std::cout << "°˖✧ Welcome to the Noctuary Engine ✧˖°" << std::endl;
+  std::cout << "°˖  Welcome to the Noctuary Engine  ˖°" << std::endl;
 
 	try {
 		app.run();

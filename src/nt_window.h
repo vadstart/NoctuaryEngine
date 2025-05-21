@@ -22,14 +22,20 @@ namespace nt
 
 		bool shouldClose() { return glfwWindowShouldClose(window); }
     VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
+    bool wasWindowResized() { return framebufferResized; }
+    void resetWindowResizedFlag() { framebufferResized = false; }
 
     void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 
 	private:
 		void initWindow();
 
-		const int width;
-		const int height;
+		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+		static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+		int width;
+		int height;
+    bool framebufferResized = false;
 
 		string windowName;
 		GLFWwindow* window;

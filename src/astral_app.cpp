@@ -1,127 +1,120 @@
 #include "astral_app.h"
+#include "generic_render_system.h"
+#include "nt_camera.h"
 
-/*#include <filesystem>*/
-#include <array>
-#include <cstdint>
-#include <stdexcept>
+#include <algorithm>
+#include <chrono>
+// #include "vulkan/vulkan_core.h"
+
+// Libraries
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#include <glm/glm.hpp>
+#include <glm/gtc/constants.hpp>
+
+// Std
+#include <iostream>
+#include <cassert>
+#include <memory>
 
 namespace nt
 {
 
 AstralApp::AstralApp() {
-  createPipelineLayout();
-  createPipeline();
-  createCommandBuffers();
+  loadGameObjects();
 }
-AstralApp::~AstralApp() {
-  vkDestroyPipelineLayout(ntDevice.device(), pipelineLayout, nullptr);
-}
+AstralApp::~AstralApp() {}
 
 void AstralApp::run() {
+  GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass());
+  NtCamera camera{};
+
+  std::cout << "maxPushConstantSize = " << ntDevice.properties.limits.maxPushConstantsSize << "\n";
+
+  // Temporary implementation of DeltaTime
+  auto currentTime = std::chrono::high_resolution_clock::now();
 
   while (!ntWindow.shouldClose()) {
+    auto newTime = std::chrono::high_resolution_clock::now();
+    float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+    currentTime = newTime;
+
     glfwPollEvents();
-    drawFrame();
+
+    float aspect = ntRenderer.getAspectRatio();
+    // camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
+    camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 10.f);
+
+    if (auto commandBuffer = ntRenderer.beginFrame()) {
+      // TODO: Add Reflections, Shadows, Postprocessing, etc
+      
+      ntRenderer.beginSwapChainRenderPass(commandBuffer);
+      genericRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera, deltaTime);
+      ntRenderer.endSwapChainRenderPass(commandBuffer);
+      ntRenderer.endFrame();
+    }
   }
 
   vkDeviceWaitIdle(ntDevice.device());
 }
 
- void AstralApp::createPipelineLayout() {
-  VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
-  pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  pipelineLayoutInfo.setLayoutCount = 0;
-  pipelineLayoutInfo.pSetLayouts = nullptr;
-  pipelineLayoutInfo.pushConstantRangeCount = 0;
-  pipelineLayoutInfo.pPushConstantRanges = nullptr;
+// Temp cube creation helper
+std::unique_ptr<NtModel> createCubeModel(NtDevice& device, glm::vec3 offset) {
+  using Vertex = NtModel::Vertex;
 
-  if (vkCreatePipelineLayout(ntDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
-    throw std::runtime_error("failed to create pipeline layout!");
+  // Define the 8 corners of the cube and assign each a unique color (rainbow-ish)
+  std::array<Vertex, 8> corners = {
+    Vertex{{-.5f, -.5f, -.5f}, {1.0f, 0.0f, 0.0f}}, // 0: red
+    Vertex{{.5f, -.5f, -.5f}, {1.0f, 0.5f, 0.0f}},  // 1: orange
+    Vertex{{.5f, .5f, -.5f}, {1.0f, 1.0f, 0.0f}},   // 2: yellow
+    Vertex{{-.5f, .5f, -.5f}, {0.0f, 1.0f, 0.0f}},  // 3: green
+    Vertex{{-.5f, -.5f, .5f}, {0.0f, 0.0f, 1.0f}},  // 4: blue
+    Vertex{{.5f, -.5f, .5f}, {0.29f, 0.0f, 0.51f}}, // 5: indigo
+    Vertex{{.5f, .5f, .5f}, {0.56f, 0.0f, 1.0f}},   // 6: violet
+    Vertex{{-.5f, .5f, .5f}, {1.0f, 0.0f, 1.0f}},   // 7: magenta
+  };
+
+  // Indices into the `corners` array to form 12 triangles (2 per face)
+  std::vector<uint32_t> indices = {
+    // front face (z = +0.5)
+    4, 5, 6,
+    4, 6, 7,
+    // back face (z = -0.5)
+    0, 2, 1,
+    0, 3, 2,
+    // left face (x = -0.5)
+    0, 7, 3,
+    0, 4, 7,
+    // right face (x = +0.5)
+    1, 2, 6,
+    1, 6, 5,
+    // top face (y = +0.5)
+    3, 7, 6,
+    3, 6, 2,
+    // bottom face (y = -0.5)
+    0, 1, 5,
+    0, 5, 4,
+  };
+
+  std::vector<Vertex> vertices;
+  for (auto index : indices) {
+    Vertex v = corners[index];
+    v.position += offset;
+    vertices.push_back(v);
   }
 
- }
-    
-  void AstralApp::createPipeline() {
-    auto pipelineConfig = NtPipeline::defaultPipelineConfigInfo(ntSwapChain.width(), ntSwapChain.height());
-    pipelineConfig.renderPass = ntSwapChain.getRenderPass();
-    pipelineConfig.pipelineLayout = pipelineLayout;
-
-    /*std::filesystem::path exePath = std::filesystem::current_path();*/
-    /*std::filesystem::path shaderPath = exePath / "shaders";*/
-
-    ntPipeline = std::make_unique<NtPipeline>(
-        ntDevice,
-        pipelineConfig,
-        "shaders/simple_shader.vert.spv",
-        "shaders/simple_shader.frag.spv");
-
-        /*(shaderPath / "simple_shader.vert.spv").string(),*/
-        /*(shaderPath / "simple_shader.frag.spv").string());*/
-  }
-
-void AstralApp::createCommandBuffers() {
-  commandBuffers.resize(ntSwapChain.imageCount());
-
-  VkCommandBufferAllocateInfo allocInfo{};
-  allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-  allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-  allocInfo.commandPool = ntDevice.getCommandPool();
-  allocInfo.commandBufferCount = static_cast<uint32_t>(commandBuffers.size());
-
-  if (vkAllocateCommandBuffers(ntDevice.device(), &allocInfo, commandBuffers.data()) != VK_SUCCESS) {
-    throw std::runtime_error("failed to allocate command buffers!");
-  }
-
-  for (int i = 0; i < commandBuffers.size(); i++) {
-    VkCommandBufferBeginInfo beginInfo{};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-
-    if (vkBeginCommandBuffer(commandBuffers[i], &beginInfo) != VK_SUCCESS) {
-      throw std::runtime_error("failed to begin recording command buffer!");
-    }
-    
-    VkRenderPassBeginInfo renderPassInfo{};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = ntSwapChain.getRenderPass();
-    renderPassInfo.framebuffer = ntSwapChain.getFrameBuffer(i);
-
-    renderPassInfo.renderArea.offset = {0, 0};
-    renderPassInfo.renderArea.extent = ntSwapChain.getSwapChainExtent();
-
-    std::array<VkClearValue, 2> clearValues{};
-    clearValues[0].color = {0.1f, 0.1f, 0.1f, 1.0f};
-    clearValues[1].depthStencil = {1.0f, 0};
-    //uint32_t clearValueCount = static_cast<uint32_t>(clearValues.size());
-    //renderPassInfo.clearValueCount = clearValueCount;    
-    renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
-    renderPassInfo.pClearValues = clearValues.data();
-
-    vkCmdBeginRenderPass(commandBuffers[i], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-
-    ntPipeline->bind(commandBuffers[i]);
-    vkCmdDraw(commandBuffers[i], 3, 1, 0, 0);
-
-    vkCmdEndRenderPass(commandBuffers[i]);
-    if(vkEndCommandBuffer(commandBuffers[i]) != VK_SUCCESS) {
-      throw std::runtime_error("failed to record command buffer!");
-    }
-  }
-
+  return std::make_unique<NtModel>(device, vertices);
 }
 
-void AstralApp::drawFrame() {
-  uint32_t imageIndex;
-  auto result = ntSwapChain.acquireNextImage(&imageIndex);
+void AstralApp::loadGameObjects() {
+  std::shared_ptr<NtModel> ntModel = createCubeModel(ntDevice, {.0f, .0f, .0f});
 
-  if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
-    throw std::runtime_error("failed to acquire swap chain image!");
-  }
+  auto cube = NtGameObject::createGameObject();
+  cube.model = ntModel;
+  cube.transform.translation = {.0f, .0f, 1.25f};
+  cube.transform.scale = {.5f, .5f, .5f};
 
-  result = ntSwapChain.submitCommandBuffers(&commandBuffers[imageIndex], &imageIndex);
-  if (result != VK_SUCCESS) {
-    throw std::runtime_error("failed to present swap chain image!");
-  }
+  gameObjects.push_back(std::move(cube));
 }
-
 
 }

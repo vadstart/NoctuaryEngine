@@ -1,5 +1,8 @@
 #include "nt_pipeline.h"
+#include "nt_model.h"
+#include "vulkan/vulkan_core.h"
 
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <stdexcept>  
@@ -9,7 +12,7 @@ namespace nt {
 
 NtPipeline::NtPipeline(
         NtDevice &device,
-        const PipelineConfigInfo configInfo, 
+        const PipelineConfigInfo& configInfo, 
         const string& vertFilepath, 
         const string& fragFilepath)
         : ntDevice{device} {
@@ -25,7 +28,7 @@ NtPipeline::~NtPipeline() {
    std::ifstream file{filepath, std::ios::ate | std::ios::binary};
 
    if (!file.is_open()) {
-     std::cout << "filed to open file: " + filepath << std::endl;
+     std::cout << "failed to open file: " + filepath << std::endl;
      throw std::runtime_error("failed to open file: " + filepath);
    }
 
@@ -40,7 +43,7 @@ NtPipeline::~NtPipeline() {
  }
 
  void NtPipeline::createGraphicalPipeline( 
-        const PipelineConfigInfo configInfo, 
+        const PipelineConfigInfo& configInfo, 
         const string& vertFilepath, 
         const string& fragFilepath) {
 
@@ -71,19 +74,14 @@ NtPipeline::~NtPipeline() {
    shaderStages[1].pNext = nullptr;
    shaderStages[1].pSpecializationInfo = nullptr;
 
+   auto bindingDescriptions = NtModel::Vertex::getBindingDescriptions();
+   auto attributeDescriptions = NtModel::Vertex::getAttributeDescriptions();
    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-   vertexInputInfo.vertexAttributeDescriptionCount = 0;
-   vertexInputInfo.vertexBindingDescriptionCount = 0;
-   vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-   vertexInputInfo.pVertexBindingDescriptions = nullptr;
-
-   VkPipelineViewportStateCreateInfo viewportInfo{};
-   viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-   viewportInfo.viewportCount = 1;
-   viewportInfo.pViewports = &configInfo.viewport;
-   viewportInfo.scissorCount = 1;
-   viewportInfo.pScissors = &configInfo.scissor;
+   vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+   vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
+   vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+   vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
    VkGraphicsPipelineCreateInfo pipelineInfo{};
    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -91,12 +89,12 @@ NtPipeline::~NtPipeline() {
    pipelineInfo.pStages = shaderStages;
    pipelineInfo.pVertexInputState = &vertexInputInfo;
    pipelineInfo.pInputAssemblyState = &configInfo.inputAssemblyInfo;
-   pipelineInfo.pViewportState = &viewportInfo;
+   pipelineInfo.pViewportState = &configInfo.viewportInfo;
    pipelineInfo.pRasterizationState = &configInfo.rasterizationInfo;
    pipelineInfo.pMultisampleState = &configInfo.multisampleInfo;
    pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
    pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;
-   pipelineInfo.pDynamicState = nullptr;
+   pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo;
 
    pipelineInfo.layout = configInfo.pipelineLayout;
    pipelineInfo.renderPass = configInfo.renderPass;
@@ -127,22 +125,16 @@ NtPipeline::~NtPipeline() {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
   }
 
- PipelineConfigInfo NtPipeline::defaultPipelineConfigInfo(uint32_t width, uint32_t height) {
-   PipelineConfigInfo configInfo{};
-    
+ void NtPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
    configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
    configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
    configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
 
-   configInfo.viewport.x = 0.0f;
-   configInfo.viewport.y = 0.0f;
-   configInfo.viewport.width = static_cast<float>(width);
-   configInfo.viewport.height = static_cast<float>(height);
-   configInfo.viewport.minDepth = 0.0f;
-   configInfo.viewport.maxDepth = 1.0f;
-
-   configInfo.scissor.offset = {0, 0};
-   configInfo.scissor.extent = {width, height};
+   configInfo.viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+   configInfo.viewportInfo.viewportCount = 1;
+   configInfo.viewportInfo.pViewports = nullptr;
+   configInfo.viewportInfo.scissorCount = 1;
+   configInfo.viewportInfo.pScissors = nullptr;
 
    configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
    configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;
@@ -195,8 +187,12 @@ NtPipeline::~NtPipeline() {
    configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
    configInfo.depthStencilInfo.front = {}; // Optional
    configInfo.depthStencilInfo.back = {}; // Optional
-
-   return configInfo;
+  
+   configInfo.dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+   configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+   configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
+   configInfo.dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(configInfo.dynamicStateEnables.size());
+   configInfo.dynamicStateInfo.flags = 0;
  }
 
 }

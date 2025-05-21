@@ -1,12 +1,11 @@
 #pragma once
 
-#include "nt_pipeline.h"
+#include "nt_game_object.h"
 #include "nt_window.h"
 #include "nt_device.h"
-#include "nt_swap_chain.h"
+#include "nt_renderer.h"
 
 #include <memory>
-#include <vector>
 
 using std::vector;
 
@@ -28,17 +27,12 @@ namespace nt
 		void run();
 
 	private:
-    void createPipelineLayout();
-    void createPipeline();
-    void createCommandBuffers();
-    void drawFrame();
+    void loadGameObjects();
 
-		NtWindow ntWindow{ WIDTH, HEIGHT, "You are wandering through the Astral Realm.." };
+    NtWindow ntWindow{ WIDTH, HEIGHT, "🌋 You are wandering through the Astral Realm.." };
     NtDevice ntDevice{ntWindow};
-    NtSwapChain ntSwapChain{ntDevice, ntWindow.getExtent()};
-    std::unique_ptr<NtPipeline> ntPipeline;
-    VkPipelineLayout pipelineLayout;
-    vector<VkCommandBuffer> commandBuffers;
+    NtRenderer ntRenderer{ntWindow, ntDevice};
 
+    std::vector<NtGameObject> gameObjects;
 	};
 }

@@ -35,7 +35,7 @@ class NtDevice {
 
   // Not copyable or movable
   NtDevice(const NtDevice &) = delete;
-  void operator=(const NtDevice &) = delete;
+  NtDevice &operator=(const NtDevice &) = delete;
   NtDevice(NtDevice &&) = delete;
   NtDevice &operator=(NtDevice &&) = delete;
 
@@ -105,4 +105,4 @@ class NtDevice {
   const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 };
 
-}  // namespace lve
+}
