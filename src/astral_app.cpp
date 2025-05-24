@@ -34,21 +34,21 @@ namespace nt
 
 AstralApp::AstralApp() {
 
-  static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
-  VkDescriptorPoolSize pool_sizes[] =
-  {
-      { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE },
-  };
-  VkDescriptorPoolCreateInfo pool_info = {};
-  pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-  pool_info.maxSets = 0;
-  for (VkDescriptorPoolSize& pool_size : pool_sizes)
-      pool_info.maxSets += pool_size.descriptorCount;
-  pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-  pool_info.pPoolSizes = pool_sizes;
-  VkResult err = vkCreateDescriptorPool(ntDevice.device(), &pool_info, nullptr, &g_DescriptorPool);
-  check_vk_result(err);
+  // static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
+  // VkDescriptorPoolSize pool_sizes[] =
+  // {
+  //     { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE },
+  // };
+  // VkDescriptorPoolCreateInfo pool_info = {};
+  // pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+  // pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+  // pool_info.maxSets = 0;
+  // for (VkDescriptorPoolSize& pool_size : pool_sizes)
+  //     pool_info.maxSets += pool_size.descriptorCount;
+  // pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+  // pool_info.pPoolSizes = pool_sizes;
+  // VkResult err = vkCreateDescriptorPool(ntDevice.device(), &pool_info, nullptr, &g_DescriptorPool);
+  // check_vk_result(err);
 
   // Setup ImGUI
   IMGUI_CHECKVERSION();
@@ -115,7 +115,7 @@ void AstralApp::run() {
     {
         ImGuiWindowFlags imgui_window_flags = 0;
         imgui_window_flags |= ImGuiWindowFlags_NoResize;
-        ImGui::Begin("(=^-w-^=)", __null, imgui_window_flags);                          
+        ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
         ImGui::Text("%.3f ms/frame | %.1f FPS", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
         const char* items[] = { "Solid", "WirePoly", "WireLines" };
