@@ -29,7 +29,7 @@ target("NoctuaryEngine")
         set_runtimes("MD") -- Use DLL runtime to match glfw3.lib build
 
         -- Include directories
-        add_includedirs("src")
+        -- add_includedirs("src")
         add_includedirs("C:/VulkanSDK/Include")
         add_includedirs("C:/VulkanSDK/Libraries/glfw/include")
         add_includedirs("C:/VulkanSDK/Libraries/glm")
@@ -50,6 +50,19 @@ target("NoctuaryEngine")
         add_linkdirs("/opt/homebrew/lib") -- Link GLFW library
     end 
 
+    -- imGUI
+    -- add_files("src/imgui/*.cpp")
+    -- add_files("src/imgui/backends/*.cpp")
+    add_files("src/imgui/imgui.cpp")
+    add_files("src/imgui/imgui_draw.cpp")
+    add_files("src/imgui/imgui_demo.cpp")
+    add_files("src/imgui/imgui_tables.cpp")
+    add_files("src/imgui/imgui_widgets.cpp")
+    add_files("src/imgui/backends/imgui_impl_glfw.cpp")
+    add_files("src/imgui/backends/imgui_impl_vulkan.cpp")
+
+-- Include directories
+add_includedirs("src/imgui", "src/imgui/backends")
     -- Add custom rules for shader compilation
     after_build(function (target)
         os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/simple_shader.vert -o shaders/simple_shader.vert.spv")

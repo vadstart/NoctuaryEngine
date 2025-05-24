@@ -3,7 +3,6 @@
 #include <cstdlib>
 #include <iostream>
 #include <filesystem>
-#include <stdexcept>
 
 #if defined(__APPLE__)
 #include <mach-o/dyld.h>

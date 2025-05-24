@@ -10,7 +10,7 @@ namespace nt
 
 	NtWindow::~NtWindow()
 	{
-		glfwDestroyWindow(window);
+		glfwDestroyWindow(window_);
 		glfwTerminate();
 	}
 
@@ -19,12 +19,12 @@ namespace nt
 			glfwInit();
 			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);	// No need for a standard OpenGL_API
 			glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-			window = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
+			window_ = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
 
-			glfwSetWindowUserPointer (window, this);
-			glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+			glfwSetWindowUserPointer (window_, this);
+			glfwSetFramebufferSizeCallback(window_, framebufferResizeCallback);
 
-			glfwSetKeyCallback(window, keyCallback);
+			glfwSetKeyCallback(window_, keyCallback);
 		}
 
 	void NtWindow::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -41,7 +41,7 @@ namespace nt
 	}
 
   void NtWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface) {
-    if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS) {
+    if (glfwCreateWindowSurface(instance, window_, nullptr, surface) != VK_SUCCESS) {
       throw std::runtime_error("failed to create window surface");
     }
   }

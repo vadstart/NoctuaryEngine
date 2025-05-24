@@ -20,12 +20,14 @@ namespace nt
 		NtWindow(const NtWindow&) = delete;
 		NtWindow& operator=(const NtWindow&) = delete;
 
-		bool shouldClose() { return glfwWindowShouldClose(window); }
+		bool shouldClose() { return glfwWindowShouldClose(window_); }
     VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
     bool wasWindowResized() { return framebufferResized; }
     void resetWindowResizedFlag() { framebufferResized = false; }
 
     void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
+
+    GLFWwindow* window() { return window_; }
 
 	private:
 		void initWindow();
@@ -38,6 +40,6 @@ namespace nt
     bool framebufferResized = false;
 
 		string windowName;
-		GLFWwindow* window;
+		GLFWwindow* window_;
 	};
 }
