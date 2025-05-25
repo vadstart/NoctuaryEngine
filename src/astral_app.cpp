@@ -106,7 +106,7 @@ void AstralApp::run() {
 
     glfwPollEvents();
 
-    // Start the Dear ImGui frame
+    // Start the ImGui frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -116,11 +116,11 @@ void AstralApp::run() {
         ImGuiWindowFlags imgui_window_flags = 0;
         imgui_window_flags |= ImGuiWindowFlags_NoResize;
         ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
-        ImGui::Text("%.3f ms/frame | %.1f FPS", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
-        const char* items[] = { "Solid", "WirePoly", "WireLines" };
-        static int item_current = 0;
-        ImGui::Combo("Render", &item_current, items, IM_ARRAYSIZE(items));
+        const char* items[] = { "Lit", "Unlit", "Lit Wireframe", "Wireframe" };
+        static int item_current = 1;
+        ImGui::Combo("View", &item_current, items, IM_ARRAYSIZE(items));
         
         ImGui::End();
     }
