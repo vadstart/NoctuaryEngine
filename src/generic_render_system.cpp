@@ -70,8 +70,8 @@ void GenericRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::
   float rotationSpeed = glm::radians(40.0f); // degrees per second
 
   for (auto& obj: gameObjects) {
-    obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
-    obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + rotationSpeed * deltaTime, glm::two_pi<float>());
+    // obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
+    // obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + rotationSpeed * deltaTime, glm::two_pi<float>());
 
 
     NtPushConstantData push{};

@@ -24,6 +24,8 @@ namespace nt
     VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
     bool wasWindowResized() { return framebufferResized; }
     void resetWindowResizedFlag() { framebufferResized = false; }
+  
+    bool getShowImGUI() { return bShowImGUI; }
 
     void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 
@@ -38,6 +40,8 @@ namespace nt
 		int width;
 		int height;
     bool framebufferResized = false;
+    bool bShowImGUI = true;
+    bool bShowCursor = true;
 
 		string windowName;
 		GLFWwindow* window_;

@@ -36,8 +36,22 @@ namespace nt
 
 	void NtWindow::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
 	{
-		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+    auto ntWindow = reinterpret_cast<NtWindow *>(glfwGetWindowUserPointer(window));
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 			glfwSetWindowShouldClose(window, GLFW_TRUE);
+    else if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+      ntWindow->bShowImGUI = !ntWindow->bShowImGUI;
+    }
+    else if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
+      if (ntWindow->bShowCursor) {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        ntWindow->bShowCursor = false;
+      }
+      else {
+        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        ntWindow->bShowCursor = true;
+      }
+    }
 	}
 
   void NtWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface) {

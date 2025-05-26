@@ -50,7 +50,7 @@ AstralApp::AstralApp() {
   // pool_info.pPoolSizes = pool_sizes;
   // VkResult err = vkCreateDescriptorPool(ntDevice.device(), &pool_info, nullptr, &g_DescriptorPool);
   // check_vk_result(err);
-
+  
   // Setup ImGUI
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -95,7 +95,7 @@ void AstralApp::run() {
   GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass());
   NtCamera camera{};
   // camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.5f, 0.f, 1.f));
-  camera.setViewTarget(glm::vec3(-1.f, -2.f, -8.5f), glm::vec3(0.f, 0.f, 1.25f));
+  // camera.setViewTarget(glm::vec3(-1.f, -2.f, -8.5f), glm::vec3(0.f, 0.f, 1.25f));
 
   // Temporary implementation of DeltaTime
   auto currentTime = std::chrono::high_resolution_clock::now();
@@ -112,16 +112,23 @@ void AstralApp::run() {
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
-    // if (show_imgui)
+    if (ntWindow.getShowImGUI())
     {
         ImGuiWindowFlags imgui_window_flags = 0;
-        imgui_window_flags |= ImGuiWindowFlags_NoResize;
+        // imgui_window_flags |= ImGuiWindowFlags_NoResize;
         ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
         ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
         const char* items[] = { "Lit", "Unlit", "Lit Wireframe", "Wireframe" };
         static int item_current = 1;
         ImGui::Combo("View", &item_current, items, IM_ARRAYSIZE(items));
+
+        double xpos, ypos;
+        glfwGetCursorPos(ntWindow.window(), &xpos, &ypos);
+        ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
+
+        // ImGui::Text("Camera position: %.1f", camera.getView());
+        // ImGui::Text("Camera rotation: %.1f", camera.getView());
         
         ImGui::End();
     }
@@ -203,7 +210,7 @@ void AstralApp::loadGameObjects() {
 
   auto cube = NtGameObject::createGameObject();
   cube.model = ntModel;
-  cube.transform.translation = {.0f, .0f, 1.25f};
+  cube.transform.translation = {.0f, -.75f, 1.25f};
   cube.transform.scale = {.5f, .5f, .5f};
 
   gameObjects.push_back(std::move(cube));
