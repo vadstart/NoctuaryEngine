@@ -65,6 +65,8 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
 void GenericRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<NtGameObject> &gameObjects, const NtCamera &camera, float deltaTime) {
   ntPipeline->bind(commandBuffer);
 
+  auto projectionView = camera.getProjection() * camera.getView();
+
   float rotationSpeed = glm::radians(40.0f); // degrees per second
 
   for (auto& obj: gameObjects) {
@@ -74,7 +76,7 @@ void GenericRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::
 
     NtPushConstantData push{};
     push.color = obj.color;
-    push.transform = camera.getProjection() * obj.transform.mat4();
+    push.transform = projectionView * obj.transform.mat4();
 
     vkCmdPushConstants(
       commandBuffer,

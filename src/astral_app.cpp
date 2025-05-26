@@ -3,6 +3,7 @@
 #include "nt_camera.h"
 
 #include <chrono>
+#include <glm/fwd.hpp>
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_glfw.h"
@@ -93,8 +94,8 @@ AstralApp::~AstralApp() {
 void AstralApp::run() {
   GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass());
   NtCamera camera{};
-
-  std::cout << "maxPushConstantSize = " << ntDevice.properties.limits.maxPushConstantsSize << "\n";
+  // camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.5f, 0.f, 1.f));
+  camera.setViewTarget(glm::vec3(-1.f, -2.f, -8.5f), glm::vec3(0.f, 0.f, 1.25f));
 
   // Temporary implementation of DeltaTime
   auto currentTime = std::chrono::high_resolution_clock::now();
