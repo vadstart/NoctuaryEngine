@@ -107,6 +107,29 @@ void AstralApp::run() {
 
     glfwPollEvents();
 
+    static double lastX = ntWindow.getExtent().width / 2.0, lastY = ntWindow.getExtent().height / 2.0;
+    double xpos, ypos;
+    glfwGetCursorPos(ntWindow.window(), &xpos, &ypos);
+
+    if (!ntWindow.getShowCursor()) {
+      float deltaX = static_cast<float>(xpos - lastX);
+      float deltaY = static_cast<float>(ypos - lastY);
+      lastX = xpos;
+      lastY = ypos;
+
+      float sensitivity = 0.002f;  // Tune as needed
+      glm::vec3 newRotation = camera.getRotation();
+      
+      newRotation.y += deltaX * sensitivity;  // yaw
+      newRotation.x -= deltaY * sensitivity;  // pitch
+
+      // Clamp pitch to avoid gimbal lock
+      newRotation.x = glm::clamp(newRotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
+      camera.setRotation(newRotation);
+
+      camera.setViewYXZ(camera.getPosition(), camera.getRotation());
+    }
+
     // Start the ImGui frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -127,8 +150,8 @@ void AstralApp::run() {
         glfwGetCursorPos(ntWindow.window(), &xpos, &ypos);
         ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
 
-        // ImGui::Text("Camera position: %.1f", camera.getView());
-        // ImGui::Text("Camera rotation: %.1f", camera.getView());
+        ImGui::Text("Camera position: %.1f %.1f %.1f", camera.getPosition().x, camera.getPosition().y, camera.getPosition().z);
+        ImGui::Text("Camera rotation: %.1f %.1f %.1f", camera.getRotation().x, camera.getRotation().y, camera.getRotation().z);
         
         ImGui::End();
     }

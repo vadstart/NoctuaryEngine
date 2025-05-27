@@ -26,6 +26,8 @@ namespace nt
     void resetWindowResizedFlag() { framebufferResized = false; }
   
     bool getShowImGUI() { return bShowImGUI; }
+    bool getShowCursor() { return bShowCursor; }
+
 
     void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 
