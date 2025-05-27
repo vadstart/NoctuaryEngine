@@ -1,9 +1,9 @@
 #pragma once
 
-#include "nt_game_object.h"
-#include "nt_pipeline.h"
-#include "nt_device.h"
-#include "nt_camera.h"
+#include "nt_game_object.hpp"
+#include "nt_pipeline.hpp"
+#include "nt_device.hpp"
+#include "nt_camera.hpp"
 // #include "vulkan/vulkan_core.h"
 
 #include <memory>

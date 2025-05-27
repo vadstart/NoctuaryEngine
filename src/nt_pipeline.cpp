@@ -1,5 +1,5 @@
-#include "nt_pipeline.h"
-#include "nt_model.h"
+#include "nt_pipeline.hpp"
+#include "nt_model.hpp"
 #include "vulkan/vulkan_core.h"
 
 #include <cstdint>

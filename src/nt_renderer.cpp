@@ -1,4 +1,4 @@
-#include "nt_renderer.h"
+#include "nt_renderer.hpp"
 
 // Std
 #include <array>

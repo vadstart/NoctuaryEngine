@@ -1,4 +1,4 @@
-#include "nt_camera.h"
+#include "nt_camera.hpp"
 
 #include <cassert>
 #include <limits>

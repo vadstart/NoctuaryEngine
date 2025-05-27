@@ -1,6 +1,7 @@
-#include "astral_app.h"
-#include "generic_render_system.h"
-#include "nt_camera.h"
+#include "astral_app.hpp"
+#include "generic_render_system.hpp"
+#include "nt_camera.hpp"
+#include "nt_input.hpp"
 
 #include <chrono>
 #include <glm/fwd.hpp>
@@ -61,7 +62,7 @@ AstralApp::AstralApp() {
   ImGui::StyleColorsDark();
 
   // Setup Platform/Renderer backends
-  ImGui_ImplGlfw_InitForVulkan(ntWindow.window(), true);
+  ImGui_ImplGlfw_InitForVulkan(ntWindow.getGLFWwindow(), true);
   ImGui_ImplVulkan_InitInfo init_info = {};
   //init_info.ApiVersion = VK_API_VERSION_1_3;              // Pass in your value of VkApplicationInfo::apiVersion, otherwise will default to header version.
   init_info.Instance = ntDevice.instance();
@@ -96,38 +97,24 @@ void AstralApp::run() {
   NtCamera camera{};
   // camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.5f, 0.f, 1.f));
   // camera.setViewTarget(glm::vec3(-1.f, -2.f, -8.5f), glm::vec3(0.f, 0.f, 1.25f));
+  
+  auto viewerObject = NtGameObject::createGameObject();
+  NtInputController inputController{};
 
   // Temporary implementation of DeltaTime
   auto currentTime = std::chrono::high_resolution_clock::now();
 
   while (!ntWindow.shouldClose()) {
-    auto newTime = std::chrono::high_resolution_clock::now();
-    float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
-    currentTime = newTime;
-
     glfwPollEvents();
 
-    static double lastX = ntWindow.getExtent().width / 2.0, lastY = ntWindow.getExtent().height / 2.0;
-    double xpos, ypos;
-    glfwGetCursorPos(ntWindow.window(), &xpos, &ypos);
+    auto newTime = std::chrono::high_resolution_clock::now();
+    float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
+    currentTime = newTime; 
 
     if (!ntWindow.getShowCursor()) {
-      float deltaX = static_cast<float>(xpos - lastX);
-      float deltaY = static_cast<float>(ypos - lastY);
-      lastX = xpos;
-      lastY = ypos;
+      inputController.update(&ntWindow, viewerObject, deltaTime);
 
-      float sensitivity = 0.002f;  // Tune as needed
-      glm::vec3 newRotation = camera.getRotation();
-      
-      newRotation.y += deltaX * sensitivity;  // yaw
-      newRotation.x -= deltaY * sensitivity;  // pitch
-
-      // Clamp pitch to avoid gimbal lock
-      newRotation.x = glm::clamp(newRotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
-      camera.setRotation(newRotation);
-
-      camera.setViewYXZ(camera.getPosition(), camera.getRotation());
+      camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
     }
 
     // Start the ImGui frame
@@ -147,12 +134,18 @@ void AstralApp::run() {
         ImGui::Combo("View", &item_current, items, IM_ARRAYSIZE(items));
 
         double xpos, ypos;
-        glfwGetCursorPos(ntWindow.window(), &xpos, &ypos);
+        glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
         ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
 
-        ImGui::Text("Camera position: %.1f %.1f %.1f", camera.getPosition().x, camera.getPosition().y, camera.getPosition().z);
-        ImGui::Text("Camera rotation: %.1f %.1f %.1f", camera.getRotation().x, camera.getRotation().y, camera.getRotation().z);
-        
+        ImGui::Text("Camera position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
+        ImGui::Text("Camera rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
+
+        ImGui::Text("---------------");
+        ImGui::Text("F1: Toggle GUI");
+        ImGui::Text("TAB: Toggle MouseLook");
+        ImGui::Text("WASDQE, Mouse: Move & look");
+        ImGui::Text("ESC: Exit"); 
+
         ImGui::End();
     }
 
@@ -233,10 +226,13 @@ void AstralApp::loadGameObjects() {
 
   auto cube = NtGameObject::createGameObject();
   cube.model = ntModel;
-  cube.transform.translation = {.0f, -.75f, 1.25f};
+  cube.transform.translation = {.0f, .0f, 1.25f};
   cube.transform.scale = {.5f, .5f, .5f};
 
   gameObjects.push_back(std::move(cube));
 }
+
+    // obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
+    // obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + rotationSpeed * deltaTime, glm::two_pi<float>());
 
 }

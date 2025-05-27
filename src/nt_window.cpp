@@ -1,4 +1,4 @@
-#include "nt_window.h"
+#include "nt_window.hpp"
 #include <stdexcept>
 
 namespace nt

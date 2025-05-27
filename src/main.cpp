@@ -1,4 +1,4 @@
-#include "astral_app.h"
+#include "astral_app.hpp"
 
 #include <cstdlib>
 #include <iostream>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nt_model.h"
+#include "nt_model.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
 
@@ -13,20 +13,6 @@ struct TransformComponent {
   glm::vec3 translation{}; // position offset
   glm::vec3 scale{1.f, 1.f, 1.f};
   glm::vec3 rotation;
-
-
-  // glm::mat4 mat4() {
-  //   auto transform = glm::translate(glm::mat4(1.f), translation);
-  //
-  //   // Tait-Bryan angles, Y(1), X(2), Z(3)
-  //   transform = glm::rotate(transform, rotation.y, {0.f, 1.f, 0.f});
-  //   transform = glm::rotate(transform, rotation.x, {1.f, 0.f, 0.f});
-  //   transform = glm::rotate(transform, rotation.z, {0.f, 0.f, 1.f});
-  //
-  //   transform = glm::scale(transform, scale);
-  //
-  //   return transform;
-  // }
 
   // Tait-Bryan angles, Y(1), X(2), Z(3)
   // https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix

@@ -1,6 +1,6 @@
-#include "generic_render_system.h"
-#include "nt_device.h"
-#include "nt_pipeline.h"
+#include "generic_render_system.hpp"
+#include "nt_device.hpp"
+#include "nt_pipeline.hpp"
 
 // Libraries
 #define GLM_FORCE_RADIANS
@@ -70,10 +70,6 @@ void GenericRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::
   float rotationSpeed = glm::radians(40.0f); // degrees per second
 
   for (auto& obj: gameObjects) {
-    // obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
-    // obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + rotationSpeed * deltaTime, glm::two_pi<float>());
-
-
     NtPushConstantData push{};
     push.color = obj.color;
     push.transform = projectionView * obj.transform.mat4();

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "nt_device.h"
+#include "nt_device.hpp"
 #include "vulkan/vulkan_core.h"
 #include <vector>
 

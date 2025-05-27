@@ -1,4 +1,4 @@
-#include "nt_device.h"
+#include "nt_device.hpp"
 
 // std headers
 #include <cstring>

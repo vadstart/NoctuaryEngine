@@ -1,8 +1,8 @@
 #pragma once
 
-#include "nt_window.h"
-#include "nt_device.h"
-#include "nt_swap_chain.h"
+#include "nt_window.hpp"
+#include "nt_device.hpp"
+#include "nt_swap_chain.hpp"
 #include "vulkan/vulkan_core.h"
 
 #include <cassert>

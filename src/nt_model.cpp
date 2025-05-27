@@ -1,4 +1,4 @@
-#include "nt_model.h"
+#include "nt_model.hpp"
 #include "vulkan/vulkan_core.h"
 #include <cassert>
 #include <cstddef>
