@@ -24,7 +24,12 @@ class NtModel {
           static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
         };
 
-        NtModel(NtDevice &device, const std::vector<Vertex> &vertices);
+        struct Data {
+          std::vector<Vertex> vertices{};
+          std::vector<uint32_t> indices{};
+        };
+
+        NtModel(NtDevice &device, const NtModel::Data &data);
         ~NtModel();
 
         NtModel(const NtModel &) = delete;
@@ -34,10 +39,19 @@ class NtModel {
         void draw (VkCommandBuffer commandBuffer);
     private:
         void createVertexBuffers(const std::vector<Vertex> &vertices);
+        void createIndexBuffer(const std::vector<uint32_t> &indices);
+
         NtDevice &ntDevice;
+
         VkBuffer vertexBuffer;
         VkDeviceMemory vertexBufferMemory;
         uint32_t vertexCount;
+        
+        bool hasIndexBuffer = false;
+        VkBuffer indexBuffer;
+        VkDeviceMemory indexBufferMemory;
+        uint32_t indexCount;
+
 };
 
 }

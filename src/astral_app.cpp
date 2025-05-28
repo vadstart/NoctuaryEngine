@@ -175,22 +175,22 @@ void AstralApp::run() {
 
 // Temp cube creation helper
 std::unique_ptr<NtModel> createCubeModel(NtDevice& device, glm::vec3 offset) {
-  using Vertex = NtModel::Vertex;
+  NtModel::Data modelData{};
 
   // Define the 8 corners of the cube and assign each a unique color (rainbow-ish)
-  std::vector<Vertex> corners = {
-    Vertex{{-.5f, -.5f, -.5f}, {1.0f, 0.0f, 0.0f}}, // 0: red
-    Vertex{{.5f, -.5f, -.5f}, {1.0f, 0.5f, 0.0f}},  // 1: orange
-    Vertex{{.5f, .5f, -.5f}, {1.0f, 1.0f, 0.0f}},   // 2: yellow
-    Vertex{{-.5f, .5f, -.5f}, {0.0f, 1.0f, 0.0f}},  // 3: green
-    Vertex{{-.5f, -.5f, .5f}, {0.0f, 0.0f, 1.0f}},  // 4: blue
-    Vertex{{.5f, -.5f, .5f}, {0.29f, 0.0f, 0.51f}}, // 5: indigo
-    Vertex{{.5f, .5f, .5f}, {0.56f, 0.0f, 1.0f}},   // 6: violet
-    Vertex{{-.5f, .5f, .5f}, {1.0f, 0.0f, 1.0f}},   // 7: magenta
+  modelData.vertices = {
+    {{-.5f, -.5f, -.5f}, {1.0f, 0.0f, 0.0f}}, // 0: red
+    {{.5f, -.5f, -.5f}, {1.0f, 0.5f, 0.0f}},  // 1: orange
+    {{.5f, .5f, -.5f}, {1.0f, 1.0f, 0.0f}},   // 2: yellow
+    {{-.5f, .5f, -.5f}, {0.0f, 1.0f, 0.0f}},  // 3: green
+    {{-.5f, -.5f, .5f}, {0.0f, 0.0f, 1.0f}},  // 4: blue
+    {{.5f, -.5f, .5f}, {0.29f, 0.0f, 0.51f}}, // 5: indigo
+    {{.5f, .5f, .5f}, {0.56f, 0.0f, 1.0f}},   // 6: violet
+    {{-.5f, .5f, .5f}, {1.0f, 0.0f, 1.0f}},   // 7: magenta
   };
 
   // Indices into the `corners` array to form 12 triangles (2 per face)
-  std::vector<uint32_t> indices = {
+  modelData.indices = {
     // front face (z = +0.5)
     4, 5, 6,
     4, 6, 7,
@@ -211,14 +211,11 @@ std::unique_ptr<NtModel> createCubeModel(NtDevice& device, glm::vec3 offset) {
     0, 5, 4,
   };
 
-  std::vector<Vertex> vertices;
-  for (auto index : indices) {
-    Vertex v = corners[index];
+  for (auto& v : modelData.vertices) {
     v.position += offset;
-    vertices.push_back(v);
   }
 
-  return std::make_unique<NtModel>(device, vertices);
+  return std::make_unique<NtModel>(device, modelData);
 }
 
 void AstralApp::loadGameObjects() {
