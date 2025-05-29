@@ -1,3 +1,6 @@
+# === Assets (may be too big for github) ===
+#.assets/
+
 # === OS-specific ===
 .DS_Store
 Thumbs.db
@@ -21,7 +24,7 @@ build/
 x64/
 *.exe
 *.dll
-*.obj
+#*.obj
 *.ilk
 *.lib
 *.exp
