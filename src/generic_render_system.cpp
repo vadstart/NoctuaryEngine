@@ -15,9 +15,10 @@
 
 namespace nt
 {
-  struct NtPushConstantData {
+
+struct NtPushConstantData {
   alignas(16) glm::mat4 transform{1.f};
-  alignas(16) glm::vec3 color;
+  alignas(16) glm::mat4 modelMatrix{1.f};
 };
 
 GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass) : ntDevice{device} {
@@ -71,8 +72,9 @@ void GenericRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::
 
   for (auto& obj: gameObjects) {
     NtPushConstantData push{};
-    push.color = obj.color;
-    push.transform = projectionView * obj.transform.mat4();
+    auto modelMatrix = obj.transform.mat4();
+    push.transform = projectionView * modelMatrix;
+    push.modelMatrix = modelMatrix;
 
     vkCmdPushConstants(
       commandBuffer,

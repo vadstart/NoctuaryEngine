@@ -223,10 +223,17 @@ void AstralApp::loadGameObjects() {
 
   auto gameObj = NtGameObject::createGameObject();
   gameObj.model = ntModel;
-  gameObj.transform.translation = {.0f, .0f, 1.5f};
+  gameObj.transform.translation = {.2f, .5f, 1.5f};
   gameObj.transform.scale = {.5f, .5f, .5f};
 
   gameObjects.push_back(std::move(gameObj));
+
+  auto gameObj2 = NtGameObject::createGameObject();
+  gameObj2.model = NtModel::createModelFromFile(ntDevice, "/Users/vadstart/Documents/Projects/NoctuaryEngine/assets/meshes/monke_colored.obj");;
+  gameObj2.transform.translation = {1.0f, 0, 1.5f};
+  gameObj2.transform.scale = {.3f, .3f, .3f};
+
+  gameObjects.push_back(std::move(gameObj2));
 }
 
     // obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
