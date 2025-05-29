@@ -173,11 +173,11 @@ void AstralApp::run() {
   ImGui::DestroyContext();
 }
 
-// Temp cube creation helper
-std::unique_ptr<NtModel> createCubeModel(NtDevice& device, glm::vec3 offset) {
+// Temp gameObj creation helper
+std::unique_ptr<NtModel> creategameObjModel(NtDevice& device, glm::vec3 offset) {
   NtModel::Data modelData{};
 
-  // Define the 8 corners of the cube and assign each a unique color (rainbow-ish)
+  // Define the 8 corners of the gameObj and assign each a unique color (rainbow-ish)
   modelData.vertices = {
     {{-.5f, -.5f, -.5f}, {1.0f, 0.0f, 0.0f}}, // 0: red
     {{.5f, -.5f, -.5f}, {1.0f, 0.5f, 0.0f}},  // 1: orange
@@ -219,14 +219,14 @@ std::unique_ptr<NtModel> createCubeModel(NtDevice& device, glm::vec3 offset) {
 }
 
 void AstralApp::loadGameObjects() {
-  std::shared_ptr<NtModel> ntModel = createCubeModel(ntDevice, {.0f, .0f, .0f});
+  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, "/Users/vadstart/Documents/Projects/NoctuaryEngine/assets/meshes/bunny.obj");
 
-  auto cube = NtGameObject::createGameObject();
-  cube.model = ntModel;
-  cube.transform.translation = {.0f, .0f, 1.25f};
-  cube.transform.scale = {.5f, .5f, .5f};
+  auto gameObj = NtGameObject::createGameObject();
+  gameObj.model = ntModel;
+  gameObj.transform.translation = {.0f, .0f, 1.5f};
+  gameObj.transform.scale = {.5f, .5f, .5f};
 
-  gameObjects.push_back(std::move(cube));
+  gameObjects.push_back(std::move(gameObj));
 }
 
     // obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());

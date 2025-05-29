@@ -2,6 +2,8 @@
 
 #include "nt_device.hpp"
 #include "vulkan/vulkan_core.h"
+#include <algorithm>
+#include <string>
 #include <vector>
 
 #define GLM_FORCE_RADIANS
@@ -9,6 +11,7 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 namespace nt {
@@ -17,8 +20,10 @@ class NtModel {
     public:
 
         struct Vertex {
-          glm::vec3 position;
-          glm::vec3 color;
+          glm::vec3 position{};
+          glm::vec3 color{};
+          glm::vec3 normal{};
+          glm::vec2 uv{};
 
           static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
           static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
@@ -27,6 +32,8 @@ class NtModel {
         struct Data {
           std::vector<Vertex> vertices{};
           std::vector<uint32_t> indices{};
+
+          void loadModel(const std::string &filepath);
         };
 
         NtModel(NtDevice &device, const NtModel::Data &data);
@@ -34,6 +41,8 @@ class NtModel {
 
         NtModel(const NtModel &) = delete;
         NtModel& operator=(const NtModel &) = delete;
+
+        static std::unique_ptr<NtModel> createModelFromFile(NtDevice &device, const std::string &filepath);
 
         void bind (VkCommandBuffer commandBuffer);
         void draw (VkCommandBuffer commandBuffer);
