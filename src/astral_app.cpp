@@ -219,7 +219,7 @@ std::unique_ptr<NtModel> creategameObjModel(NtDevice& device, glm::vec3 offset) 
 }
 
 void AstralApp::loadGameObjects() {
-  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, "/Users/vadstart/Documents/Projects/NoctuaryEngine/assets/meshes/bunny.obj");
+  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, "C:\\Users\\vadsama\\Documents\\Projects\\NoctuaryEngine\\assets\\meshes\\bunny.obj");
 
   auto gameObj = NtGameObject::createGameObject();
   gameObj.model = ntModel;
