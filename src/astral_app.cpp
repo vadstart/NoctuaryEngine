@@ -5,6 +5,7 @@
 #include "nt_utils.hpp"
 
 #include <chrono>
+#include <cstdint>
 #include <glm/fwd.hpp>
 
 #include "imgui/imgui.h"
@@ -97,9 +98,10 @@ void AstralApp::run() {
     currentTime = newTime; 
 
     if (!ntWindow.getShowCursor()) {
-      inputController.update(&ntWindow, viewerObject, deltaTime);
+      inputController.update(&ntWindow, viewerObject, targetObject, deltaTime);
 
-      camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+      // camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+      camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
     }
 
     // Start the ImGui frame
@@ -110,11 +112,10 @@ void AstralApp::run() {
     if (ntWindow.getShowImGUI())
     {
         ImGuiWindowFlags imgui_window_flags = 0;
-        // imgui_window_flags |= ImGuiWindowFlags_NoResize;
         ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
         ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
 
-        const char* items[] = { "Lit", "Unlit", "Lit Wireframe", "Wireframe" };
+        const char* items[] = { "Lit", "Unlit", "Normals", "Lit Wireframe", "Wireframe" };
         static int item_current = 1;
         ImGui::Combo("View", &item_current, items, IM_ARRAYSIZE(items));
 
@@ -125,11 +126,13 @@ void AstralApp::run() {
         ImGui::Text("Camera position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
         ImGui::Text("Camera rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
 
-        ImGui::Text("---------------");
-        ImGui::Text("F1: Toggle GUI");
-        ImGui::Text("TAB: Toggle MouseLook");
-        ImGui::Text("WASDQE, Mouse: Move & look");
-        ImGui::Text("ESC: Exit"); 
+        uint32_t totalVertexCount = 0;  
+        for (const auto& gobject : gameObjects) {
+          if (gobject.model) {
+            totalVertexCount += gobject.model->getVertexCount();
+          }
+        }
+        ImGui::Text("Vertex count: %u", totalVertexCount);
 
         ImGui::End();
     }
@@ -159,7 +162,7 @@ void AstralApp::run() {
 }
 
 // Temp gameObj creation helper
-std::unique_ptr<NtModel> creategameObjModel(NtDevice& device, glm::vec3 offset) {
+std::unique_ptr<NtModel> creategameObjCube(NtDevice& device, glm::vec3 offset) {
   NtModel::Data modelData{};
 
   // Define the 8 corners of the gameObj and assign each a unique color (rainbow-ish)
@@ -212,9 +215,18 @@ void AstralApp::loadGameObjects() {
   gameObj.transform.scale = {.5f, .5f, .5f};
 
   gameObjects.push_back(std::move(gameObj));
+
+  // std::shared_ptr<NtModel> ntModel2 = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/monke.obj"));
+  //
+  // auto gameObj2 = NtGameObject::createGameObject();
+  // gameObj2.model = ntModel2;
+  // gameObj2.transform.translation = {.2f, .5f, -1.5f};
+  // gameObj2.transform.scale = {.5f, .5f, .5f};
+  //
+  // gameObjects.push_back(std::move(gameObj2));
 }
 
-    // obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
-    // obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + rotationSpeed * deltaTime, glm::two_pi<float>());
+// obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
+// obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + rotationSpeed * deltaTime, glm::two_pi<float>());
 
 }

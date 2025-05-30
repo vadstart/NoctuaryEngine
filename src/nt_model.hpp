@@ -47,6 +47,7 @@ class NtModel {
         NtModel& operator=(const NtModel &) = delete;
 
         static std::unique_ptr<NtModel> createModelFromFile(NtDevice &device, const std::string &filepath);
+        uint32_t getVertexCount() { return vertexCount; }
 
         void bind (VkCommandBuffer commandBuffer);
         void draw (VkCommandBuffer commandBuffer);
@@ -64,7 +65,6 @@ class NtModel {
         VkBuffer indexBuffer;
         VkDeviceMemory indexBufferMemory;
         uint32_t indexCount;
-
 };
 
 }

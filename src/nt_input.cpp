@@ -27,37 +27,62 @@ void NtInputController::update(NtWindow* ntWindow, NtGameObject& gameObject, flo
 
   float sensitivity = 0.002f;  // Tune as needed
   
-  gameObject.transform.rotation.y += deltaX * sensitivity;  // yaw
-  gameObject.transform.rotation.x -= deltaY * sensitivity;  // pitch
-
-  // Clamp pitch to avoid gimbal lock
-  // gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
-
-  if (glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon()) {
-    gameObject.transform.rotation += lookSpeed * dt * glm::normalize(rotate);
+  if (middleMouse) {
+    if (shift) {
+      // Pan the target point
+      glm::vec3 right = glm::vec3{glm::cos(yaw), 0, -glm::sin(yaw)};
+      glm::vec3 up = glm::vec3{0, 1, 0};
+      target += -right * dx * panSpeed + up * dy * panSpeed;
+    } else {
+      // Orbit around the target
+      yaw += dx * orbitSpeed;
+      pitch += dy * orbitSpeed;
+      pitch = glm::clamp(pitch, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
+    }
   }
 
-  // limit pitch values between about +/- 85ish degrees
-  gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -1.5f, 1.5f);
-  gameObject.transform.rotation.y = glm::mod(gameObject.transform.rotation.y, glm::two_pi<float>());
+  // Zoom (scroll wheel)
+  double scrollY = ImGui::GetIO().MouseWheel;
+  distance -= static_cast<float>(scrollY) * zoomSpeed;
+  distance = glm::clamp(distance, 0.5f, 100.0f);
 
-  // MOVEMENT
-  float yaw = gameObject.transform.rotation.y;
-  const glm::vec3 forwardDir{sin(yaw), 0.f, cos(yaw)};
-  const glm::vec3 rightDir{forwardDir.z, 0.f, -forwardDir.x};
-  const glm::vec3 upDir{0.f, -1.f, 0.f};
-
-  glm::vec3 moveDir{0.f};
-  if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) moveDir += forwardDir;
-  if (glfwGetKey(window, keys.moveBackward) == GLFW_PRESS) moveDir -= forwardDir;
-  if (glfwGetKey(window, keys.moveRight) == GLFW_PRESS) moveDir += rightDir;
-  if (glfwGetKey(window, keys.moveLeft) == GLFW_PRESS) moveDir -= rightDir;
-  if (glfwGetKey(window, keys.moveUp) == GLFW_PRESS) moveDir += upDir;
-  if (glfwGetKey(window, keys.moveDown) == GLFW_PRESS) moveDir -= upDir;
-
-  if (glm::dot(moveDir, moveDir) > std::numeric_limits<float>::epsilon()) {
-    gameObject.transform.translation += moveSpeed * dt * glm::normalize(moveDir);
-  }
+  // Convert spherical to Cartesian coordinates
+  glm::vec3 cameraPos;
+  cameraPos.x = target.x + distance * glm::cos(pitch) * glm::sin(yaw);
+  cameraPos.y = target.y + distance * glm::sin(pitch);
+  cameraPos.z = target.z + distance * glm::cos(pitch) * glm::cos(yaw);
+  
+  // gameObject.transform.rotation.y += deltaX * sensitivity;  // yaw
+  // gameObject.transform.rotation.x -= deltaY * sensitivity;  // pitch
+  //
+  // // Clamp pitch to avoid gimbal lock
+  // // gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
+  //
+  // if (glm::dot(rotate, rotate) > std::numeric_limits<float>::epsilon()) {
+  //   gameObject.transform.rotation += lookSpeed * dt * glm::normalize(rotate);
+  // }
+  //
+  // // limit pitch values between about +/- 85ish degrees
+  // gameObject.transform.rotation.x = glm::clamp(gameObject.transform.rotation.x, -1.5f, 1.5f);
+  // gameObject.transform.rotation.y = glm::mod(gameObject.transform.rotation.y, glm::two_pi<float>());
+  //
+  // // MOVEMENT
+  // float yaw = gameObject.transform.rotation.y;
+  // const glm::vec3 forwardDir{sin(yaw), 0.f, cos(yaw)};
+  // const glm::vec3 rightDir{forwardDir.z, 0.f, -forwardDir.x};
+  // const glm::vec3 upDir{0.f, -1.f, 0.f};
+  //
+  // glm::vec3 moveDir{0.f};
+  // if (glfwGetKey(window, keys.moveForward) == GLFW_PRESS) moveDir += forwardDir;
+  // if (glfwGetKey(window, keys.moveBackward) == GLFW_PRESS) moveDir -= forwardDir;
+  // if (glfwGetKey(window, keys.moveRight) == GLFW_PRESS) moveDir += rightDir;
+  // if (glfwGetKey(window, keys.moveLeft) == GLFW_PRESS) moveDir -= rightDir;
+  // if (glfwGetKey(window, keys.moveUp) == GLFW_PRESS) moveDir += upDir;
+  // if (glfwGetKey(window, keys.moveDown) == GLFW_PRESS) moveDir -= upDir;
+  //
+  // if (glm::dot(moveDir, moveDir) > std::numeric_limits<float>::epsilon()) {
+  //   gameObject.transform.translation += moveSpeed * dt * glm::normalize(moveDir);
+  // }
 
 }
 
