@@ -14,8 +14,8 @@ namespace nt
 	class AstralApp
 	{
 	public:
-		static constexpr int WIDTH = 1024;
-		static constexpr int HEIGHT = 768;
+		static constexpr int WIDTH = 1280;
+		static constexpr int HEIGHT = 1024;
 
     AstralApp();
     ~AstralApp();

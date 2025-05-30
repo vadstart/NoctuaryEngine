@@ -219,7 +219,7 @@ std::unique_ptr<NtModel> creategameObjModel(NtDevice& device, glm::vec3 offset) 
 }
 
 void AstralApp::loadGameObjects() {
-  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, "C:\\Users\\vadsama\\Documents\\Projects\\NoctuaryEngine\\assets\\meshes\\bunny.obj");
+  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, "assets/meshes/bunny.obj");
 
   auto gameObj = NtGameObject::createGameObject();
   gameObj.model = ntModel;
@@ -227,13 +227,6 @@ void AstralApp::loadGameObjects() {
   gameObj.transform.scale = {.5f, .5f, .5f};
 
   gameObjects.push_back(std::move(gameObj));
-
-  auto gameObj2 = NtGameObject::createGameObject();
-  gameObj2.model = NtModel::createModelFromFile(ntDevice, "/Users/vadstart/Documents/Projects/NoctuaryEngine/assets/meshes/monke_colored.obj");;
-  gameObj2.transform.translation = {1.0f, 0, 1.5f};
-  gameObj2.transform.scale = {.3f, .3f, .3f};
-
-  gameObjects.push_back(std::move(gameObj2));
 }
 
     // obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
