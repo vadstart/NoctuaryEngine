@@ -2,6 +2,7 @@
 #include "generic_render_system.hpp"
 #include "nt_camera.hpp"
 #include "nt_input.hpp"
+#include "nt_utils.hpp"
 
 #include <chrono>
 #include <glm/fwd.hpp>
@@ -34,24 +35,8 @@ static void check_vk_result(VkResult err)
 namespace nt
 {
 
-AstralApp::AstralApp() {
-
-  // static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
-  // VkDescriptorPoolSize pool_sizes[] =
-  // {
-  //     { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE },
-  // };
-  // VkDescriptorPoolCreateInfo pool_info = {};
-  // pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  // pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-  // pool_info.maxSets = 0;
-  // for (VkDescriptorPoolSize& pool_size : pool_sizes)
-  //     pool_info.maxSets += pool_size.descriptorCount;
-  // pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-  // pool_info.pPoolSizes = pool_sizes;
-  // VkResult err = vkCreateDescriptorPool(ntDevice.device(), &pool_info, nullptr, &g_DescriptorPool);
-  // check_vk_result(err);
-  
+AstralApp::AstralApp() 
+{
   // Setup ImGUI
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
@@ -219,7 +204,7 @@ std::unique_ptr<NtModel> creategameObjModel(NtDevice& device, glm::vec3 offset) 
 }
 
 void AstralApp::loadGameObjects() {
-  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, "assets/meshes/bunny.obj");
+  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny.obj"));
 
   auto gameObj = NtGameObject::createGameObject();
   gameObj.model = ntModel;
