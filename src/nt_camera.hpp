@@ -9,20 +9,6 @@ namespace nt {
 class NtCamera {
 public:
 
-  // struct OrbitCameraController {
-  //   float yaw = glm::radians(45.0f);
-  //   float pitch = glm::radians(-30.0f);
-  //   float distance = 5.0f;
-  //
-  //   glm::vec3 target{0.f, 0.f, 0.f};
-  //
-  //   float zoomSpeed = 1.0f;
-  //   float orbitSpeed = 0.005f;
-  //   float panSpeed = 0.01f;
-  //
-  //   void update(NtWindow* window);
-  // };
-
   void setOrthographicProjection(float left, float right, float top, float bottom, float near, float far);
   void setPerspectiveProjection(float fovy, float aspect, float near, float far);
 

@@ -20,11 +20,18 @@ class NtInputController {
         int lookDown = GLFW_KEY_DOWN;
       };
 
-    void update(NtWindow* window, NtGameObject& gameObject, float dt);
+    void update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY);
+    
+private:
+  KeyMappings keys{};
 
-    KeyMappings keys{};
-    float moveSpeed{1.5f};
-    float lookSpeed{1.5f};
+  float moveSpeed{1.5f};
+  float lookSpeed{1.5f};
+
+  const float sensitivity { 0.002f };
+  const float zoomSpeed { .3f };
+  const float orbitSpeed { 0.005f };
+  const float panSpeed = { 0.01f };
 };
 
 }

@@ -11,7 +11,6 @@
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_glfw.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
-#include "vulkan/vulkan_core.h"
 
 // Libraries
 #define GLM_FORCE_RADIANS
@@ -81,10 +80,11 @@ AstralApp::~AstralApp() {
 void AstralApp::run() {
   GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass());
   NtCamera camera{};
-  // camera.setViewDirection(glm::vec3(0.f), glm::vec3(0.5f, 0.f, 1.f));
-  // camera.setViewTarget(glm::vec3(-1.f, -2.f, -8.5f), glm::vec3(0.f, 0.f, 1.25f));
   
   auto viewerObject = NtGameObject::createGameObject();
+  viewerObject.transform.rotation = {glm::radians(-25.0f), glm::radians(-180.0f), 0};
+  auto targetObject = NtGameObject::createGameObject();
+  targetObject.transform.translation = {-0.05f, -.3f, 0};
   NtInputController inputController{};
 
   // Temporary implementation of DeltaTime
@@ -97,31 +97,45 @@ void AstralApp::run() {
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
     currentTime = newTime; 
 
-    if (!ntWindow.getShowCursor()) {
-      inputController.update(&ntWindow, viewerObject, targetObject, deltaTime);
-
-      // camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-      camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
-    }
-
+    static bool autoRotate = false;
+    static float autoRotateSpeed = glm::radians(30.0f); // degrees per second
+    
     // Start the ImGui frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
+    ImGuiIO& io = ImGui::GetIO();
+
+    // TODO: Refactor inputs and camera controls
+    // if (!ntWindow.getShowCursor()) {
+    inputController.update(&ntWindow, viewerObject, targetObject, deltaTime, io.MouseWheel);
+    if (autoRotate) {
+      viewerObject.transform.rotation.y += autoRotateSpeed * deltaTime;
+    }
+
+    // camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+    camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
+    // }
+
     if (ntWindow.getShowImGUI())
     {
         ImGuiWindowFlags imgui_window_flags = 0;
         ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
-        ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
+        ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / io.Framerate, io.Framerate);
 
         const char* items[] = { "Lit", "Unlit", "Normals", "Lit Wireframe", "Wireframe" };
-        static int item_current = 1;
+        static int item_current = 0;
         ImGui::Combo("View", &item_current, items, IM_ARRAYSIZE(items));
+        ImGui::Checkbox("Auto Rotate", &autoRotate);
+        if (ImGui::Button("Reset Target")) {
+            targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
+        }
 
         double xpos, ypos;
         glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
         ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
+        ImGui::Text("Mouse wheel: %.1f", io.MouseWheel);
 
         ImGui::Text("Camera position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
         ImGui::Text("Camera rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
@@ -139,7 +153,7 @@ void AstralApp::run() {
 
     float aspect = ntRenderer.getAspectRatio();
     // camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
-    camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 10.f);
+    camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 100.f);
 
     if (auto commandBuffer = ntRenderer.beginFrame()) {
       // TODO: Add Reflections, Shadows, Postprocessing, etc
@@ -211,7 +225,7 @@ void AstralApp::loadGameObjects() {
 
   auto gameObj = NtGameObject::createGameObject();
   gameObj.model = ntModel;
-  gameObj.transform.translation = {.2f, .5f, 1.5f};
+  // gameObj.transform.translation = {.2f, .5f, 1.5f};
   gameObj.transform.scale = {.5f, .5f, .5f};
 
   gameObjects.push_back(std::move(gameObj));
