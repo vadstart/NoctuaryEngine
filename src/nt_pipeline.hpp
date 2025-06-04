@@ -43,7 +43,7 @@ namespace nt {
 
       void bind(VkCommandBuffer commandBuffer);
 
-      static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo);
+      static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, int pipeRenderMode);
 
     private:
       static vector<char> readFile(const string& filepath);

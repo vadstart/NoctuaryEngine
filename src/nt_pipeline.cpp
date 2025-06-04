@@ -125,7 +125,7 @@ NtPipeline::~NtPipeline() {
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
   }
 
- void NtPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo) {
+ void NtPipeline::defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, int pipeRenderMode) {
    configInfo.inputAssemblyInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
    configInfo.inputAssemblyInfo.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
    configInfo.inputAssemblyInfo.primitiveRestartEnable = VK_FALSE;
@@ -136,18 +136,31 @@ NtPipeline::~NtPipeline() {
    configInfo.viewportInfo.scissorCount = 1;
    configInfo.viewportInfo.pScissors = nullptr;
 
+   switch (pipeRenderMode) {
+    case 4:
+      configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
+      configInfo.rasterizationInfo.lineWidth = 1.0f;
+      configInfo.rasterizationInfo.depthBiasEnable = VK_TRUE;
+      configInfo.rasterizationInfo.depthBiasConstantFactor = 1.0f; // Required!
+      configInfo.rasterizationInfo.depthBiasClamp = 0.0f;
+      configInfo.rasterizationInfo.depthBiasSlopeFactor = 1.0f;
+      break;
+
+    default:
+      configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
+      configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE;
+      // configInfo.rasterizationInfo.depthBiasConstantFactor = 0.0f; // Optional
+      // configInfo.rasterizationInfo.depthBiasClamp = 0.0f; // Optional
+      // configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f; // Optional
+      break;
+   }
+
    configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
    configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;
    configInfo.rasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
-   configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
-   configInfo.rasterizationInfo.lineWidth = 1.0f;
    configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
    configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
-   configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE;
-   configInfo.rasterizationInfo.depthBiasConstantFactor = 0.0f; // Optional
-   configInfo.rasterizationInfo.depthBiasClamp = 0.0f; // Optional
-   configInfo.rasterizationInfo.depthBiasSlopeFactor = 0.0f; // Optional
-
+   
    configInfo.multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
    configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
    configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -188,7 +201,11 @@ NtPipeline::~NtPipeline() {
    configInfo.depthStencilInfo.front = {}; // Optional
    configInfo.depthStencilInfo.back = {}; // Optional
   
-   configInfo.dynamicStateEnables = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
+   configInfo.dynamicStateEnables = {
+    VK_DYNAMIC_STATE_VIEWPORT, 
+    VK_DYNAMIC_STATE_SCISSOR, 
+    VK_DYNAMIC_STATE_DEPTH_BIAS
+   };
    configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
    configInfo.dynamicStateInfo.pDynamicStates = configInfo.dynamicStateEnables.data();
    configInfo.dynamicStateInfo.dynamicStateCount = static_cast<uint32_t>(configInfo.dynamicStateEnables.size());

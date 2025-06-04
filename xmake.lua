@@ -76,6 +76,7 @@ target("NoctuaryEngine")
 
     -- Add custom rules for shader compilation
     after_build(function (target)
+        os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/simple_line_shader.vert -o shaders/simple_line_shader.vert.spv")
         os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/simple_shader.vert -o shaders/simple_shader.vert.spv")
         os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/simple_shader.frag -o shaders/simple_shader.frag.spv")
         -- Copy shaders to build directory

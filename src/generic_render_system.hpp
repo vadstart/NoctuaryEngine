@@ -4,13 +4,14 @@
 #include "nt_pipeline.hpp"
 #include "nt_device.hpp"
 #include "nt_camera.hpp"
-// #include "vulkan/vulkan_core.h"
 
 #include <memory>
 using std::vector;
 
 namespace nt
 {
+  enum class RenderMode { Lit, Unlit, Normals, LitWireframe, Wireframe };
+
 	class GenericRenderSystem
 	{
 	public:
@@ -21,14 +22,18 @@ namespace nt
 		GenericRenderSystem& operator=(const GenericRenderSystem&) = delete;
 
     void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<NtGameObject> &gameObjects, const NtCamera &camera, float deltaTime);
+    void switchRenderMode(RenderMode newRenderMode);
 
 	private:
     void createPipelineLayout();
     void createPipeline(VkRenderPass renderPass);
     
     NtDevice &ntDevice;
-
-    std::unique_ptr<NtPipeline> ntPipeline;
+    
+    std::unique_ptr<NtPipeline> litPipeline;
+    std::unique_ptr<NtPipeline> wireframePipeline;
     VkPipelineLayout pipelineLayout;
+
+    RenderMode currentRenderMode = RenderMode::Lit;
 	};
 }

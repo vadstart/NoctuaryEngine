@@ -97,6 +97,7 @@ void AstralApp::run() {
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
     currentTime = newTime; 
 
+    static int cameraType = 0;
     static bool autoRotate = false;
     static float autoRotateSpeed = glm::radians(30.0f); // degrees per second
     
@@ -124,9 +125,11 @@ void AstralApp::run() {
         ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
         ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / io.Framerate, io.Framerate);
 
-        const char* items[] = { "Lit", "Unlit", "Normals", "Lit Wireframe", "Wireframe" };
-        static int item_current = 0;
-        ImGui::Combo("View", &item_current, items, IM_ARRAYSIZE(items));
+        const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "LitWireframe", "Wireframe" };
+        static int renderModeCurrent = 0;
+        ImGui::Combo("View", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
+        genericRenderSystem.switchRenderMode(static_cast<RenderMode>(renderModeCurrent));
+
         ImGui::Checkbox("Auto Rotate", &autoRotate);
         if (ImGui::Button("Reset Target")) {
             targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
@@ -135,7 +138,9 @@ void AstralApp::run() {
         double xpos, ypos;
         glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
         ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
-        ImGui::Text("Mouse wheel: %.1f", io.MouseWheel);
+
+        ImGui::RadioButton("Perspective", &cameraType, 0); ImGui::SameLine();
+        ImGui::RadioButton("Orthographic", &cameraType, 1);
 
         ImGui::Text("Camera position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
         ImGui::Text("Camera rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
@@ -152,8 +157,12 @@ void AstralApp::run() {
     }
 
     float aspect = ntRenderer.getAspectRatio();
-    // camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
-    camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 100.f);
+
+    if (!cameraType)
+      camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 100.f);
+    else
+      camera.setOrthographicProjection(-aspect, aspect, -1, 1, 0.1f, 100.f);
+    
 
     if (auto commandBuffer = ntRenderer.beginFrame()) {
       // TODO: Add Reflections, Shadows, Postprocessing, etc
