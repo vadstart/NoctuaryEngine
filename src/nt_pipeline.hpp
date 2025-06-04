@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nt_device.hpp"
+#include "nt_types.hpp"
 #include "vulkan/vulkan_core.h"
 
 #include <string>
@@ -43,7 +44,7 @@ namespace nt {
 
       void bind(VkCommandBuffer commandBuffer);
 
-      static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, int pipeRenderMode);
+      static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, RenderMode pipeRenderMode);
 
     private:
       static vector<char> readFile(const string& filepath);

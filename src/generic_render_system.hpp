@@ -4,14 +4,13 @@
 #include "nt_pipeline.hpp"
 #include "nt_device.hpp"
 #include "nt_camera.hpp"
+#include "nt_types.hpp"
 
 #include <memory>
 using std::vector;
 
 namespace nt
 {
-  enum class RenderMode { Lit, Unlit, Normals, LitWireframe, Wireframe };
-
 	class GenericRenderSystem
 	{
 	public:

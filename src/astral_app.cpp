@@ -2,6 +2,7 @@
 #include "generic_render_system.hpp"
 #include "nt_camera.hpp"
 #include "nt_input.hpp"
+#include "nt_types.hpp"
 #include "nt_utils.hpp"
 
 #include <chrono>
@@ -122,7 +123,15 @@ void AstralApp::run() {
 
     // TODO: Refactor inputs and camera controls
     // if (!ntWindow.getShowCursor()) {
-    inputController.update(&ntWindow, viewerObject, targetObject, deltaTime, io.MouseWheel);
+    inputController.update(
+      &ntWindow,
+      viewerObject,
+      targetObject,
+      deltaTime,
+      io.MouseWheel,
+      static_cast<nt::CameraType>(cameraType)
+    );
+
     if (autoRotate) {
       viewerObject.transform.rotation.y += autoRotateSpeed * deltaTime;
     }
@@ -176,10 +185,16 @@ void AstralApp::run() {
 
     float aspect = ntRenderer.getAspectRatio();
 
-    if (!cameraType)
+    if (!cameraType) {
       camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 100.f);
+    }
     else
-      camera.setOrthographicProjection(-aspect, aspect, -1, 1, 0.1f, 100.f);
+    {
+      float zoom = inputController.orthoZoomLevel; // ← from inputController
+      float halfHeight = zoom;
+      float halfWidth = aspect * halfHeight;
+      camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, 0.1f, 100.f);
+    }
     
 
     if (auto commandBuffer = ntRenderer.beginFrame()) {

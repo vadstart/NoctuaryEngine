@@ -44,7 +44,7 @@ void GenericRenderSystem::createPipelineLayout() {
   pipelineLayoutInfo.pushConstantRangeCount = 1;
   pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
-  if (vkCreatePipelineLayout(ntDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
+ if (vkCreatePipelineLayout(ntDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS) {
     throw std::runtime_error("failed to create pipeline layout!");
   }
 }
@@ -53,7 +53,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
     assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
     PipelineConfigInfo pipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(pipelineConfig, 0);
+    NtPipeline::defaultPipelineConfigInfo(pipelineConfig, nt::RenderMode::Lit);
     pipelineConfig.renderPass = renderPass;
     pipelineConfig.pipelineLayout = pipelineLayout;
 
@@ -64,7 +64,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/simple_shader.frag.spv");
 
     PipelineConfigInfo wirePipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(wirePipelineConfig, 4);
+    NtPipeline::defaultPipelineConfigInfo(wirePipelineConfig, nt::RenderMode::Wireframe);
     wirePipelineConfig.renderPass = renderPass;
     wirePipelineConfig.pipelineLayout = pipelineLayout;
 

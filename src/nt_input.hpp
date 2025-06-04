@@ -2,6 +2,7 @@
 
 #include "nt_window.hpp"
 #include "nt_game_object.hpp"
+#include "nt_types.hpp"
 
 namespace nt {
 
@@ -20,7 +21,9 @@ class NtInputController {
         int lookDown = GLFW_KEY_DOWN;
       };
 
-    void update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY);
+    float orthoZoomLevel{0.0f};
+
+    void update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY, CameraType camType);
     
 private:
   KeyMappings keys{};
@@ -31,7 +34,7 @@ private:
   const float sensitivity { 0.002f };
   const float zoomSpeed { .3f };
   const float orbitSpeed { 0.005f };
-  const float panSpeed = { 0.01f };
+  const float panSpeed = { 0.005f };
 };
 
 }
