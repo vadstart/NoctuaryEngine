@@ -107,6 +107,18 @@ void AstralApp::run() {
     ImGui::NewFrame();
 
     ImGuiIO& io = ImGui::GetIO();
+    // int display_w, display_h;
+    // glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &display_w, &display_h);
+    // io.DisplaySize = ImVec2((float)display_w, (float)display_h);
+    //
+    // int winWidth, winHeight;
+    // glfwGetWindowSize(ntWindow.getGLFWwindow(), &winWidth, &winHeight);
+    // if (winWidth > 0 && winHeight > 0) {
+    //   io.DisplayFramebufferScale = ImVec2(
+    //     (float)display_w / winWidth,
+    //     (float)display_h / winHeight);
+    // }
+    
 
     // TODO: Refactor inputs and camera controls
     // if (!ntWindow.getShowCursor()) {
@@ -135,6 +147,12 @@ void AstralApp::run() {
             targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
         }
 
+        int winW, winH, fbW, fbH;
+        glfwGetWindowSize(ntWindow.getGLFWwindow(), &winW, &winH);
+        glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &fbW, &fbH);
+
+        ImGui::Text("Window: X %.1u | Y %.1u", winW, winH);
+        ImGui::Text("Framebuffer: X %.1u | Y %.1u", fbW, fbH);
         double xpos, ypos;
         glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
         ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);

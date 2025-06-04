@@ -48,14 +48,24 @@ void NtInputController::update(NtWindow* ntWindow, NtGameObject& gameObject, NtG
 
   // Zoom (scroll wheel)
   static float distance = 2.0f;
-  distance -= static_cast<float>(mouseScrollY) * zoomSpeed;
-  distance = glm::clamp(distance, 0.5f, 100.0f);
+  static float orthoZoom = 1.0f;
+
+  if (camType == CameraType::Perspective) {
+    distance -= mouseScrollY * zoomSpeed;
+    distance = glm::clamp(distance, 0.5f, 100.0f);
+  } else {
+    orthoZoom -= mouseScrollY * zoomSpeed * 0.2f;
+    orthoZoom = glm::clamp(orthoZoom, 0.1f, 100.0f);
+  }
 
   // Convert spherical to Cartesian coordinates
-  gameObject.transform.translation.x = targetObject.transform.translation.x + distance * glm::cos(gameObject.transform.rotation.x) * glm::sin(gameObject.transform.rotation.y);
-  gameObject.transform.translation.y = targetObject.transform.translation.y + distance * glm::sin(gameObject.transform.rotation.x);
-  gameObject.transform.translation.z = targetObject.transform.translation.z + distance * glm::cos(gameObject.transform.rotation.x) * glm::cos(gameObject.transform.rotation.y);
+  float usedDistance = (camType == CameraType::Perspective) ? distance : 2.0f;
+  gameObject.transform.translation.x = targetObject.transform.translation.x + usedDistance * glm::cos(gameObject.transform.rotation.x) * glm::sin(gameObject.transform.rotation.y);
+  gameObject.transform.translation.y = targetObject.transform.translation.y + usedDistance * glm::sin(gameObject.transform.rotation.x);
+  gameObject.transform.translation.z = targetObject.transform.translation.z + usedDistance * glm::cos(gameObject.transform.rotation.x) * glm::cos(gameObject.transform.rotation.y);
   
+  this->orthoZoomLevel = orthoZoom;
+
   // gameObject.transform.rotation.y += deltaX * sensitivity;  // gameObject.transform.rotation.y
   // gameObject.transform.rotation.x -= deltaY * sensitivity;  // gameObject.transform.rotation.x
   //

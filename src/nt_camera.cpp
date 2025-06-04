@@ -1,7 +1,6 @@
 #include "nt_camera.hpp"
 
 #include <cassert>
-#include <limits>
 
 namespace nt {
 
