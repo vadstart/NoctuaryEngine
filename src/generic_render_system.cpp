@@ -93,6 +93,17 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         wirePipelineConfig,
         "shaders/simple_line_shader.vert.spv",
         "shaders/simple_shader.frag.spv");
+
+    PipelineConfigInfo normalsPipelineConfig{};
+    NtPipeline::defaultPipelineConfigInfo(normalsPipelineConfig, nt::RenderMode::Normals);
+    normalsPipelineConfig.renderPass = renderPass;
+    normalsPipelineConfig.pipelineLayout = pipelineLayout;
+
+    normalsPipeline = std::make_unique<NtPipeline>(
+        ntDevice,
+        normalsPipelineConfig,
+        "shaders/normals_shader.vert.spv",
+        "shaders/simple_shader.frag.spv");
 }
 
 void GenericRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<NtGameObject> &gameObjects, const NtCamera &camera, glm::vec3 cameraPos, float deltaTime) {
@@ -133,6 +144,10 @@ void GenericRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::
       switch (currentRenderMode) {
         case nt::RenderMode::Wireframe:
           wireframePipeline->bind(commandBuffer);
+          break;
+
+        case nt::RenderMode::Normals:
+          normalsPipeline->bind(commandBuffer);
           break;
 
         default:

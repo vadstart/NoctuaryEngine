@@ -32,6 +32,7 @@ namespace nt
     std::unique_ptr<NtPipeline> debugGridPipeline;
     std::unique_ptr<NtPipeline> litPipeline;
     std::unique_ptr<NtPipeline> wireframePipeline;
+    std::unique_ptr<NtPipeline> normalsPipeline;
     VkPipelineLayout pipelineLayout;
 
     RenderMode currentRenderMode = RenderMode::Lit;

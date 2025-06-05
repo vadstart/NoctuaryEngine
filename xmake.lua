@@ -76,13 +76,26 @@ target("NoctuaryEngine")
 
     -- Add custom rules for shader compilation
     after_build(function (target)
-        os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/debug_grid.vert -o shaders/debug_grid.vert.spv")
-        os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/debug_grid.frag -o shaders/debug_grid.frag.spv")
-        os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/simple_line_shader.vert -o shaders/simple_line_shader.vert.spv")
-        os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/simple_shader.vert -o shaders/simple_shader.vert.spv")
-        os.exec("$(env VULKAN_SDK)/bin/glslc src/shaders/simple_shader.frag -o shaders/simple_shader.frag.spv")
+        import("core.project.project")
+
+        local glslc = "$(env VULKAN_SDK)/bin/glslc"
+        local shader_dir = "src/shaders"
+        local output_dir = "shaders"
+
+        os.mkdir(output_dir)
+
+        for _, shader_file in ipairs(os.files(shader_dir .. "/*.vert")) do
+          local filename = path.filename(shader_file)
+          os.execv(glslc, { shader_file, "-o", path.join(output_dir, filename .. ".spv") })
+        end
+
+        for _, shader_file in ipairs(os.files(shader_dir .. "/*.frag")) do
+          local filename = path.filename(shader_file)
+          os.execv(glslc, { shader_file, "-o", path.join(output_dir, filename .. ".spv") })
+        end
+
         -- Copy shaders to build directory
-        os.cp("shaders/*.spv", target:targetdir() .. "/shaders/")    
+        os.cp("shaders/*.spv", path.join(target:targetdir(), "/shaders/"))    
     end)
 
     on_clean(function (target)

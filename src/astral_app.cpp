@@ -108,18 +108,6 @@ void AstralApp::run() {
     ImGui::NewFrame();
 
     ImGuiIO& io = ImGui::GetIO();
-    // int display_w, display_h;
-    // glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &display_w, &display_h);
-    // io.DisplaySize = ImVec2((float)display_w, (float)display_h);
-    //
-    // int winWidth, winHeight;
-    // glfwGetWindowSize(ntWindow.getGLFWwindow(), &winWidth, &winHeight);
-    // if (winWidth > 0 && winHeight > 0) {
-    //   io.DisplayFramebufferScale = ImVec2(
-    //     (float)display_w / winWidth,
-    //     (float)display_h / winHeight);
-    // }
-    
 
     // TODO: Refactor inputs and camera controls
     // if (!ntWindow.getShowCursor()) {
