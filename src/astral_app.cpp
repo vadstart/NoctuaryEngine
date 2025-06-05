@@ -83,7 +83,7 @@ void AstralApp::run() {
   NtCamera camera{};
   
   auto viewerObject = NtGameObject::createGameObject();
-  viewerObject.transform.rotation = {glm::radians(-25.0f), glm::radians(-180.0f), 0};
+  viewerObject.transform.rotation = {glm::radians(-25.0f), glm::radians(-135.0f), 0};
   auto targetObject = NtGameObject::createGameObject();
   targetObject.transform.translation = {-0.05f, -.3f, 0};
   NtInputController inputController{};
@@ -201,7 +201,7 @@ void AstralApp::run() {
       // TODO: Add Reflections, Shadows, Postprocessing, etc
       
       ntRenderer.beginSwapChainRenderPass(commandBuffer);
-      genericRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera, deltaTime);
+      genericRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera, viewerObject.transform.translation, deltaTime);
       ImGui::Render();
       ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
       ntRenderer.endSwapChainRenderPass(commandBuffer);
@@ -218,7 +218,29 @@ void AstralApp::run() {
 }
 
 // Temp gameObj creation helper
-std::unique_ptr<NtModel> creategameObjCube(NtDevice& device, glm::vec3 offset) {
+std::unique_ptr<NtModel> createGameObjPlane(NtDevice& device) {
+  NtModel::Data modelData{};
+
+  modelData.vertices = {
+    {{-1000.f, 0.f, -1000.f}, glm::vec3(0.2)},
+    {{ 1000.f, 0.f, -1000.f}, glm::vec3(0.2)},
+    {{ 1000.f, 0.f,  1000.f}, glm::vec3(0.2)},
+    {{-1000.f, 0.f,  1000.f}, glm::vec3(0.2)},
+  };
+
+  modelData.indices = {
+    0, 1, 2,
+    2, 3, 0,
+  };
+
+  // for (auto& v : modelData.vertices) {
+  //   v.position += offset;
+  // }
+
+  return std::make_unique<NtModel>(device, modelData);
+}
+
+std::unique_ptr<NtModel> createGameObjCube(NtDevice& device, glm::vec3 offset) {
   NtModel::Data modelData{};
 
   // Define the 8 corners of the gameObj and assign each a unique color (rainbow-ish)
@@ -263,26 +285,20 @@ std::unique_ptr<NtModel> creategameObjCube(NtDevice& device, glm::vec3 offset) {
 }
 
 void AstralApp::loadGameObjects() {
-  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny.obj"));
-
+  // Debug world grid
   auto gameObj = NtGameObject::createGameObject();
-  gameObj.model = ntModel;
-  // gameObj.transform.translation = {.2f, .5f, 1.5f};
-  gameObj.transform.scale = {.5f, .5f, .5f};
-
+  gameObj.model = createGameObjPlane(ntDevice);
+  // gameObj.transform.scale = {.5f, .5f, .5f};
   gameObjects.push_back(std::move(gameObj));
 
-  // std::shared_ptr<NtModel> ntModel2 = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/monke.obj"));
-  //
-  // auto gameObj2 = NtGameObject::createGameObject();
-  // gameObj2.model = ntModel2;
-  // gameObj2.transform.translation = {.2f, .5f, -1.5f};
-  // gameObj2.transform.scale = {.5f, .5f, .5f};
-  //
-  // gameObjects.push_back(std::move(gameObj2));
-}
+  // Rest of the objects
+  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny.obj"));
+  auto gameObj2 = NtGameObject::createGameObject();
+  gameObj2.model = ntModel;
+  // gameObj.transform.translation = {.2f, .5f, 1.5f};
+  gameObj2.transform.scale = {.5f, .5f, .5f};
 
-// obj.transform.rotation.y = glm::mod(obj.transform.rotation.y + rotationSpeed * deltaTime, glm::two_pi<float>());
-// obj.transform.rotation.x = glm::mod(obj.transform.rotation.x + rotationSpeed * deltaTime, glm::two_pi<float>());
+  gameObjects.push_back(std::move(gameObj2));
+}
 
 }
