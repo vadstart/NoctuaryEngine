@@ -280,13 +280,19 @@ void AstralApp::loadGameObjects() {
   gameObjects.push_back(std::move(gameObj));
 
   // Rest of the objects
-  std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny.obj"));
-  auto gameObj2 = NtGameObject::createGameObject();
-  gameObj2.model = ntModel;
-  // gameObj.transform.translation = {.2f, .5f, 1.5f};
-  gameObj2.transform.scale = {.5f, .5f, .5f};
+  // std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny.obj"));
+  // auto gameObj2 = NtGameObject::createGameObject();
+  // gameObj2.model = ntModel;
+  // // gameObj.transform.translation = {.2f, .5f, 1.5f};
+  // gameObj2.transform.scale = {.5f, .5f, .5f};
+  //
+  // gameObjects.push_back(std::move(gameObj2));
 
-  gameObjects.push_back(std::move(gameObj2));
+  // std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny.obj"));
+  auto go_VikingRoom = NtGameObject::createGameObject();
+  go_VikingRoom.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/viking_room.obj"));
+;
+  gameObjects.push_back(std::move(go_VikingRoom));
 }
 
 }
