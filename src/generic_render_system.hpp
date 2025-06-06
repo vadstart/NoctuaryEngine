@@ -5,6 +5,8 @@
 #include "nt_device.hpp"
 #include "nt_camera.hpp"
 #include "nt_types.hpp"
+#include "nt_frame_info.hpp"
+#include "vulkan/vulkan_core.h"
 
 #include <memory>
 using std::vector;
@@ -14,17 +16,17 @@ namespace nt
 	class GenericRenderSystem
 	{
 	public:
-    GenericRenderSystem(NtDevice &device, VkRenderPass renderPass);
+    GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout);
     ~GenericRenderSystem();
 
     GenericRenderSystem(const GenericRenderSystem&) = delete;
 		GenericRenderSystem& operator=(const GenericRenderSystem&) = delete;
 
-    void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<NtGameObject> &gameObjects, const NtCamera &camera, glm::vec3 cameraPos, float deltaTime);
+    void renderGameObjects(FrameInfo &frameInfo, std::vector<NtGameObject> &gameObjects, glm::vec3 cameraPos);
     void switchRenderMode(RenderMode newRenderMode);
 
 	private:
-    void createPipelineLayout();
+    void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
     void createPipeline(VkRenderPass renderPass);
     
     NtDevice &ntDevice;

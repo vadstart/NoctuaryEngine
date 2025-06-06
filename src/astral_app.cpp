@@ -1,6 +1,11 @@
 #include "astral_app.hpp"
 #include "generic_render_system.hpp"
+#include "glm/geometric.hpp"
 #include "nt_camera.hpp"
+#include "nt_buffer.hpp"
+#include "nt_descriptors.hpp"
+#include "nt_frame_info.hpp"
+#include "nt_image.hpp"
 #include "nt_input.hpp"
 #include "nt_types.hpp"
 #include "nt_utils.hpp"
@@ -12,6 +17,7 @@
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_glfw.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
+#include "vulkan/vulkan_core.h"
 
 // Libraries
 #define GLM_FORCE_RADIANS
@@ -24,14 +30,10 @@
 #include <cassert>
 #include <memory>
 
-static void check_vk_result(VkResult err)
-{
-    if (err == 0)
-        return;
-    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
-    if (err < 0)
-        abort();
-}
+struct GlobalUbo {
+  glm::mat4 projectionView{1.f};
+  glm::vec3 lightDirection = glm::normalize(glm::vec3{-3.f, -5.f, -6.f});
+};
 
 namespace nt
 {
@@ -71,15 +73,56 @@ AstralApp::AstralApp()
   init_info.Allocator = nullptr;
   ImGui_ImplVulkan_Init(&init_info);
 
+  globalPool = NtDescriptorPool::Builder(ntDevice)
+    .setMaxSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT)
+    .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, NtSwapChain::MAX_FRAMES_IN_FLIGHT)
+    .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, NtSwapChain::MAX_FRAMES_IN_FLIGHT)
+    .build();
+
   loadGameObjects();
 }
 AstralApp::~AstralApp() {
   
 }
 
-
 void AstralApp::run() {
-  GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass());
+  std::vector<std::unique_ptr<NtBuffer>> uboBuffers(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
+  for (int i = 0; i < uboBuffers.size(); i++) {
+    uboBuffers[i] = std::make_unique<NtBuffer> (
+      ntDevice,
+      sizeof(GlobalUbo),
+      NtSwapChain::MAX_FRAMES_IN_FLIGHT,
+      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+
+    uboBuffers[i]->map();
+  }
+
+  auto globalSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+    .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+    .build();
+
+  std::shared_ptr<NtImage> globalTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
+    
+  std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
+  for(int i = 0; i < globalDescriptorSets.size(); i++) {
+    auto bufferInfo = uboBuffers[i]->descriptorInfo();
+
+    VkDescriptorImageInfo imageInfo{};
+    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    imageInfo.imageView = globalTexture->getImageView();
+    imageInfo.sampler = globalTexture->getSampler();
+
+    NtDescriptorWriter(*globalSetLayout, *globalPool)
+      .writeBuffer(0, &bufferInfo)
+      .writeImage(1, &imageInfo)
+      .build(globalDescriptorSets[i]);
+
+  }
+
+
+  GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout());
   NtCamera camera{};
   
   auto viewerObject = NtGameObject::createGameObject();
@@ -187,11 +230,28 @@ void AstralApp::run() {
 
     if (auto commandBuffer = ntRenderer.beginFrame()) {
       // TODO: Add Reflections, Shadows, Postprocessing, etc
-      
+      int frameIndex = ntRenderer.getFrameIndex();
+      FrameInfo frameInfo {
+        frameIndex,
+        deltaTime,
+        commandBuffer,
+        camera,
+        globalDescriptorSets[frameIndex]
+      };
+
+      //update
+      GlobalUbo ubo{};
+      ubo.projectionView = camera.getProjection() * camera.getView();
+      uboBuffers[frameIndex]->writeToBuffer(&ubo);
+      uboBuffers[frameIndex]->flush();
+
+      // render
       ntRenderer.beginSwapChainRenderPass(commandBuffer);
-      genericRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera, viewerObject.transform.translation, deltaTime);
+      genericRenderSystem.renderGameObjects(frameInfo, gameObjects, viewerObject.transform.translation);
+
       ImGui::Render();
       ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
+
       ntRenderer.endSwapChainRenderPass(commandBuffer);
       ntRenderer.endFrame();
     }
@@ -206,24 +266,20 @@ void AstralApp::run() {
 }
 
 // Temp gameObj creation helper
-std::unique_ptr<NtModel> createGameObjPlane(NtDevice& device) {
+std::unique_ptr<NtModel> createGameObjPlane(NtDevice& device, float size) {
   NtModel::Data modelData{};
 
   modelData.vertices = {
-    {{-1000.f, 0.f, -1000.f}, glm::vec3(0.2)},
-    {{ 1000.f, 0.f, -1000.f}, glm::vec3(0.2)},
-    {{ 1000.f, 0.f,  1000.f}, glm::vec3(0.2)},
-    {{-1000.f, 0.f,  1000.f}, glm::vec3(0.2)},
+    {{-size, 0.f, -size}, glm::vec3(0.2), glm::vec3(0), {1.0f, 0.0f}},
+    {{ size, 0.f, -size}, glm::vec3(0.2), glm::vec3(0), {0.0f, 0.0f}},
+    {{ size, 0.f,  size}, glm::vec3(0.2), glm::vec3(0), {0.0f, 1.0f}},
+    {{-size, 0.f,  size}, glm::vec3(0.2), glm::vec3(0), {1.0f, 1.0f}},
   };
 
   modelData.indices = {
     0, 1, 2,
     2, 3, 0,
   };
-
-  // for (auto& v : modelData.vertices) {
-  //   v.position += offset;
-  // }
 
   return std::make_unique<NtModel>(device, modelData);
 }
@@ -275,23 +331,14 @@ std::unique_ptr<NtModel> createGameObjCube(NtDevice& device, glm::vec3 offset) {
 void AstralApp::loadGameObjects() {
   // Debug world grid
   auto gameObj = NtGameObject::createGameObject();
-  gameObj.model = createGameObjPlane(ntDevice);
-  // gameObj.transform.scale = {.5f, .5f, .5f};
+  gameObj.model = createGameObjPlane(ntDevice, 1000.0f);
   gameObjects.push_back(std::move(gameObj));
 
-  // Rest of the objects
-  // std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny.obj"));
-  // auto gameObj2 = NtGameObject::createGameObject();
-  // gameObj2.model = ntModel;
-  // // gameObj.transform.translation = {.2f, .5f, 1.5f};
-  // gameObj2.transform.scale = {.5f, .5f, .5f};
-  //
-  // gameObjects.push_back(std::move(gameObj2));
-
-  // std::shared_ptr<NtModel> ntModel = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny.obj"));
   auto go_VikingRoom = NtGameObject::createGameObject();
   go_VikingRoom.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/viking_room.obj"));
-;
+  // go_VikingRoom.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
+
+  go_VikingRoom.transform.rotation = {0.0f, glm::radians(180.0f), 0.0f};
   gameObjects.push_back(std::move(go_VikingRoom));
 }
 

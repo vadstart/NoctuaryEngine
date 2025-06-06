@@ -4,8 +4,10 @@
 #include "nt_window.hpp"
 #include "nt_device.hpp"
 #include "nt_renderer.hpp"
+#include "nt_descriptors.hpp"
 
 #include <filesystem>
+#include <memory>
 
 using std::vector;
 
@@ -33,6 +35,7 @@ namespace nt
     NtDevice ntDevice{ntWindow};
     NtRenderer ntRenderer{ntWindow, ntDevice};
 
+    std::unique_ptr<NtDescriptorPool> globalPool{};
     std::vector<NtGameObject> gameObjects;
 	};
 }

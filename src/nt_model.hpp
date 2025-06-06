@@ -1,6 +1,8 @@
 #pragma once
 
 #include "nt_device.hpp"
+#include "nt_buffer.hpp"
+
 #include "vulkan/vulkan_core.h"
 #include <algorithm>
 #include <string>
@@ -57,13 +59,11 @@ class NtModel {
 
         NtDevice &ntDevice;
 
-        VkBuffer vertexBuffer;
-        VkDeviceMemory vertexBufferMemory;
+        std::unique_ptr<NtBuffer> vertexBuffer;
         uint32_t vertexCount;
         
         bool hasIndexBuffer = false;
-        VkBuffer indexBuffer;
-        VkDeviceMemory indexBufferMemory;
+        std::unique_ptr<NtBuffer> indexBuffer;
         uint32_t indexCount;
 };
 
