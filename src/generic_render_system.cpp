@@ -79,16 +79,27 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/debug_grid.vert.spv",
         "shaders/debug_grid.frag.spv");
 
-    PipelineConfigInfo pipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(pipelineConfig, nt::RenderMode::Lit);
-    pipelineConfig.renderPass = renderPass;
-    pipelineConfig.pipelineLayout = pipelineLayout;
+    PipelineConfigInfo litConfig{};
+    NtPipeline::defaultPipelineConfigInfo(litConfig, nt::RenderMode::Lit);
+    litConfig.renderPass = renderPass;
+    litConfig.pipelineLayout = pipelineLayout;
 
     litPipeline = std::make_unique<NtPipeline>(
         ntDevice,
-        pipelineConfig,
-        "shaders/simple_shader.vert.spv",
-        "shaders/simple_shader.frag.spv");
+        litConfig,
+        "shaders/lit_shader.vert.spv",
+        "shaders/texture_shader.frag.spv");
+
+    PipelineConfigInfo unlitConfig{};
+    NtPipeline::defaultPipelineConfigInfo(unlitConfig, nt::RenderMode::Unlit);
+    unlitConfig.renderPass = renderPass;
+    unlitConfig.pipelineLayout = pipelineLayout;
+
+    unlitPipeline = std::make_unique<NtPipeline>(
+    ntDevice,
+    unlitConfig,
+    "shaders/unlit_shader.vert.spv",
+    "shaders/texture_shader.frag.spv");
 
     PipelineConfigInfo wirePipelineConfig{};
     NtPipeline::defaultPipelineConfigInfo(wirePipelineConfig, nt::RenderMode::Wireframe);
@@ -98,8 +109,8 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
     wireframePipeline = std::make_unique<NtPipeline>(
         ntDevice,
         wirePipelineConfig,
-        "shaders/simple_line_shader.vert.spv",
-        "shaders/simple_shader.frag.spv");
+        "shaders/line_shader.vert.spv",
+        "shaders/color_shader.frag.spv");
 
     PipelineConfigInfo normalsPipelineConfig{};
     NtPipeline::defaultPipelineConfigInfo(normalsPipelineConfig, nt::RenderMode::Normals);
@@ -110,11 +121,16 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         ntDevice,
         normalsPipelineConfig,
         "shaders/normals_shader.vert.spv",
-        "shaders/simple_shader.frag.spv");
+        "shaders/color_shader.frag.spv");
 }
 
-void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<NtGameObject> &gameObjects, glm::vec3 cameraPos) {
+void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<NtGameObject> &gameObjects) {
+
   switch (currentRenderMode) {
+        case nt::RenderMode::Unlit:
+          unlitPipeline->bind(frameInfo.commandBuffer);
+          break;
+        
         case nt::RenderMode::Wireframe:
           wireframePipeline->bind(frameInfo.commandBuffer);
           break;
@@ -137,42 +153,6 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<Nt
     0, nullptr);
 
   for (auto& obj: gameObjects) {
-    if (obj.getId() == 0) {
-      debugGridPipeline->bind(frameInfo.commandBuffer);
-
-      GridPushConstants push{};
-      push.modelMatrix = obj.transform.mat4();
-      push.cameraPos = cameraPos;
-      push.gridSpacing = 1.0f;
-      push.lineThickness = 1.0f;
-      push.fadeDistance = 50.0f;
-
-      vkCmdPushConstants(
-        frameInfo.commandBuffer,
-        pipelineLayout,
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(GridPushConstants),
-        &push);
-
-      obj.model->bind(frameInfo.commandBuffer);
-      obj.model->draw(frameInfo.commandBuffer);
-
-      switch (currentRenderMode) {
-        case nt::RenderMode::Wireframe:
-          wireframePipeline->bind(frameInfo.commandBuffer);
-          break;
-
-        case nt::RenderMode::Normals:
-          normalsPipeline->bind(frameInfo.commandBuffer);
-          break;
-
-        default:
-          litPipeline->bind(frameInfo.commandBuffer);
-          break;
-      }
-    }
-    else {
       NtPushConstantData push{};
       push.modelMatrix = obj.transform.mat4();
       push.normalMatrix = obj.transform.normalMatrix();
@@ -188,13 +168,22 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<Nt
       obj.model->bind(frameInfo.commandBuffer);
       obj.model->draw(frameInfo.commandBuffer);
   }
-  }
 
+//===================================================
+//  Visualize Wireframe ON TOP of regular rendering  
+//===================================================
   if (currentRenderMode == RenderMode::LitWireframe) {
     wireframePipeline->bind(frameInfo.commandBuffer);
 
+    vkCmdBindDescriptorSets(
+      frameInfo.commandBuffer,
+      VK_PIPELINE_BIND_POINT_GRAPHICS,
+      pipelineLayout,
+      0, 1,
+      &frameInfo.globalDescriptorSet,
+      0, nullptr);
+
     for (auto& obj: gameObjects) {
-      if (obj.getId() != 0) {
         NtPushConstantData push{};
         push.modelMatrix = obj.transform.mat4();
         push.normalMatrix = obj.transform.normalMatrix();
@@ -216,10 +205,41 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<Nt
 
         obj.model->bind(frameInfo.commandBuffer);
         obj.model->draw(frameInfo.commandBuffer);
-      }
     }
   }
+
 }
+
+void GenericRenderSystem::renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject, glm::vec3 cameraPos) {
+  debugGridPipeline->bind(frameInfo.commandBuffer);
+
+  vkCmdBindDescriptorSets(
+    frameInfo.commandBuffer,
+    VK_PIPELINE_BIND_POINT_GRAPHICS,
+    pipelineLayout,
+    0, 1,
+    &frameInfo.globalDescriptorSet,
+    0, nullptr);
+
+  GridPushConstants push{};
+  push.modelMatrix = gridObject.transform.mat4();
+  push.cameraPos = cameraPos;
+  push.gridSpacing = 1.0f;
+  push.lineThickness = 1.0f;
+  push.fadeDistance = 50.0f;
+
+  vkCmdPushConstants(
+    frameInfo.commandBuffer,
+    pipelineLayout,
+    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+    0,
+    sizeof(GridPushConstants),
+    &push);
+
+  gridObject.model->bind(frameInfo.commandBuffer);
+  gridObject.model->draw(frameInfo.commandBuffer);
+}
+
 
 void GenericRenderSystem::switchRenderMode(RenderMode newRenderMode) {
   currentRenderMode = newRenderMode;

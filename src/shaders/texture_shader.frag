@@ -1,6 +1,5 @@
 #version 450
 
-// layout(location = 0) in vec3 fragColor;
 layout(location = 0) in vec2 fragTexCoord;
 layout(location = 1) in float lightIntensity;
 
@@ -14,7 +13,6 @@ layout(push_constant) uniform Push {
 } push;
 
 void main() {
-  outColor = texture(texSampler, fragTexCoord);
-  // vec4 texColor = texture(texSampler, fragTexCoord);
-  // outColor = vec4(texColor.rgb * lightIntensity, texColor.a);
+  vec4 texColor = texture(texSampler, fragTexCoord);
+  outColor = vec4(texColor.rgb * lightIntensity, texColor.a);
 }

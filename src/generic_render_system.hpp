@@ -22,7 +22,8 @@ namespace nt
     GenericRenderSystem(const GenericRenderSystem&) = delete;
 		GenericRenderSystem& operator=(const GenericRenderSystem&) = delete;
 
-    void renderGameObjects(FrameInfo &frameInfo, std::vector<NtGameObject> &gameObjects, glm::vec3 cameraPos);
+    void renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject, glm::vec3 cameraPos);
+    void renderGameObjects(FrameInfo &frameInfo, std::vector<NtGameObject> &gameObjects);
     void switchRenderMode(RenderMode newRenderMode);
 
 	private:
@@ -33,6 +34,7 @@ namespace nt
     
     std::unique_ptr<NtPipeline> debugGridPipeline;
     std::unique_ptr<NtPipeline> litPipeline;
+    std::unique_ptr<NtPipeline> unlitPipeline;
     std::unique_ptr<NtPipeline> wireframePipeline;
     std::unique_ptr<NtPipeline> normalsPipeline;
     VkPipelineLayout pipelineLayout;

@@ -103,7 +103,7 @@ void AstralApp::run() {
     .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
     .build();
 
-  std::shared_ptr<NtImage> globalTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
+  std::shared_ptr<NtImage> globalTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/bunny_albedo.jpeg"));
     
   std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
   for(int i = 0; i < globalDescriptorSets.size(); i++) {
@@ -121,6 +121,7 @@ void AstralApp::run() {
 
   }
 
+  GlobalUbo ubo{};
 
   GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout());
   NtCamera camera{};
@@ -130,6 +131,10 @@ void AstralApp::run() {
   auto targetObject = NtGameObject::createGameObject();
   targetObject.transform.translation = {-0.05f, -.3f, 0};
   NtInputController inputController{};
+
+  // Debug world grid
+  auto debugGridObject = NtGameObject::createGameObject();
+  debugGridObject.model = createGOPlane(1000.0f);
 
   // Temporary implementation of DeltaTime
   auto currentTime = std::chrono::high_resolution_clock::now();
@@ -175,33 +180,80 @@ void AstralApp::run() {
     {
         ImGuiWindowFlags imgui_window_flags = 0;
         ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
-        ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / io.Framerate, io.Framerate);
+        // ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / io.Framerate, io.Framerate);
+        
+        static float frameTimes[120] = {};
+        static int frameTimeOffset = 0;
+
+        float frameTime = 1000.0f / io.Framerate; // ms
+        frameTimes[frameTimeOffset] = frameTime;
+        frameTimeOffset = (frameTimeOffset + 1) % IM_ARRAYSIZE(frameTimes);
+
+        // Compute average and dynamic max
+        float maxFrameTime = 0.0f;
+        float avgFrameTime = 0.0f;
+        for (int i = 0; i < IM_ARRAYSIZE(frameTimes); ++i) {
+            avgFrameTime += frameTimes[i];
+            if (frameTimes[i] > maxFrameTime) maxFrameTime = frameTimes[i];
+        }
+        avgFrameTime /= IM_ARRAYSIZE(frameTimes);
+        maxFrameTime = glm::clamp(maxFrameTime * 1.25f, 5.0f, 50.0f); // cap to avoid extreme spikes
+
+        // Color thresholds
+        ImVec4 color;
+        if (avgFrameTime < 16.6f) color = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);        // Green (60+ FPS)
+        else if (avgFrameTime < 33.3f) color = ImVec4(1.0f, 1.0f, 0.2f, 1.0f);   // Yellow (30–60 FPS)
+        else color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f);                             // Red (<30 FPS)
+
+        // Overlay text
+        char overlay[32];
+        snprintf(overlay, sizeof(overlay), "avg %.2f ms", avgFrameTime);
+
+        // Push plot color
+        ImGui::PushStyleColor(ImGuiCol_PlotLines, color);
+        ImGui::PlotLines("", frameTimes, IM_ARRAYSIZE(frameTimes), frameTimeOffset,
+                         overlay, 0.0f, maxFrameTime, ImVec2(0, 40.0f));
+        ImGui::PopStyleColor();
+
+        ImGui::Text("Current FPS: %.1f", io.Framerate);
+
 
         const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "LitWireframe", "Wireframe" };
         static int renderModeCurrent = 0;
         ImGui::Combo("View", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
         genericRenderSystem.switchRenderMode(static_cast<RenderMode>(renderModeCurrent));
 
-        ImGui::Checkbox("Auto Rotate", &autoRotate);
-        if (ImGui::Button("Reset Target")) {
-            targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
+        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        if (ImGui::TreeNode("Camera"))
+        {
+          ImGui::Checkbox("Auto Rotate", &autoRotate);ImGui::SameLine();
+          if (ImGui::Button("Reset Cam")) {
+              targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
+          }
+
+          ImGui::RadioButton("Perspective", &cameraType, 0); ImGui::SameLine();
+          ImGui::RadioButton("Orthographic", &cameraType, 1);
+
+          ImGui::Text("Camera position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
+          ImGui::Text("Camera rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
+
+          ImGui::TreePop();
         }
+
+        const ImGuiSliderFlags flags_for_sliders = imgui_window_flags & ~ImGuiSliderFlags_WrapAround;
+        ImGui::SliderFloat("Light X", &ubo.lightDirection.x, -1.0f, 1.0f, "%.2f", flags_for_sliders);
+        ImGui::SliderFloat("Light Y", &ubo.lightDirection.y, -1.0f, 1.0f, "%.2f", flags_for_sliders);
+        ImGui::SliderFloat("Light Z", &ubo.lightDirection.z, -1.0f, 1.0f, "%.2f", flags_for_sliders);
+
 
         int winW, winH, fbW, fbH;
         glfwGetWindowSize(ntWindow.getGLFWwindow(), &winW, &winH);
         glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &fbW, &fbH);
-
         ImGui::Text("Window: X %.1u | Y %.1u", winW, winH);
         ImGui::Text("Framebuffer: X %.1u | Y %.1u", fbW, fbH);
         double xpos, ypos;
         glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
         ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
-
-        ImGui::RadioButton("Perspective", &cameraType, 0); ImGui::SameLine();
-        ImGui::RadioButton("Orthographic", &cameraType, 1);
-
-        ImGui::Text("Camera position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
-        ImGui::Text("Camera rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
 
         uint32_t totalVertexCount = 0;  
         for (const auto& gobject : gameObjects) {
@@ -240,14 +292,14 @@ void AstralApp::run() {
       };
 
       //update
-      GlobalUbo ubo{};
       ubo.projectionView = camera.getProjection() * camera.getView();
       uboBuffers[frameIndex]->writeToBuffer(&ubo);
       uboBuffers[frameIndex]->flush();
 
       // render
       ntRenderer.beginSwapChainRenderPass(commandBuffer);
-      genericRenderSystem.renderGameObjects(frameInfo, gameObjects, viewerObject.transform.translation);
+      genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
+      genericRenderSystem.renderGameObjects(frameInfo, gameObjects);
 
       ImGui::Render();
       ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
@@ -265,8 +317,7 @@ void AstralApp::run() {
   ImGui::DestroyContext();
 }
 
-// Temp gameObj creation helper
-std::unique_ptr<NtModel> createGameObjPlane(NtDevice& device, float size) {
+std::unique_ptr<NtModel> AstralApp::createGOPlane(float size) {
   NtModel::Data modelData{};
 
   modelData.vertices = {
@@ -281,25 +332,23 @@ std::unique_ptr<NtModel> createGameObjPlane(NtDevice& device, float size) {
     2, 3, 0,
   };
 
-  return std::make_unique<NtModel>(device, modelData);
+  return std::make_unique<NtModel>(ntDevice, modelData);
 }
 
-std::unique_ptr<NtModel> createGameObjCube(NtDevice& device, glm::vec3 offset) {
+std::unique_ptr<NtModel> AstralApp::createGOCube(float size) {
   NtModel::Data modelData{};
 
-  // Define the 8 corners of the gameObj and assign each a unique color (rainbow-ish)
   modelData.vertices = {
-    {{-.5f, -.5f, -.5f}, {1.0f, 0.0f, 0.0f}}, // 0: red
-    {{.5f, -.5f, -.5f}, {1.0f, 0.5f, 0.0f}},  // 1: orange
-    {{.5f, .5f, -.5f}, {1.0f, 1.0f, 0.0f}},   // 2: yellow
-    {{-.5f, .5f, -.5f}, {0.0f, 1.0f, 0.0f}},  // 3: green
-    {{-.5f, -.5f, .5f}, {0.0f, 0.0f, 1.0f}},  // 4: blue
-    {{.5f, -.5f, .5f}, {0.29f, 0.0f, 0.51f}}, // 5: indigo
-    {{.5f, .5f, .5f}, {0.56f, 0.0f, 1.0f}},   // 6: violet
-    {{-.5f, .5f, .5f}, {1.0f, 0.0f, 1.0f}},   // 7: magenta
+    {{-size, -size, -size}, {1.0f, 0.0f, 0.0f}}, // 0: red
+    {{size, -size, -size}, {1.0f, 0.5f, 0.0f}},  // 1: orange
+    {{size, size, -size}, {1.0f, 1.0f, 0.0f}},   // 2: yellow
+    {{-size, size, -size}, {0.0f, 1.0f, 0.0f}},  // 3: green
+    {{-size, -size, size}, {0.0f, 0.0f, 1.0f}},  // 4: blue
+    {{size, -size, size}, {0.29f, 0.0f, 0.51f}}, // 5: indigo
+    {{size, size, size}, {0.56f, 0.0f, 1.0f}},   // 6: violet
+    {{-size, size, size}, {1.0f, 0.0f, 1.0f}},   // 7: magenta
   };
 
-  // Indices into the `corners` array to form 12 triangles (2 per face)
   modelData.indices = {
     // front face (z = +0.5)
     4, 5, 6,
@@ -321,24 +370,15 @@ std::unique_ptr<NtModel> createGameObjCube(NtDevice& device, glm::vec3 offset) {
     0, 5, 4,
   };
 
-  for (auto& v : modelData.vertices) {
-    v.position += offset;
-  }
-
-  return std::make_unique<NtModel>(device, modelData);
+  return std::make_unique<NtModel>(ntDevice, modelData);
 }
 
 void AstralApp::loadGameObjects() {
-  // Debug world grid
-  auto gameObj = NtGameObject::createGameObject();
-  gameObj.model = createGameObjPlane(ntDevice, 1000.0f);
-  gameObjects.push_back(std::move(gameObj));
-
   auto go_VikingRoom = NtGameObject::createGameObject();
-  go_VikingRoom.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/viking_room.obj"));
+  go_VikingRoom.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny_low.obj"));
   // go_VikingRoom.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
 
-  go_VikingRoom.transform.rotation = {0.0f, glm::radians(180.0f), 0.0f};
+  // go_VikingRoom.transform.rotation = {0.0f, glm::radians(180.0f), 0.0f};
   gameObjects.push_back(std::move(go_VikingRoom));
 }
 

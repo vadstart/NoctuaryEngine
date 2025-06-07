@@ -31,6 +31,9 @@ namespace nt
 	private:
     void loadGameObjects();
 
+    std::unique_ptr<NtModel> createGOPlane(float size);
+    std::unique_ptr<NtModel> createGOCube(float size);
+
     NtWindow ntWindow{ WIDTH, HEIGHT, "🌋 You are wandering through the Astral Realm.." };
     NtDevice ntDevice{ntWindow};
     NtRenderer ntRenderer{ntWindow, ntDevice};

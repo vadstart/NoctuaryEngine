@@ -19,6 +19,5 @@ layout(push_constant) uniform Push {
 
 void main() {
   gl_Position = ubo.projectionViewMatrix * push.modelMatrix * vec4(position, 1.0);
-
-  fragColor = normal * 0.3 + 0.3;
+  fragColor = color;
 }
