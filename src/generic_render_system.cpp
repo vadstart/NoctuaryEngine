@@ -25,7 +25,6 @@ namespace nt
 
 struct GridPushConstants {
     glm::mat4 modelMatrix;
-    glm::vec3 cameraPos;
     float gridSpacing = 1.0f;
     float lineThickness = 1.0f;
     float fadeDistance = 50.0f;
@@ -234,7 +233,6 @@ void GenericRenderSystem::renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gr
 
   GridPushConstants push{};
   push.modelMatrix = gridObject.transform.mat4();
-  push.cameraPos = cameraPos;
   push.gridSpacing = 1.0f;
   push.lineThickness = 1.0f;
   push.fadeDistance = 50.0f;

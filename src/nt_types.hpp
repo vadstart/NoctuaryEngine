@@ -10,6 +10,7 @@ enum class CameraType {
 enum class RenderMode { 
   Lit,
   Unlit,
+  Lighting,
   Normals,
   LitWireframe,
   Wireframe,

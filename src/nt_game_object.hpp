@@ -39,7 +39,8 @@ public:
 
   std::shared_ptr<NtModel> model{};
   VkDescriptorSet materialDescriptorSet = VK_NULL_HANDLE;
-  std::shared_ptr<NtImage> texture{};
+  std::shared_ptr<NtImage> diffuseTexture{};
+  std::shared_ptr<NtImage> normalTexture{};
   glm::vec3 color{};
   TransformComponent transform{};
 

@@ -3,13 +3,18 @@ layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 color;
 
 layout(set = 0, binding = 0) uniform GlobalUbo {
-  mat4 projectionViewMatrix;
-  vec3 directionToLight;
+  mat4 projection;
+  mat4 view;
+
+  mat4 inverseView;
+  vec4 ambientLightColor;
+  
+  vec3 lightPosition;
+  vec4 lightColor;
 } ubo;
 
 layout(push_constant) uniform GridPush {
   mat4 modelMatrix;
-  vec3 cameraPos;
   float gridSpacing;
   float lineThickness;
   float fadeDistance;
@@ -21,5 +26,5 @@ layout(location = 1) out vec3 fragColor;
 void main() {
     worldPos = position;
     fragColor = color;
-    gl_Position = ubo.projectionViewMatrix * push.modelMatrix * vec4(position, 1.0);
+    gl_Position = ubo.projection * ubo.view * push.modelMatrix * vec4(position, 1.0);
 }
