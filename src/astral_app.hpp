@@ -39,6 +39,11 @@ namespace nt
     NtRenderer ntRenderer{ntWindow, ntDevice};
 
     std::unique_ptr<NtDescriptorPool> globalPool{};
+    std::unique_ptr<NtDescriptorSetLayout> globalSetLayout;
+
+    std::unique_ptr<NtDescriptorPool> modelPool{};
+    std::unique_ptr<NtDescriptorSetLayout> modelSetLayout;
+
     std::vector<NtGameObject> gameObjects;
 	};
 }

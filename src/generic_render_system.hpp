@@ -16,7 +16,7 @@ namespace nt
 	class GenericRenderSystem
 	{
 	public:
-    GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout);
+    GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout);
     ~GenericRenderSystem();
 
     GenericRenderSystem(const GenericRenderSystem&) = delete;
@@ -27,7 +27,7 @@ namespace nt
     void switchRenderMode(RenderMode newRenderMode);
 
 	private:
-    void createPipelineLayout(VkDescriptorSetLayout globalSetLayout);
+    void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout);
     void createPipeline(VkRenderPass renderPass);
     
     NtDevice &ntDevice;

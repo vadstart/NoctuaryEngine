@@ -38,7 +38,7 @@ public:
   id_t getId() { return id; }
 
   std::shared_ptr<NtModel> model{};
-  VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+  VkDescriptorSet materialDescriptorSet = VK_NULL_HANDLE;
   std::shared_ptr<NtImage> texture{};
   glm::vec3 color{};
   TransformComponent transform{};

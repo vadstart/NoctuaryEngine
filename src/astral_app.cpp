@@ -76,10 +76,12 @@ AstralApp::AstralApp()
   globalPool = NtDescriptorPool::Builder(ntDevice)
     .setMaxSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT)
     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, NtSwapChain::MAX_FRAMES_IN_FLIGHT)
-    .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, NtSwapChain::MAX_FRAMES_IN_FLIGHT)
     .build();
 
-  loadGameObjects();
+  modelPool = NtDescriptorPool::Builder(ntDevice)
+    .setMaxSets(100)
+    .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, NtSwapChain::MAX_FRAMES_IN_FLIGHT)
+    .build();
 }
 AstralApp::~AstralApp() {
   
@@ -98,32 +100,26 @@ void AstralApp::run() {
     uboBuffers[i]->map();
   }
 
-  auto globalSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+  globalSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
     .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
     .build();
 
-  std::shared_ptr<NtImage> globalTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/bunny_albedo.jpeg"));
+  modelSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+    .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+    .build();
     
   std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
   for(int i = 0; i < globalDescriptorSets.size(); i++) {
     auto bufferInfo = uboBuffers[i]->descriptorInfo();
 
-    VkDescriptorImageInfo imageInfo{};
-    imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    imageInfo.imageView = globalTexture->getImageView();
-    imageInfo.sampler = globalTexture->getSampler();
-
     NtDescriptorWriter(*globalSetLayout, *globalPool)
       .writeBuffer(0, &bufferInfo)
-      .writeImage(1, &imageInfo)
       .build(globalDescriptorSets[i]);
-
   }
 
   GlobalUbo ubo{};
 
-  GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout());
+  GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout(), modelSetLayout->getDescriptorSetLayout());
   NtCamera camera{};
   
   auto viewerObject = NtGameObject::createGameObject();
@@ -135,6 +131,8 @@ void AstralApp::run() {
   // Debug world grid
   auto debugGridObject = NtGameObject::createGameObject();
   debugGridObject.model = createGOPlane(1000.0f);
+
+  loadGameObjects();
 
   // Temporary implementation of DeltaTime
   auto currentTime = std::chrono::high_resolution_clock::now();
@@ -189,7 +187,6 @@ void AstralApp::run() {
         frameTimes[frameTimeOffset] = frameTime;
         frameTimeOffset = (frameTimeOffset + 1) % IM_ARRAYSIZE(frameTimes);
 
-        // Compute average and dynamic max
         float maxFrameTime = 0.0f;
         float avgFrameTime = 0.0f;
         for (int i = 0; i < IM_ARRAYSIZE(frameTimes); ++i) {
@@ -199,17 +196,14 @@ void AstralApp::run() {
         avgFrameTime /= IM_ARRAYSIZE(frameTimes);
         maxFrameTime = glm::clamp(maxFrameTime * 1.25f, 5.0f, 50.0f); // cap to avoid extreme spikes
 
-        // Color thresholds
         ImVec4 color;
-        if (avgFrameTime < 16.6f) color = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);        // Green (60+ FPS)
+        if (avgFrameTime < 16.8f) color = ImVec4(0.2f, 1.0f, 0.2f, 1.0f);        // Green (60+ FPS)
         else if (avgFrameTime < 33.3f) color = ImVec4(1.0f, 1.0f, 0.2f, 1.0f);   // Yellow (30–60 FPS)
         else color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f);                             // Red (<30 FPS)
 
-        // Overlay text
         char overlay[32];
         snprintf(overlay, sizeof(overlay), "avg %.2f ms", avgFrameTime);
 
-        // Push plot color
         ImGui::PushStyleColor(ImGuiCol_PlotLines, color);
         ImGui::PlotLines("", frameTimes, IM_ARRAYSIZE(frameTimes), frameTimeOffset,
                          overlay, 0.0f, maxFrameTime, ImVec2(0, 40.0f));
@@ -220,48 +214,58 @@ void AstralApp::run() {
 
         const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "LitWireframe", "Wireframe" };
         static int renderModeCurrent = 0;
-        ImGui::Combo("View", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
+        ImGui::Combo(" ", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
+        ImGui::SetItemTooltip("View mode");
         genericRenderSystem.switchRenderMode(static_cast<RenderMode>(renderModeCurrent));
 
-        ImGui::SetNextItemOpen(true, ImGuiCond_Once);
+        // ImGui::SetNextItemOpen(true, ImGuiCond_Once);
         if (ImGui::TreeNode("Camera"))
         {
           ImGui::Checkbox("Auto Rotate", &autoRotate);ImGui::SameLine();
-          if (ImGui::Button("Reset Cam")) {
+          if (ImGui::Button("Reset")) {
               targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
           }
 
           ImGui::RadioButton("Perspective", &cameraType, 0); ImGui::SameLine();
           ImGui::RadioButton("Orthographic", &cameraType, 1);
 
-          ImGui::Text("Camera position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
-          ImGui::Text("Camera rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
+          ImGui::Text("Position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
+          ImGui::Text("Rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
 
           ImGui::TreePop();
         }
 
-        const ImGuiSliderFlags flags_for_sliders = imgui_window_flags & ~ImGuiSliderFlags_WrapAround;
-        ImGui::SliderFloat("Light X", &ubo.lightDirection.x, -1.0f, 1.0f, "%.2f", flags_for_sliders);
-        ImGui::SliderFloat("Light Y", &ubo.lightDirection.y, -1.0f, 1.0f, "%.2f", flags_for_sliders);
-        ImGui::SliderFloat("Light Z", &ubo.lightDirection.z, -1.0f, 1.0f, "%.2f", flags_for_sliders);
+        if (ImGui::TreeNode("Lighting"))
+        {
+          const ImGuiSliderFlags flags_for_sliders = imgui_window_flags & ~ImGuiSliderFlags_WrapAround;
+          ImGui::SliderFloat("X", &ubo.lightDirection.x, -1.0f, 1.0f, "%.2f", flags_for_sliders);
+          ImGui::SliderFloat("Y", &ubo.lightDirection.y, -1.0f, 1.0f, "%.2f", flags_for_sliders);
+          ImGui::SliderFloat("Z", &ubo.lightDirection.z, -1.0f, 1.0f, "%.2f", flags_for_sliders);
 
-
-        int winW, winH, fbW, fbH;
-        glfwGetWindowSize(ntWindow.getGLFWwindow(), &winW, &winH);
-        glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &fbW, &fbH);
-        ImGui::Text("Window: X %.1u | Y %.1u", winW, winH);
-        ImGui::Text("Framebuffer: X %.1u | Y %.1u", fbW, fbH);
-        double xpos, ypos;
-        glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
-        ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
-
-        uint32_t totalVertexCount = 0;  
-        for (const auto& gobject : gameObjects) {
-          if (gobject.model) {
-            totalVertexCount += gobject.model->getVertexCount();
-          }
+          ImGui::TreePop();
         }
-        ImGui::Text("Vertex count: %u", totalVertexCount);
+
+        if (ImGui::TreeNode("Misc"))
+        {
+          int winW, winH, fbW, fbH;
+          glfwGetWindowSize(ntWindow.getGLFWwindow(), &winW, &winH);
+          glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &fbW, &fbH);
+          ImGui::Text("Window: X %.1u | Y %.1u", winW, winH);
+          ImGui::Text("Framebuffer: X %.1u | Y %.1u", fbW, fbH);
+          double xpos, ypos;
+          glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
+          ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
+
+          uint32_t totalVertexCount = 0;  
+          for (const auto& gobject : gameObjects) {
+            if (gobject.model) {
+              totalVertexCount += gobject.model->getVertexCount();
+            }
+          }
+          ImGui::Text("Vertex count: %u", totalVertexCount);
+
+          ImGui::TreePop();
+        }
 
         ImGui::End();
     }
@@ -375,11 +379,75 @@ std::unique_ptr<NtModel> AstralApp::createGOCube(float size) {
 
 void AstralApp::loadGameObjects() {
   auto go_VikingRoom = NtGameObject::createGameObject();
-  go_VikingRoom.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny_low.obj"));
-  // go_VikingRoom.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
-
-  // go_VikingRoom.transform.rotation = {0.0f, glm::radians(180.0f), 0.0f};
+  go_VikingRoom.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/viking_room.obj"));
+  go_VikingRoom.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
+  // TODO: refactor
+  VkDescriptorImageInfo imageInfo{};
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageInfo.imageView = go_VikingRoom.texture->getImageView();
+  imageInfo.sampler = go_VikingRoom.texture->getSampler();
+  bool success = NtDescriptorWriter(*modelSetLayout, *modelPool)
+      .writeImage(0, &imageInfo)
+      .build(go_VikingRoom.materialDescriptorSet);
+  if (!success) {
+      std::cerr << "Failed to build material descriptor set!" << std::endl;
+  }
+  go_VikingRoom.transform.rotation = {0.0f, glm::radians(180.0f), 0.0f};
   gameObjects.push_back(std::move(go_VikingRoom));
+
+
+
+  auto go_Bunny = NtGameObject::createGameObject();
+  go_Bunny.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny_low.obj"));
+  go_Bunny.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/bunny_albedo.jpeg"));
+
+  // TODO: refactor
+  // VkDescriptorImageInfo imageInfo{};
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageInfo.imageView = go_Bunny.texture->getImageView();
+  imageInfo.sampler = go_Bunny.texture->getSampler();
+  NtDescriptorWriter(*modelSetLayout, *modelPool)
+      .writeImage(0, &imageInfo)
+      .build(go_Bunny.materialDescriptorSet);
+
+  go_Bunny.transform.translation = {2.3f, 0.0f, 0.0f};
+  gameObjects.push_back(std::move(go_Bunny));
+
+  auto go_DewStalker_ground = NtGameObject::createGameObject();
+  go_DewStalker_ground.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dew_stalker_ground.obj"));
+  go_DewStalker_ground.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/dew_stalker_ground.png"));
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageInfo.imageView = go_DewStalker_ground.texture->getImageView();
+  imageInfo.sampler = go_DewStalker_ground.texture->getSampler();
+  NtDescriptorWriter(*modelSetLayout, *modelPool)
+      .writeImage(0, &imageInfo)
+      .build(go_DewStalker_ground.materialDescriptorSet);
+  go_DewStalker_ground.transform.translation = {-2.3f, 0.0f, 0.0f};
+  gameObjects.push_back(std::move(go_DewStalker_ground));
+
+  auto go_DewStalker_grass = NtGameObject::createGameObject();
+  go_DewStalker_grass.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dew_stalker_grass.obj"));
+  go_DewStalker_grass.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/dew_stalker_grass.png"));
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageInfo.imageView = go_DewStalker_grass.texture->getImageView();
+  imageInfo.sampler = go_DewStalker_grass.texture->getSampler();
+  NtDescriptorWriter(*modelSetLayout, *modelPool)
+      .writeImage(0, &imageInfo)
+      .build(go_DewStalker_grass.materialDescriptorSet);
+  go_DewStalker_grass.transform.translation = {-2.3f, 0.0f, 0.0f};
+  gameObjects.push_back(std::move(go_DewStalker_grass));
+
+  auto go_DewStalker = NtGameObject::createGameObject();
+  go_DewStalker.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dew_stalker.obj"));
+  go_DewStalker.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/dew_stalker.png"));
+  imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  imageInfo.imageView = go_DewStalker.texture->getImageView();
+  imageInfo.sampler = go_DewStalker.texture->getSampler();
+  NtDescriptorWriter(*modelSetLayout, *modelPool)
+      .writeImage(0, &imageInfo)
+      .build(go_DewStalker.materialDescriptorSet);
+  go_DewStalker.transform.translation = {-2.3f, 0.0f, 0.0f};
+  gameObjects.push_back(std::move(go_DewStalker));
 }
 
 }

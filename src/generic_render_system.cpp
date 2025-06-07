@@ -36,22 +36,25 @@ struct NtPushConstantData {
   alignas(16) glm::mat4 normalMatrix{1.f};
 };
 
-GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout) : ntDevice{device} {
-  createPipelineLayout(globalSetLayout);
+GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout) : ntDevice{device} {
+  createPipelineLayout(globalSetLayout, modelSetLayout);
   createPipeline(renderPass);
 }
 GenericRenderSystem::~GenericRenderSystem() {
   vkDestroyPipelineLayout(ntDevice.device(), pipelineLayout, nullptr);
 }
 
-void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout) {
+void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout) {
 
   VkPushConstantRange pushConstantRange{};
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
   pushConstantRange.offset = 0;
   pushConstantRange.size = sizeof(NtPushConstantData);
 
-  std::vector<VkDescriptorSetLayout> descriptorSetLayouts{globalSetLayout};
+  std::vector<VkDescriptorSetLayout> descriptorSetLayouts{
+    globalSetLayout,
+    modelSetLayout
+  };
 
   VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
   pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -153,6 +156,14 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<Nt
     0, nullptr);
 
   for (auto& obj: gameObjects) {
+      vkCmdBindDescriptorSets(
+        frameInfo.commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipelineLayout,
+        1, 1, 
+        &obj.materialDescriptorSet,
+        0, nullptr);
+
       NtPushConstantData push{};
       push.modelMatrix = obj.transform.mat4();
       push.normalMatrix = obj.transform.normalMatrix();
