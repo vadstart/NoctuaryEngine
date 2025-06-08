@@ -90,7 +90,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         ntDevice,
         litConfig,
         "shaders/lit_shader.vert.spv",
-        "shaders/texture_shader.frag.spv");
+        "shaders/texture_lit_shader.frag.spv");
 
     PipelineConfigInfo unlitConfig{};
     NtPipeline::defaultPipelineConfigInfo(unlitConfig, nt::RenderMode::Unlit);
@@ -101,7 +101,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
     ntDevice,
     unlitConfig,
     "shaders/unlit_shader.vert.spv",
-    "shaders/texture_shader.frag.spv");
+    "shaders/texture_unlit_shader.frag.spv");
 
     PipelineConfigInfo wirePipelineConfig{};
     NtPipeline::defaultPipelineConfigInfo(wirePipelineConfig, nt::RenderMode::Wireframe);

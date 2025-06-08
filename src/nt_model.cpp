@@ -18,7 +18,7 @@ template<>
 struct hash<nt::NtModel::Vertex> {
   size_t operator()(nt::NtModel::Vertex const &vertex) const {
     size_t seed = 0;
-    nt::hashCombine(seed, vertex.position, vertex.color, vertex.normal, vertex.uv, vertex.tangent);
+    nt::hashCombine(seed, vertex.position, vertex.color, vertex.normal, vertex.uv);
     return seed;
   }
 };
@@ -138,7 +138,6 @@ std::vector<VkVertexInputAttributeDescription> NtModel::Vertex::getAttributeDesc
   attributeDescriptions.push_back({1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color)});
   attributeDescriptions.push_back({2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)});
   attributeDescriptions.push_back({3, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)});
-  attributeDescriptions.push_back({4, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, tangent)});
 
   return attributeDescriptions;
 }

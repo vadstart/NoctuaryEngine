@@ -2,7 +2,6 @@
 
 layout(location = 0) in vec3 fragColor;
 layout(location = 1) in vec2 fragTexCoord;
-layout(location = 2) in vec3 TBN;
 layout(location = 3) in vec3 fragPosWorld;
 layout(location = 4) in vec3 fragNormalWorld;
 
