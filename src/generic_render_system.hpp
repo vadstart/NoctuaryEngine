@@ -23,7 +23,7 @@ namespace nt
 		GenericRenderSystem& operator=(const GenericRenderSystem&) = delete;
 
     void renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject, glm::vec3 cameraPos);
-    void renderGameObjects(FrameInfo &frameInfo, std::vector<NtGameObject> &gameObjects);
+    void renderGameObjects(FrameInfo &frameInfo);
     void switchRenderMode(RenderMode newRenderMode);
 
 	private:

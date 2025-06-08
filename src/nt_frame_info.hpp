@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nt_camera.hpp"
+#include "nt_game_object.hpp"
 #include "vulkan/vulkan_core.h"
 
 #include <vulkan/vulkan.h>
@@ -13,6 +14,7 @@ struct FrameInfo {
   VkCommandBuffer commandBuffer;
   NtCamera &camera;
   VkDescriptorSet globalDescriptorSet;
+  NtGameObject::Map &gameObjects;
 };
 
 }

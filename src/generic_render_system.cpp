@@ -126,7 +126,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/color_shader.frag.spv");
 }
 
-void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<NtGameObject> &gameObjects) {
+void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
 
   switch (currentRenderMode) {
         case nt::RenderMode::Unlit:
@@ -154,29 +154,32 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<Nt
     &frameInfo.globalDescriptorSet,
     0, nullptr);
 
-  for (auto& obj: gameObjects) {
-      vkCmdBindDescriptorSets(
-        frameInfo.commandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        pipelineLayout,
-        1, 1, 
-        &obj.materialDescriptorSet,
-        0, nullptr);
+  for (auto& kv: frameInfo.gameObjects) {
+    auto& obj = kv.second;
+    if (obj.model == nullptr) continue;    
 
-      NtPushConstantData push{};
-      push.modelMatrix = obj.transform.mat4();
-      push.normalMatrix = obj.transform.normalMatrix();
+    vkCmdBindDescriptorSets(
+      frameInfo.commandBuffer,
+      VK_PIPELINE_BIND_POINT_GRAPHICS,
+      pipelineLayout,
+      1, 1, 
+      &obj.materialDescriptorSet,
+      0, nullptr);
 
-      vkCmdPushConstants(
-        frameInfo.commandBuffer,
-        pipelineLayout,
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(NtPushConstantData),
-        &push);
+    NtPushConstantData push{};
+    push.modelMatrix = obj.transform.mat4();
+    push.normalMatrix = obj.transform.normalMatrix();
 
-      obj.model->bind(frameInfo.commandBuffer);
-      obj.model->draw(frameInfo.commandBuffer);
+    vkCmdPushConstants(
+      frameInfo.commandBuffer,
+      pipelineLayout,
+      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+      0,
+      sizeof(NtPushConstantData),
+      &push);
+
+    obj.model->bind(frameInfo.commandBuffer);
+    obj.model->draw(frameInfo.commandBuffer);
   }
 
 //===================================================
@@ -193,28 +196,31 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo, std::vector<Nt
       &frameInfo.globalDescriptorSet,
       0, nullptr);
 
-    for (auto& obj: gameObjects) {
-        NtPushConstantData push{};
-        push.modelMatrix = obj.transform.mat4();
-        push.normalMatrix = obj.transform.normalMatrix();
+    for (auto& kv: frameInfo.gameObjects) {
+      auto& obj = kv.second;
+      if (obj.model == nullptr) continue;
 
-        vkCmdSetDepthBias(
-          frameInfo.commandBuffer,
-          -0.5f,  // depthBiasConstantFactor
-          0.0f,   // depthBiasClamp
-          -0.25f   // depthBiasSlopeFactor
-        );
+      NtPushConstantData push{};
+      push.modelMatrix = obj.transform.mat4();
+      push.normalMatrix = obj.transform.normalMatrix();
 
-        vkCmdPushConstants(
-          frameInfo.commandBuffer,
-          pipelineLayout,
-          VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-          0,
-          sizeof(NtPushConstantData),
-          &push);
+      vkCmdSetDepthBias(
+        frameInfo.commandBuffer,
+        -0.5f,  // depthBiasConstantFactor
+        0.0f,   // depthBiasClamp
+        -0.25f   // depthBiasSlopeFactor
+      );
 
-        obj.model->bind(frameInfo.commandBuffer);
-        obj.model->draw(frameInfo.commandBuffer);
+      vkCmdPushConstants(
+        frameInfo.commandBuffer,
+        pipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        0,
+        sizeof(NtPushConstantData),
+        &push);
+
+      obj.model->bind(frameInfo.commandBuffer);
+      obj.model->draw(frameInfo.commandBuffer);
     }
   }
 

@@ -44,6 +44,6 @@ namespace nt
     std::unique_ptr<NtDescriptorPool> modelPool{};
     std::unique_ptr<NtDescriptorSetLayout> modelSetLayout;
 
-    std::vector<NtGameObject> gameObjects;
+  NtGameObject::Map gameObjects;
 	};
 }
