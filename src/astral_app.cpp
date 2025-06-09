@@ -121,7 +121,7 @@ void AstralApp::run() {
   auto viewerObject = NtGameObject::createGameObject();
   viewerObject.transform.rotation = {glm::radians(-25.0f), glm::radians(-135.0f), 0};
   auto targetObject = NtGameObject::createGameObject();
-  targetObject.transform.translation = {-0.05f, -.3f, 0};
+  targetObject.transform.translation = {-0.1f, -0.5f, 0};
   NtInputController inputController{};
 
   // Debug world grid
@@ -208,7 +208,7 @@ void AstralApp::run() {
         ImGui::Text("Current FPS: %.1f", io.Framerate);
 
 
-        const char* renderModeItems[] = { "Lit", "Unlit", "Lighting", "Normals", "LitWireframe", "Wireframe" };
+        const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "LitWireframe", "Wireframe" };
         static int renderModeCurrent = 0;
         ImGui::Combo(" ", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
         ImGui::SetItemTooltip("View mode");
@@ -312,21 +312,29 @@ void AstralApp::run() {
 
       // Animate the lights
       genericRenderSystem.updateLights(frameInfo, ubo);
+
       float time = static_cast<float>(glfwGetTime());
-      float t = time * 1.25f;
-      float radius = 1.0f;
-      ubo.pointLights[0].position = glm::vec4 {     
-        -.3f - glm::sin(t) * radius,
-        -1.2f - glm::sin(t) * glm::cos(t) * radius * .5f,
-        -1.25f,
-        0
-      };
-      ubo.pointLights[1].position = glm::vec4 {     
-        -.3f - glm::sin(t) * radius,
-        -1.2f - glm::sin(t) * glm::cos(t) * radius * .5f,
-        1.25f,
-        0
-      };
+      float orbitRadius = 1.5f;
+      float bounceAmplitude = 0.3f;
+      float speed = .5f;
+
+      for (int i = 0; i < ubo.numLights; i++) {
+          float angleOffset = glm::two_pi<float>() * i / ubo.numLights;
+          float t = time * speed + angleOffset;
+
+          // Circular orbit on XZ plane
+          float x = glm::cos(t) * orbitRadius;
+          float z = glm::sin(t) * orbitRadius;
+
+          // Optional: Figure-8 shape (Lissajous-like curve)
+          // float x = glm::sin(t) * orbitRadius;
+          // float z = glm::sin(2 * t) * orbitRadius * 0.5f;
+
+          // Vertical bounce (like dancing)
+          float y = -1.2f + glm::sin(t * 2.0f) * bounceAmplitude;
+
+          ubo.pointLights[i].position = glm::vec4(x, y, z, 1.0f);
+      }
 
       uboBuffers[frameIndex]->writeToBuffer(&ubo);
       uboBuffers[frameIndex]->flush();
@@ -502,10 +510,13 @@ void AstralApp::loadGameObjects() {
   // go_DewStalker.transform.translation = {-2.3f, 0.0f, 0.0f};
   // gameObjects.emplace(go_DewStalker.getId(), std::move(go_DewStalker));
   
-  auto PointLight1 = NtGameObject::makePointLight(5.0f, 0.1f, glm::vec3(1.f, 0.f, 0.f));
+  auto PointLight1 = NtGameObject::makePointLight(2.5f, 0.5f);
   gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
-  auto PointLight2 = NtGameObject::makePointLight(5.0f, 0.1f, glm::vec3(0.f, 1.f, 1.f));
+  auto PointLight2 = NtGameObject::makePointLight(1.5f, 0.1f, glm::vec3(0.f, 1.f, 1.f));
   gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
+  auto PointLight3 = NtGameObject::makePointLight(.5f, 0.1f, glm::vec3(1.f, 0.f, 0.f));
+  gameObjects.emplace(PointLight3.getId(), std::move(PointLight3));
+
 }
 
 }
