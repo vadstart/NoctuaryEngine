@@ -3,6 +3,7 @@
 #include "nt_model.hpp"
 #include "nt_image.hpp"
 
+#include <glm/fwd.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #include <memory>
@@ -21,6 +22,10 @@ struct TransformComponent {
   glm::mat3 normalMatrix();
 };
 
+struct PointLightComponent {
+  float lightIntensity = 1.0f;
+};
+
 class NtGameObject {
 public:
   using id_t = unsigned int;
@@ -31,19 +36,23 @@ public:
     return NtGameObject{currentId++};
   }
 
+  static NtGameObject makePointLight(float intensity = 5.0f, float radius = 0.1f, glm::vec3 color = glm::vec3(1.0f));
+
   NtGameObject(const NtGameObject &) = delete;
   NtGameObject &operator=(const NtGameObject &) = delete;
   NtGameObject(NtGameObject&&) = default;
   NtGameObject &operator=(NtGameObject&&) = default;
 
   id_t getId() { return id; }
+  
+  glm::vec3 color{};
+  TransformComponent transform{};
 
   std::shared_ptr<NtModel> model{};
   VkDescriptorSet materialDescriptorSet = VK_NULL_HANDLE;
   std::shared_ptr<NtImage> diffuseTexture{};
   std::shared_ptr<NtImage> normalTexture{};
-  glm::vec3 color{};
-  TransformComponent transform{};
+  std::unique_ptr<PointLightComponent> pointLight = nullptr;
 
 private:
   NtGameObject(id_t objId) : id{objId} {}

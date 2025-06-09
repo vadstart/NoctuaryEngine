@@ -22,6 +22,8 @@ namespace nt
     GenericRenderSystem(const GenericRenderSystem&) = delete;
 		GenericRenderSystem& operator=(const GenericRenderSystem&) = delete;
 
+    void updateLights(FrameInfo &frameInfo, GlobalUbo &ubo);
+
     void renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject, glm::vec3 cameraPos);
     void renderGameObjects(FrameInfo &frameInfo);
     void switchRenderMode(RenderMode newRenderMode);

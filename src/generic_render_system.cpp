@@ -6,6 +6,7 @@
 #include "nt_types.hpp"
 #include "vulkan/vulkan_core.h"
 #include <cstdint>
+#include <glm/fwd.hpp>
 #include <iostream>
 #include <vector>
 
@@ -28,6 +29,12 @@ struct GridPushConstants {
     float gridSpacing = 1.0f;
     float lineThickness = 1.0f;
     float fadeDistance = 50.0f;
+};
+
+struct PointLightPushConstants {
+  glm::vec4 position{};
+  glm::vec4 color{};
+  float radius;
 };
 
 struct NtPushConstantData {
@@ -124,6 +131,23 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         normalsPipelineConfig,
         "shaders/normals_shader.vert.spv",
         "shaders/color_shader.frag.spv");
+}
+
+void GenericRenderSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo) {
+  int lightIndex = 0;
+  for (auto& kv: frameInfo.gameObjects) {
+    auto &obj = kv.second;
+    if (obj.pointLight == nullptr) continue;
+
+    assert(lightIndex < MAX_LIGHTS && "Point lights exceed maximum specified!");
+
+    // copy the light to ubo
+    ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
+    ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
+
+    lightIndex += 1;
+  }
+  ubo.numLights = lightIndex;
 }
 
 void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {

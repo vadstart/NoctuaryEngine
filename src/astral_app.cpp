@@ -30,17 +30,6 @@
 #include <cassert>
 #include <memory>
 
-struct GlobalUbo {
-  glm::mat4 projection{1.f};
-  glm::mat4 view{1.f};
-  glm::mat4 inverseView{1.f};
-
-  glm::vec4 ambientLightColor{1.f, 1.f, 1.f, 0.03f};
-  
-  glm::vec3 lightPosition{-1.f};
-  alignas(16) glm::vec4 lightColor{1.f, 1.f, 1.f, 2.f};
-};
-
 namespace nt
 {
 
@@ -255,11 +244,11 @@ void AstralApp::run() {
           static bool hdr = false;
           ImGuiColorEditFlags misc_flags = (hdr ? ImGuiColorEditFlags_HDR : 0) | (drag_and_drop ? 0 : ImGuiColorEditFlags_NoDragDrop) | (alpha_half_preview ? ImGuiColorEditFlags_AlphaPreviewHalf : (alpha_preview ? ImGuiColorEditFlags_AlphaPreview : 0)) | (options_menu ? 0 : ImGuiColorEditFlags_NoOptions);
           ImGui::ColorEdit4("Ambient", (float*)&ubo.ambientLightColor, ImGuiColorEditFlags_DisplayHSV |  misc_flags);
-          ImGui::ColorEdit4("Point", (float*)&ubo.lightColor, ImGuiColorEditFlags_DisplayHSV |  misc_flags);
-          const ImGuiSliderFlags flags_for_sliders = imgui_window_flags & ~ImGuiSliderFlags_WrapAround;
-          ImGui::SliderFloat("X", &ubo.lightPosition.x, -5.0f, 5.0f, "%.2f", flags_for_sliders);
-          ImGui::SliderFloat("Y", &ubo.lightPosition.y, -5.0f, 5.0f, "%.2f", flags_for_sliders);
-          ImGui::SliderFloat("Z", &ubo.lightPosition.z, -5.0f, 5.0f, "%.2f", flags_for_sliders);
+          // ImGui::ColorEdit4("Point", (float*)&ubo.lightColor, ImGuiColorEditFlags_DisplayHSV |  misc_flags);
+          // const ImGuiSliderFlags flags_for_sliders = imgui_window_flags & ~ImGuiSliderFlags_WrapAround;
+          // ImGui::SliderFloat("X", &ubo.lightPosition.x, -5.0f, 5.0f, "%.2f", flags_for_sliders);
+          // ImGui::SliderFloat("Y", &ubo.lightPosition.y, -5.0f, 5.0f, "%.2f", flags_for_sliders);
+          // ImGui::SliderFloat("Z", &ubo.lightPosition.z, -5.0f, 5.0f, "%.2f", flags_for_sliders);
 
           ImGui::TreePop();
         }
@@ -320,15 +309,25 @@ void AstralApp::run() {
       ubo.projection = camera.getProjection();
       ubo.view = camera.getView();
       ubo.inverseView = camera.getInverseView();
+
+      // Animate the lights
+      genericRenderSystem.updateLights(frameInfo, ubo);
       float time = static_cast<float>(glfwGetTime());
       float t = time * 1.25f;
       float radius = 1.0f;
-      ubo.lightPosition = glm::vec3 {     
+      ubo.pointLights[0].position = glm::vec4 {     
         -.3f - glm::sin(t) * radius,
         -1.2f - glm::sin(t) * glm::cos(t) * radius * .5f,
-        -1.25f
+        -1.25f,
+        0
       };
-      // gameObjects[0].transform.translation = ubo.lightPosition;
+      ubo.pointLights[1].position = glm::vec4 {     
+        -.3f - glm::sin(t) * radius,
+        -1.2f - glm::sin(t) * glm::cos(t) * radius * .5f,
+        1.25f,
+        0
+      };
+
       uboBuffers[frameIndex]->writeToBuffer(&ubo);
       uboBuffers[frameIndex]->flush();
 
@@ -502,6 +501,11 @@ void AstralApp::loadGameObjects() {
   //     .build(go_DewStalker.materialDescriptorSet);
   // go_DewStalker.transform.translation = {-2.3f, 0.0f, 0.0f};
   // gameObjects.emplace(go_DewStalker.getId(), std::move(go_DewStalker));
+  
+  auto PointLight1 = NtGameObject::makePointLight(5.0f, 0.1f, glm::vec3(1.f, 0.f, 0.f));
+  gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
+  auto PointLight2 = NtGameObject::makePointLight(5.0f, 0.1f, glm::vec3(0.f, 1.f, 1.f));
+  gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
 }
 
 }

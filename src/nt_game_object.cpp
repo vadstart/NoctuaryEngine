@@ -1,4 +1,5 @@
 #include "nt_game_object.hpp"
+#include <memory>
 
 namespace nt {
 
@@ -57,6 +58,16 @@ glm::mat3 TransformComponent::normalMatrix() {
           invScale.z * (c1 * c2),
       },
   };
+}
+
+NtGameObject NtGameObject::makePointLight(float intensity, float radius, glm::vec3 color) {
+  NtGameObject gameObj = NtGameObject::createGameObject();
+  gameObj.color = color;
+  gameObj.transform.scale.x = radius;
+  gameObj.pointLight = std::make_unique<PointLightComponent>();
+  gameObj.pointLight->lightIntensity = intensity;
+
+  return gameObj;
 }
 
 }
