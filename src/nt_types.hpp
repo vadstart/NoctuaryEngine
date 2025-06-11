@@ -11,6 +11,8 @@ enum class RenderMode {
   Lit,
   Unlit,
   Normals,
+  Depth,
+  Lighting,
   LitWireframe,
   Wireframe,
   DebugGrid

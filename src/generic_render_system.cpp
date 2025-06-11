@@ -131,6 +131,17 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         normalsPipelineConfig,
         "shaders/normals_shader.vert.spv",
         "shaders/color_shader.frag.spv");
+
+    PipelineConfigInfo depthPipelineConfig{};
+    NtPipeline::defaultPipelineConfigInfo(depthPipelineConfig, nt::RenderMode::Depth);
+    depthPipelineConfig.renderPass = renderPass;
+    depthPipelineConfig.pipelineLayout = pipelineLayout;
+
+    depthPipeline = std::make_unique<NtPipeline>(
+        ntDevice,
+        depthPipelineConfig,
+        "shaders/depth_shader.vert.spv",
+        "shaders/depth_shader.frag.spv");
 }
 
 void GenericRenderSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo) {
@@ -159,6 +170,10 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
         
         case nt::RenderMode::Wireframe:
           wireframePipeline->bind(frameInfo.commandBuffer);
+          break;
+
+        case nt::RenderMode::Depth:
+          depthPipeline->bind(frameInfo.commandBuffer);
           break;
 
         case nt::RenderMode::Normals:

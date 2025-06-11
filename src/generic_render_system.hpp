@@ -39,6 +39,7 @@ namespace nt
     std::unique_ptr<NtPipeline> unlitPipeline;
     std::unique_ptr<NtPipeline> wireframePipeline;
     std::unique_ptr<NtPipeline> normalsPipeline;
+    std::unique_ptr<NtPipeline> depthPipeline;
     VkPipelineLayout pipelineLayout;
 
     RenderMode currentRenderMode = RenderMode::Lit;

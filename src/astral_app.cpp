@@ -208,7 +208,7 @@ void AstralApp::run() {
         ImGui::Text("Current FPS: %.1f", io.Framerate);
 
 
-        const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "LitWireframe", "Wireframe" };
+        const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "Depth", "Lighting", "LitWireframe", "Wireframe" };
         static int renderModeCurrent = 0;
         ImGui::Combo(" ", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
         ImGui::SetItemTooltip("View mode");
@@ -473,6 +473,24 @@ void AstralApp::loadGameObjects() {
 
   // go_Bunny.transform.translation = {2.3f, 0.0f, 0.0f};
   gameObjects.emplace(go_Bunny.getId(), std::move(go_Bunny));
+
+  auto go_Kafka = NtGameObject::createGameObject();
+  go_Kafka.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Kafka.obj"));
+  // go_Kafka.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
+  // TODO: refactor
+  // VkDescriptorImageInfo imageInfo{};
+  // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  // imageInfo.imageView = go_VikingRoom.texture->getImageView();
+  // imageInfo.sampler = go_VikingRoom.texture->getSampler();
+  // bool success = NtDescriptorWriter(*modelSetLayout, *modelPool)
+  //     .writeImage(0, &imageInfo)
+  //     .build(go_VikingRoom.materialDescriptorSet);
+  // if (!success) {
+  //     std::cerr << "Failed to build material descriptor set!" << std::endl;
+  // }
+  go_Kafka.transform.translation = {0.0f, 0.0f, 5.0f};
+  go_Kafka.transform.scale = glm::vec3(.3f);
+  gameObjects.emplace(go_Kafka.getId(), std::move(go_Kafka));
 
   // auto go_DewStalker_ground = NtGameObject::createGameObject();
   // go_DewStalker_ground.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dew_stalker_ground.obj"));
