@@ -150,6 +150,7 @@ void AstralApp::run() {
     ImGui::NewFrame();
 
     ImGuiIO& io = ImGui::GetIO();
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
     // TODO: Refactor inputs and camera controls
     // if (!ntWindow.getShowCursor()) {
@@ -174,8 +175,7 @@ void AstralApp::run() {
     {
         ImGuiWindowFlags imgui_window_flags = 0;
         ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
-        // ImGui::Text("%.3f ms/frame | %.1f FPS ", 1000.0f / io.Framerate, io.Framerate);
-        
+
         static float frameTimes[120] = {};
         static int frameTimeOffset = 0;
 
