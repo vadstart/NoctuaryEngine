@@ -150,7 +150,16 @@ void AstralApp::run() {
     ImGui::NewFrame();
 
     ImGuiIO& io = ImGui::GetIO();
-    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    int windowW, windowH;
+    int framebufferW, framebufferH;
+    glfwGetWindowSize(ntWindow.getGLFWwindow(), &windowW, &windowH);
+    glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &framebufferW, &framebufferH);
+
+    ImVec2 scale = ImVec2(
+        windowW > 0 ? (float)framebufferW / windowW : 1.0f,
+        windowH > 0 ? (float)framebufferH / windowH : 1.0f
+    );
+    io.DisplayFramebufferScale = scale;
 
     // TODO: Refactor inputs and camera controls
     // if (!ntWindow.getShowCursor()) {
@@ -282,14 +291,14 @@ void AstralApp::run() {
     float aspect = ntRenderer.getAspectRatio();
 
     if (!cameraType) {
-      camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 100.f);
+      camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 50.f);
     }
     else
     {
       float zoom = inputController.orthoZoomLevel; // ← from inputController
       float halfHeight = zoom;
       float halfWidth = aspect * halfHeight;
-      camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, 0.1f, 100.f);
+      camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, 0.1f, 50.f);
     }
     
 
@@ -488,9 +497,9 @@ void AstralApp::loadGameObjects() {
   // if (!success) {
   //     std::cerr << "Failed to build material descriptor set!" << std::endl;
   // }
-  go_Kafka.transform.translation = {0.0f, 0.0f, 5.0f};
-  go_Kafka.transform.scale = glm::vec3(.3f);
-  gameObjects.emplace(go_Kafka.getId(), std::move(go_Kafka));
+  // go_Kafka.transform.translation = {0.0f, 0.0f, 5.0f};
+  // go_Kafka.transform.scale = glm::vec3(.3f);
+  // gameObjects.emplace(go_Kafka.getId(), std::move(go_Kafka));
 
   // auto go_DewStalker_ground = NtGameObject::createGameObject();
   // go_DewStalker_ground.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dew_stalker_ground.obj"));

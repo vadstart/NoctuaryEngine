@@ -10,8 +10,8 @@ layout(push_constant) uniform Push {
 } push;
 
 void main() {
-  float depth = fragPosView.z / 25.0; // TODO:Dynamically replace with CameraFar
-  depth = pow(depth, 1.0 / 2.2);;
+  float depth = fragPosView.z / 50.0; // TODO:Dynamically replace with CameraFar
+  depth = pow(depth, 1.0 / 2.2);
   depth = 1.0 - depth;
 
   outColor = vec4(vec3(depth), 1.0f);
