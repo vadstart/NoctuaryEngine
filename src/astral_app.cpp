@@ -159,7 +159,7 @@ void AstralApp::run() {
         windowW > 0 ? (float)framebufferW / windowW : 1.0f,
         windowH > 0 ? (float)framebufferH / windowH : 1.0f
     );
-    io.DisplayFramebufferScale = scale;
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
     // TODO: Refactor inputs and camera controls
     // if (!ntWindow.getShowCursor()) {
@@ -291,14 +291,14 @@ void AstralApp::run() {
     float aspect = ntRenderer.getAspectRatio();
 
     if (!cameraType) {
-      camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 50.f);
+      camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 500.f);
     }
     else
     {
       float zoom = inputController.orthoZoomLevel; // ← from inputController
       float halfHeight = zoom;
       float halfWidth = aspect * halfHeight;
-      camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, 0.1f, 50.f);
+      camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, 0.1f, 500.f);
     }
     
 
@@ -458,12 +458,36 @@ void AstralApp::loadGameObjects() {
   //     .writeImage(0, &diffuseInfo)
   //     .build(floorObject.materialDescriptorSet);
   // gameObjects.emplace(floorObject.getId(), std::move(floorObject));
+  
+  auto go_Atrium = NtGameObject::createGameObject();
+  go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/sponza.obj"));
+  go_Atrium.diffuseTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/sponza/sponza_floor_a_diff.tga"));
+
+  VkDescriptorImageInfo diffuseInfo{};
+  diffuseInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  diffuseInfo.imageView = go_Atrium.diffuseTexture->getImageView();
+  diffuseInfo.sampler = go_Atrium.diffuseTexture->getSampler();
+
+  // go_Atrium.normalTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/bunny_normal.png"));
+
+  // VkDescriptorImageInfo normalInfo{};
+  // normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  // normalInfo.imageView = go_Atrium.normalTexture->getImageView();
+  // normalInfo.sampler = go_Atrium.normalTexture->getSampler();
+
+  NtDescriptorWriter(*modelSetLayout, *modelPool)
+      .writeImage(0, &diffuseInfo)
+      // .writeImage(1, &normalInfo)
+      .build(go_Atrium.materialDescriptorSet);
+
+  go_Atrium.transform.scale = {0.2f, 0.2f, 0.2f};
+  gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
 
   auto go_Bunny = NtGameObject::createGameObject();
   go_Bunny.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny_low.obj"));
   go_Bunny.diffuseTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/bunny_albedo.jpeg"));
 
-  VkDescriptorImageInfo diffuseInfo{};
+  // VkDescriptorImageInfo diffuseInfo{};
   diffuseInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
   diffuseInfo.imageView = go_Bunny.diffuseTexture->getImageView();
   diffuseInfo.sampler = go_Bunny.diffuseTexture->getSampler();
@@ -480,11 +504,11 @@ void AstralApp::loadGameObjects() {
       .writeImage(1, &normalInfo)
       .build(go_Bunny.materialDescriptorSet);
 
-  // go_Bunny.transform.translation = {2.3f, 0.0f, 0.0f};
+   // go_Bunny.transform.translation = {2.3f, 0.0f, 0.0f};
   gameObjects.emplace(go_Bunny.getId(), std::move(go_Bunny));
 
-  auto go_Kafka = NtGameObject::createGameObject();
-  go_Kafka.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Kafka.obj"));
+  // auto go_Kafka = NtGameObject::createGameObject();
+  // go_Kafka.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Kafka.obj"));
   // go_Kafka.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
   // TODO: refactor
   // VkDescriptorImageInfo imageInfo{};
