@@ -323,8 +323,8 @@ void AstralApp::run() {
       genericRenderSystem.updateLights(frameInfo, ubo);
 
       float time = static_cast<float>(glfwGetTime());
-      float orbitRadius = 1.5f;
-      float bounceAmplitude = 0.3f;
+      float orbitRadius = 7.0f;
+      float bounceAmplitude = 1.0f;
       float speed = .5f;
 
       for (int i = 0; i < ubo.numLights; i++) {
@@ -460,8 +460,8 @@ void AstralApp::loadGameObjects() {
   // gameObjects.emplace(floorObject.getId(), std::move(floorObject));
   
   auto go_Atrium = NtGameObject::createGameObject();
-  go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/sponza.obj"));
-  go_Atrium.diffuseTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/sponza/sponza_floor_a_diff.tga"));
+  go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe.obj"));
+  go_Atrium.diffuseTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/floor_diffuse.jpg"));
 
   VkDescriptorImageInfo diffuseInfo{};
   diffuseInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
@@ -480,7 +480,8 @@ void AstralApp::loadGameObjects() {
       // .writeImage(1, &normalInfo)
       .build(go_Atrium.materialDescriptorSet);
 
-  go_Atrium.transform.scale = {0.2f, 0.2f, 0.2f};
+  go_Atrium.transform.scale = {2.0f, 2.0f, 2.0f};
+  go_Atrium.transform.translation = {-20.0f, 0.0f, 20.0f};
   gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
 
   auto go_Bunny = NtGameObject::createGameObject();
@@ -561,11 +562,11 @@ void AstralApp::loadGameObjects() {
   // go_DewStalker.transform.translation = {-2.3f, 0.0f, 0.0f};
   // gameObjects.emplace(go_DewStalker.getId(), std::move(go_DewStalker));
   
-  auto PointLight1 = NtGameObject::makePointLight(2.5f, 0.5f);
+  auto PointLight1 = NtGameObject::makePointLight(2.5f, 1.5f);
   gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
-  auto PointLight2 = NtGameObject::makePointLight(1.5f, 0.1f, glm::vec3(0.f, 1.f, 1.f));
+  auto PointLight2 = NtGameObject::makePointLight(1.5f, 1.1f, glm::vec3(0.f, 1.f, 1.f));
   gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
-  auto PointLight3 = NtGameObject::makePointLight(.5f, 0.1f, glm::vec3(1.f, 0.f, 0.f));
+  auto PointLight3 = NtGameObject::makePointLight(.5f, 1.1f, glm::vec3(1.f, 0.f, 0.f));
   gameObjects.emplace(PointLight3.getId(), std::move(PointLight3));
 
 }
