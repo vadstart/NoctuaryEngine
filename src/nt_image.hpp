@@ -9,12 +9,13 @@ class NtImage {
 public:
   NtImage(NtDevice &device);
   ~NtImage();
-  
+
   NtImage(const NtImage &) = delete;
   NtImage& operator=(const NtImage &) = delete;
 
   static std::unique_ptr<NtImage> createTextureFromFile(NtDevice &device, const std::string &filepath);
-  
+  static std::unique_ptr<NtImage> createTextureFromMemory(NtDevice &device, const void *data, size_t size);
+
   VkImageView getImageView() const { return textureImageView; }
   VkSampler getSampler() const { return textureSampler; }
 

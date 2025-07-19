@@ -11,28 +11,30 @@ layout(location = 3) out vec3 fragPosWorld;
 layout(location = 4) out vec3 fragNormalWorld;
 
 layout(set = 0, binding = 0) uniform GlobalUbo {
-  mat4 projection;
-  mat4 view;
+    mat4 projection;
+    mat4 view;
 
-  mat4 inverseView;
-  vec4 ambientLightColor;
-  
-  vec3 lightPosition;
-  vec4 lightColor;
+    mat4 inverseView;
+    vec4 ambientLightColor;
+
+    vec3 lightPosition;
+    vec4 lightColor;
 } ubo;
 
 layout(push_constant) uniform Push {
-  mat4 modelMatrix;
-  mat4 normalMatrix;
+    mat4 modelMatrix;
+    mat4 normalMatrix;
+    int hasNormalTexture;
+    int debugMode;
 } push;
 
 void main() {
-  // Transform to World Space
-  vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
-  gl_Position = ubo.projection * ubo.view * positionWorld;
+    // Transform to World Space
+    vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
+    gl_Position = ubo.projection * ubo.view * positionWorld;
 
-  fragColor = vec3(1.0f, 1.0f, 1.0f);
-  fragTexCoord = uv;
-  fragPosWorld = positionWorld.xyz;
-  fragNormalWorld = normal;
+    fragColor = vec3(1.0f, 1.0f, 1.0f);
+    fragTexCoord = uv;
+    fragPosWorld = positionWorld.xyz;
+    fragNormalWorld = normal;
 }

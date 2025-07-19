@@ -76,6 +76,8 @@ class NtDescriptorPool {
 
   void resetPool();
 
+  VkDescriptorPool getDescriptorPool() const { return descriptorPool; }
+
  private:
   NtDevice &ntDevice;
   VkDescriptorPool descriptorPool;

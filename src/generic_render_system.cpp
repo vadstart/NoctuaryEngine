@@ -17,7 +17,7 @@
 #include <glm/gtc/constants.hpp>
 
 // Std
-#include <cassert> 
+#include <cassert>
 #include <memory>
 #include <stdexcept>
 
@@ -40,6 +40,8 @@ struct PointLightPushConstants {
 struct NtPushConstantData {
   alignas(16) glm::mat4 modelMatrix{1.f};
   alignas(16) glm::mat4 normalMatrix{1.f};
+  alignas(4) int hasNormalTexture{0};
+  alignas(4) int debugMode{0};
 };
 
 GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout) : ntDevice{device} {
@@ -167,7 +169,7 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
         case nt::RenderMode::Unlit:
           unlitPipeline->bind(frameInfo.commandBuffer);
           break;
-        
+
         case nt::RenderMode::Wireframe:
           wireframePipeline->bind(frameInfo.commandBuffer);
           break;
@@ -195,34 +197,52 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
 
   for (auto& kv: frameInfo.gameObjects) {
     auto& obj = kv.second;
-    if (obj.model == nullptr) continue;    
+    if (obj.model == nullptr) continue;
 
-    vkCmdBindDescriptorSets(
-      frameInfo.commandBuffer,
-      VK_PIPELINE_BIND_POINT_GRAPHICS,
-      pipelineLayout,
-      1, 1, 
-      &obj.materialDescriptorSet,
-      0, nullptr);
+    // Render each mesh with its own material
+    const auto& materials = obj.model->getMaterials();
+    for (uint32_t meshIndex = 0; meshIndex < obj.model->getMeshCount(); ++meshIndex) {
 
-    NtPushConstantData push{};
-    push.modelMatrix = obj.transform.mat4();
-    push.normalMatrix = obj.transform.normalMatrix();
+      // Bind the material descriptor set for this specific mesh
+      uint32_t materialIndex = obj.model->getMaterialIndex(meshIndex);
+      if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
+        VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
+        vkCmdBindDescriptorSets(
+          frameInfo.commandBuffer,
+          VK_PIPELINE_BIND_POINT_GRAPHICS,
+          pipelineLayout,
+          1, 1,
+          &materialDescriptorSet,
+          0, nullptr);
+      }
 
-    vkCmdPushConstants(
-      frameInfo.commandBuffer,
-      pipelineLayout,
-      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-      0,
-      sizeof(NtPushConstantData),
-      &push);
+      NtPushConstantData push{};
+      push.modelMatrix = obj.transform.mat4();
+      push.normalMatrix = obj.transform.normalMatrix();
+      push.debugMode = 0; // Normal rendering
 
-    obj.model->bind(frameInfo.commandBuffer);
-    obj.model->draw(frameInfo.commandBuffer);
+      // Get the material for this specific mesh
+      if (materials.size() > materialIndex) {
+        push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
+      } else {
+        push.hasNormalTexture = 0;
+      }
+
+      vkCmdPushConstants(
+        frameInfo.commandBuffer,
+        pipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        0,
+        sizeof(NtPushConstantData),
+        &push);
+
+      obj.model->bind(frameInfo.commandBuffer, meshIndex);
+      obj.model->draw(frameInfo.commandBuffer, meshIndex);
+    }
   }
 
 //===================================================
-//  Visualize Wireframe ON TOP of regular rendering  
+//  Visualize Wireframe ON TOP of regular rendering
 //===================================================
   if (currentRenderMode == RenderMode::LitWireframe) {
     wireframePipeline->bind(frameInfo.commandBuffer);
@@ -239,27 +259,59 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
       auto& obj = kv.second;
       if (obj.model == nullptr) continue;
 
-      NtPushConstantData push{};
-      push.modelMatrix = obj.transform.mat4();
-      push.normalMatrix = obj.transform.normalMatrix();
+      // Render each mesh with its own material (wireframe mode)
+      const auto& materials = obj.model->getMaterials();
+      for (uint32_t meshIndex = 0; meshIndex < obj.model->getMeshCount(); ++meshIndex) {
+          // Debug: Print material usage for verification
+          if (meshIndex == 0) {
+            std::cout << "Rendering model with " << obj.model->getMeshCount() << " meshes and " << materials.size() << " materials" << std::endl;
+          }
 
-      vkCmdSetDepthBias(
-        frameInfo.commandBuffer,
-        -0.5f,  // depthBiasConstantFactor
-        0.0f,   // depthBiasClamp
-        -0.25f   // depthBiasSlopeFactor
-      );
+        // Bind the material descriptor set for this specific mesh
+        uint32_t materialIndex = obj.model->getMaterialIndex(meshIndex);
+        if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
+          VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
+          vkCmdBindDescriptorSets(
+            frameInfo.commandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipelineLayout,
+            1, 1,
+            &materialDescriptorSet,
+            0, nullptr);
+        }
 
-      vkCmdPushConstants(
-        frameInfo.commandBuffer,
-        pipelineLayout,
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(NtPushConstantData),
-        &push);
+        NtPushConstantData push{};
+        push.modelMatrix = obj.transform.mat4();
+        push.normalMatrix = obj.transform.normalMatrix();
+        push.debugMode = 0; // Normal rendering
 
-      obj.model->bind(frameInfo.commandBuffer);
-      obj.model->draw(frameInfo.commandBuffer);
+        // Get the material for this specific mesh
+        if (materials.size() > materialIndex) {
+          push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
+          std::cout << "  Mesh " << meshIndex << " using material " << materialIndex << " (hasNormal: " << push.hasNormalTexture << ")" << std::endl;
+        } else {
+          push.hasNormalTexture = 0;
+          std::cout << "  Mesh " << meshIndex << " using default material (no normal)" << std::endl;
+        }
+
+        vkCmdSetDepthBias(
+          frameInfo.commandBuffer,
+          -0.5f,  // depthBiasConstantFactor
+          0.0f,   // depthBiasClamp
+          -0.25f   // depthBiasSlopeFactor
+        );
+
+        vkCmdPushConstants(
+          frameInfo.commandBuffer,
+          pipelineLayout,
+          VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+          0,
+          sizeof(NtPushConstantData),
+          &push);
+
+        obj.model->bind(frameInfo.commandBuffer, meshIndex);
+        obj.model->draw(frameInfo.commandBuffer, meshIndex);
+      }
     }
   }
 
@@ -290,8 +342,7 @@ void GenericRenderSystem::renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gr
     sizeof(GridPushConstants),
     &push);
 
-  gridObject.model->bind(frameInfo.commandBuffer);
-  gridObject.model->draw(frameInfo.commandBuffer);
+  gridObject.model->drawAll(frameInfo.commandBuffer);
 }
 
 

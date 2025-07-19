@@ -8,22 +8,24 @@ layout(location = 3) in vec2 uv;
 layout(location = 0) out vec3 fragColor;
 
 layout(set = 0, binding = 0) uniform GlobalUbo {
-  mat4 projection;
-  mat4 view;
+    mat4 projection;
+    mat4 view;
 
-  mat4 inverseView;
-  vec4 ambientLightColor;
-  
-  vec3 lightPosition;
-  vec4 lightColor;
+    mat4 inverseView;
+    vec4 ambientLightColor;
+
+    vec3 lightPosition;
+    vec4 lightColor;
 } ubo;
 
 layout(push_constant) uniform Push {
-  mat4 modelMatrix;
-  mat4 normalMatrix;
+    mat4 modelMatrix;
+    mat4 normalMatrix;
+    int hasNormalTexture;
+    int debugMode;
 } push;
 
 void main() {
-  gl_Position = ubo.projection * ubo.view * push.modelMatrix * vec4(position, 1.0);
-  fragColor = color;
+    gl_Position = ubo.projection * ubo.view * push.modelMatrix * vec4(position, 1.0);
+    fragColor = color;
 }

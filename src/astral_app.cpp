@@ -33,7 +33,7 @@
 namespace nt
 {
 
-AstralApp::AstralApp() 
+AstralApp::AstralApp()
 {
   // Setup ImGUI
   IMGUI_CHECKVERSION();
@@ -79,7 +79,7 @@ AstralApp::AstralApp()
     .build();
 }
 AstralApp::~AstralApp() {
-  
+
 }
 
 void AstralApp::run() {
@@ -100,10 +100,13 @@ void AstralApp::run() {
     .build();
 
   modelSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
-    .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+    .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Base color texture
+    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Normal texture
+    .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Metallic-roughness texture
+    .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Occlusion texture
+    .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Emissive texture
     .build();
-    
+
   std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
   for(int i = 0; i < globalDescriptorSets.size(); i++) {
     auto bufferInfo = uboBuffers[i]->descriptorInfo();
@@ -117,7 +120,7 @@ void AstralApp::run() {
 
   GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout(), modelSetLayout->getDescriptorSetLayout());
   NtCamera camera{};
-  
+
   auto viewerObject = NtGameObject::createGameObject();
   viewerObject.transform.rotation = {glm::radians(-25.0f), glm::radians(-135.0f), 0};
   auto targetObject = NtGameObject::createGameObject();
@@ -138,12 +141,12 @@ void AstralApp::run() {
 
     auto newTime = std::chrono::high_resolution_clock::now();
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
-    currentTime = newTime; 
+    currentTime = newTime;
 
     static int cameraType = 0;
     static bool autoRotate = false;
     static float autoRotateSpeed = glm::radians(30.0f); // degrees per second
-    
+
     // Start the ImGui frame
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -183,7 +186,7 @@ void AstralApp::run() {
     if (ntWindow.getShowImGUI())
     {
         ImGuiWindowFlags imgui_window_flags = 0;
-        ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);                          
+        ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);
 
         static float frameTimes[120] = {};
         static int frameTimeOffset = 0;
@@ -273,14 +276,14 @@ void AstralApp::run() {
           glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
           ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
 
-          uint32_t totalVertexCount = 0;  
+          uint32_t totalMeshCount = 0;
           for (const auto& kv : gameObjects) {
             auto &gobject = kv.second;
             if (gobject.model) {
-              totalVertexCount += gobject.model->getVertexCount();
+              totalMeshCount += gobject.model->getMeshCount();
             }
           }
-          ImGui::Text("Vertex count: %u", totalVertexCount);
+          ImGui::Text("Mesh count: %u", totalMeshCount);
 
           ImGui::TreePop();
         }
@@ -300,7 +303,7 @@ void AstralApp::run() {
       float halfWidth = aspect * halfHeight;
       camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, 0.1f, 500.f);
     }
-    
+
 
     if (auto commandBuffer = ntRenderer.beginFrame()) {
       // TODO: Add Reflections, Shadows, Postprocessing, etc
@@ -323,7 +326,7 @@ void AstralApp::run() {
       genericRenderSystem.updateLights(frameInfo, ubo);
 
       float time = static_cast<float>(glfwGetTime());
-      float orbitRadius = 7.0f;
+      float orbitRadius = 3.0f;
       float bounceAmplitude = 1.0f;
       float speed = .5f;
 
@@ -370,198 +373,100 @@ void AstralApp::run() {
 }
 
 std::unique_ptr<NtModel> AstralApp::createGOPlane(float size) {
-  NtModel::Data modelData{};
+  NtModel::Data modelData{ntDevice};
+  modelData.meshes.resize(1);
 
-  modelData.vertices = {
-    {{-size, 0.f, -size}, glm::vec3(0.2), glm::vec3(0, -1, 0), {1.0f, 0.0f}},
-    {{ size, 0.f, -size}, glm::vec3(0.2), glm::vec3(0, -1, 0), {0.0f, 0.0f}},
-    {{ size, 0.f,  size}, glm::vec3(0.2), glm::vec3(0, -1, 0), {0.0f, 1.0f}},
-    {{-size, 0.f,  size}, glm::vec3(0.2), glm::vec3(0, -1, 0), {1.0f, 1.0f}},
+  // Quad vertices (using a plane in the XZ plane)
+  modelData.meshes[0].vertices = {
+    {{-size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}
   };
 
-  modelData.indices = {
-    0, 1, 2,
-    2, 3, 0,
-  };
+  modelData.meshes[0].indices = {0, 1, 2, 2, 3, 0};
 
   return std::make_unique<NtModel>(ntDevice, modelData);
 }
 
 std::unique_ptr<NtModel> AstralApp::createGOCube(float size) {
-  NtModel::Data modelData{};
+  NtModel::Data modelData{ntDevice};
+  modelData.meshes.resize(1);
 
-  modelData.vertices = {
-    {{-size, -size, -size}, {1.0f, 0.0f, 0.0f}}, // 0: red
-    {{size, -size, -size}, {1.0f, 0.5f, 0.0f}},  // 1: orange
-    {{size, size, -size}, {1.0f, 1.0f, 0.0f}},   // 2: yellow
-    {{-size, size, -size}, {0.0f, 1.0f, 0.0f}},  // 3: green
-    {{-size, -size, size}, {0.0f, 0.0f, 1.0f}},  // 4: blue
-    {{size, -size, size}, {0.29f, 0.0f, 0.51f}}, // 5: indigo
-    {{size, size, size}, {0.56f, 0.0f, 1.0f}},   // 6: violet
-    {{-size, size, size}, {1.0f, 0.0f, 1.0f}},   // 7: magenta
+  // Cube vertices
+  modelData.meshes[0].vertices = {
+    // Front face
+    {{-size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size,  size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size,  size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+
+    // Back face
+    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+
+    // Left face
+    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+    {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+    {{-size,  size,  size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+
+    // Right face
+    {{ size, -size,  size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
+    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
+    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
+    {{ size,  size,  size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
+
+    // Top face
+    {{-size,  size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size,  size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+
+    // Bottom face
+    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}}
   };
 
-  modelData.indices = {
-    // front face (z = +0.5)
-    4, 5, 6,
-    4, 6, 7,
-    // back face (z = -0.5)
-    0, 2, 1,
-    0, 3, 2,
-    // left face (x = -0.5)
-    0, 7, 3,
-    0, 4, 7,
-    // right face (x = +0.5)
-    1, 2, 6,
-    1, 6, 5,
-    // top face (y = +0.5)
-    3, 7, 6,
-    3, 6, 2,
-    // bottom face (y = -0.5)
-    0, 1, 5,
-    0, 5, 4,
+  modelData.meshes[0].indices = {
+    // Front face
+    0, 1, 2, 2, 3, 0,
+    // Back face
+    4, 5, 6, 6, 7, 4,
+    // Left face
+    8, 9, 10, 10, 11, 8,
+    // Right face
+    12, 13, 14, 14, 15, 12,
+    // Top face
+    16, 17, 18, 18, 19, 16,
+    // Bottom face
+    20, 21, 22, 22, 23, 20
   };
 
   return std::make_unique<NtModel>(ntDevice, modelData);
 }
 
 void AstralApp::loadGameObjects() {
-  // auto go_VikingRoom = NtGameObject::createGameObject();
-  // go_VikingRoom.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/viking_room.obj"));
-  // go_VikingRoom.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
-  // // TODO: refactor
-  // VkDescriptorImageInfo imageInfo{};
-  // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  // imageInfo.imageView = go_VikingRoom.texture->getImageView();
-  // imageInfo.sampler = go_VikingRoom.texture->getSampler();
-  // bool success = NtDescriptorWriter(*modelSetLayout, *modelPool)
-  //     .writeImage(0, &imageInfo)
-  //     .build(go_VikingRoom.materialDescriptorSet);
-  // if (!success) {
-  //     std::cerr << "Failed to build material descriptor set!" << std::endl;
-  // }
-  // go_VikingRoom.transform.rotation = {0.0f, glm::radians(180.0f), 0.0f};
-  // gameObjects.emplace(go_VikingRoom.getId(), std::move(go_VikingRoom));
-
-  // auto debugLightObject = NtGameObject::createGameObject();
-  // debugLightObject.model = createGOCube(0.05f);
-  // gameObjects.emplace(debugLightObject.getId(), std::move(debugLightObject));
-
-  // auto floorObject = NtGameObject::createGameObject();
-  // floorObject.model = createGOPlane(2.0f);
-  // floorObject.diffuseTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/floor_diffuse.jpg"));
-  // VkDescriptorImageInfo diffuseInfo{};
-  // diffuseInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  // diffuseInfo.imageView = floorObject.diffuseTexture->getImageView();
-  // diffuseInfo.sampler = floorObject.diffuseTexture->getSampler();
-  // NtDescriptorWriter(*modelSetLayout, *modelPool)
-  //     .writeImage(0, &diffuseInfo)
-  //     .build(floorObject.materialDescriptorSet);
-  // gameObjects.emplace(floorObject.getId(), std::move(floorObject));
-  
   auto go_Atrium = NtGameObject::createGameObject();
-  go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe.obj"));
-  go_Atrium.diffuseTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/floor_diffuse.jpg"));
-
-  VkDescriptorImageInfo diffuseInfo{};
-  diffuseInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  diffuseInfo.imageView = go_Atrium.diffuseTexture->getImageView();
-  diffuseInfo.sampler = go_Atrium.diffuseTexture->getSampler();
-
-  // go_Atrium.normalTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/bunny_normal.png"));
-
-  // VkDescriptorImageInfo normalInfo{};
-  // normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  // normalInfo.imageView = go_Atrium.normalTexture->getImageView();
-  // normalInfo.sampler = go_Atrium.normalTexture->getSampler();
-
-  NtDescriptorWriter(*modelSetLayout, *modelPool)
-      .writeImage(0, &diffuseInfo)
-      // .writeImage(1, &normalInfo)
-      .build(go_Atrium.materialDescriptorSet);
-
-  go_Atrium.transform.scale = {2.0f, 2.0f, 2.0f};
-  go_Atrium.transform.translation = {-20.0f, 0.0f, 20.0f};
+  go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/SponzaAtrium.glb"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  go_Atrium.transform.scale = {0.2f, 0.2f, 0.2f};
   gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
 
   auto go_Bunny = NtGameObject::createGameObject();
-  go_Bunny.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny_low.obj"));
-  go_Bunny.diffuseTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/bunny_albedo.jpeg"));
-
-  // VkDescriptorImageInfo diffuseInfo{};
-  diffuseInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  diffuseInfo.imageView = go_Bunny.diffuseTexture->getImageView();
-  diffuseInfo.sampler = go_Bunny.diffuseTexture->getSampler();
-
-  go_Bunny.normalTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/bunny_normal.png"));
-
-  VkDescriptorImageInfo normalInfo{};
-  normalInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  normalInfo.imageView = go_Bunny.normalTexture->getImageView();
-  normalInfo.sampler = go_Bunny.normalTexture->getSampler();
-
-  NtDescriptorWriter(*modelSetLayout, *modelPool)
-      .writeImage(0, &diffuseInfo)
-      .writeImage(1, &normalInfo)
-      .build(go_Bunny.materialDescriptorSet);
-
-   // go_Bunny.transform.translation = {2.3f, 0.0f, 0.0f};
+  go_Bunny.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/bunny_low.glb"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  // go_Bunny.transform.translation = {-3.0f, 0.0f, 3.0f};
   gameObjects.emplace(go_Bunny.getId(), std::move(go_Bunny));
 
-  // auto go_Kafka = NtGameObject::createGameObject();
-  // go_Kafka.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Kafka.obj"));
-  // go_Kafka.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/viking_room.png"));
-  // TODO: refactor
-  // VkDescriptorImageInfo imageInfo{};
-  // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  // imageInfo.imageView = go_VikingRoom.texture->getImageView();
-  // imageInfo.sampler = go_VikingRoom.texture->getSampler();
-  // bool success = NtDescriptorWriter(*modelSetLayout, *modelPool)
-  //     .writeImage(0, &imageInfo)
-  //     .build(go_VikingRoom.materialDescriptorSet);
-  // if (!success) {
-  //     std::cerr << "Failed to build material descriptor set!" << std::endl;
-  // }
-  // go_Kafka.transform.translation = {0.0f, 0.0f, 5.0f};
-  // go_Kafka.transform.scale = glm::vec3(.3f);
-  // gameObjects.emplace(go_Kafka.getId(), std::move(go_Kafka));
+  // auto go_Stalker = NtGameObject::createGameObject();
+  // go_Stalker.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dewstalker.obj"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  // // go_Stalker.transform.translation = {0.0f, 3.0f, 0.0f};
+  // // go_Stalker.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
+  // gameObjects.emplace(go_Stalker.getId(), std::move(go_Stalker));
 
-  // auto go_DewStalker_ground = NtGameObject::createGameObject();
-  // go_DewStalker_ground.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dew_stalker_ground.obj"));
-  // go_DewStalker_ground.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/dew_stalker_ground.png"));
-  // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  // imageInfo.imageView = go_DewStalker_ground.texture->getImageView();
-  // imageInfo.sampler = go_DewStalker_ground.texture->getSampler();
-  // NtDescriptorWriter(*modelSetLayout, *modelPool)
-  //     .writeImage(0, &imageInfo)
-  //     .build(go_DewStalker_ground.materialDescriptorSet);
-  // go_DewStalker_ground.transform.translation = {-2.3f, 0.0f, 0.0f};
-  // gameObjects.emplace(go_DewStalker_ground.getId(), std::move(go_DewStalker_ground));
-  //
-  // auto go_DewStalker_grass = NtGameObject::createGameObject();
-  // go_DewStalker_grass.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dew_stalker_grass.obj"));
-  // go_DewStalker_grass.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/dew_stalker_grass.png"));
-  // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  // imageInfo.imageView = go_DewStalker_grass.texture->getImageView();
-  // imageInfo.sampler = go_DewStalker_grass.texture->getSampler();
-  // NtDescriptorWriter(*modelSetLayout, *modelPool)
-  //     .writeImage(0, &imageInfo)
-  //     .build(go_DewStalker_grass.materialDescriptorSet);
-  // go_DewStalker_grass.transform.translation = {-2.3f, 0.0f, 0.0f};
-  // gameObjects.emplace(go_DewStalker_grass.getId(), std::move(go_DewStalker_grass));
-  //
-  // auto go_DewStalker = NtGameObject::createGameObject();
-  // go_DewStalker.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dew_stalker.obj"));
-  // go_DewStalker.texture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/textures/dew_stalker.png"));
-  // imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  // imageInfo.imageView = go_DewStalker.texture->getImageView();
-  // imageInfo.sampler = go_DewStalker.texture->getSampler();
-  // NtDescriptorWriter(*modelSetLayout, *modelPool)
-  //     .writeImage(0, &imageInfo)
-  //     .build(go_DewStalker.materialDescriptorSet);
-  // go_DewStalker.transform.translation = {-2.3f, 0.0f, 0.0f};
-  // gameObjects.emplace(go_DewStalker.getId(), std::move(go_DewStalker));
-  
   auto PointLight1 = NtGameObject::makePointLight(2.5f, 1.5f);
   gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
   auto PointLight2 = NtGameObject::makePointLight(1.5f, 1.1f, glm::vec3(0.f, 1.f, 1.f));
