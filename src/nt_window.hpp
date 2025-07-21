@@ -1,6 +1,6 @@
 #pragma once
 
-// Fix Windows macro conflicts - define before any includes
+// Fix Windows macro conflicts before including any headers
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -8,17 +8,12 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#include <windows.h>
+#undef APIENTRY
 #endif
 
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-
-// Fix APIENTRY redefinition after GLFW/Vulkan includes
-#ifdef _WIN32
-#ifdef APIENTRY
-#undef APIENTRY
-#endif
-#endif
 
 #include <string>
 using std::string;

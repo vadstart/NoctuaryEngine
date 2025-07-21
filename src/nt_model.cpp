@@ -2,7 +2,7 @@
 #include "nt_utils.hpp"
 #include <memory>
 
-// Fix Windows macro conflicts - define before any includes
+// Fix Windows macro conflicts
 #ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
@@ -10,6 +10,8 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
+#include <windows.h>
+#undef APIENTRY
 #endif
 
 #define TINYOBJLOADER_IMPLEMENTATION
@@ -22,13 +24,6 @@
 #define GLM_FORCE_CXX20
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
-
-// Fix APIENTRY redefinition after all other includes
-#ifdef _WIN32
-#ifdef APIENTRY
-#undef APIENTRY
-#endif
-#endif
 
 #include <cassert>
 #include <cstddef>
