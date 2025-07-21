@@ -211,14 +211,14 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
   for (size_t i = 0; i < materials.size(); ++i) {
     const auto& objMaterial = materials[i];
     NtMaterial::MaterialData materialData;
-    
+
     materialData.name = objMaterial.name.empty() ? ("Material_" + std::to_string(i)) : objMaterial.name;
     std::cout << "    Loading material: " << materialData.name << std::endl;
 
     // Basic PBR conversion from OBJ material
     materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(
       objMaterial.diffuse[0], objMaterial.diffuse[1], objMaterial.diffuse[2], 1.0f);
-    
+
     // Approximate roughness and metallic from OBJ shininess
     materialData.pbrMetallicRoughness.roughnessFactor = 1.0f - (objMaterial.shininess / 1000.0f);
     materialData.pbrMetallicRoughness.metallicFactor = 0.0f; // OBJ doesn't have metallic
@@ -234,7 +234,7 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
       }
       std::cout << "      Loading diffuse texture: " << texturePath << std::endl;
       try {
-        materialData.pbrMetallicRoughness.baseColorTexture = 
+        materialData.pbrMetallicRoughness.baseColorTexture =
           NtImage::createTextureFromFile(ntDevice, texturePath);
       } catch (const std::exception& e) {
         std::cerr << "      Failed to load diffuse texture: " << e.what() << std::endl;
@@ -273,13 +273,13 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
   // Create meshes per shape/material combination
   for (size_t s = 0; s < shapes.size(); ++s) {
     const auto &shape = shapes[s];
-    
+
     // Group faces by material
     std::map<int, std::vector<tinyobj::index_t>> materialGroups;
     for (size_t f = 0; f < shape.mesh.material_ids.size(); ++f) {
       int materialId = shape.mesh.material_ids[f];
       if (materialId < 0) materialId = 0; // Use first material for faces without material
-      
+
       // Add the 3 indices for this face
       materialGroups[materialId].push_back(shape.mesh.indices[3 * f + 0]);
       materialGroups[materialId].push_back(shape.mesh.indices[3 * f + 1]);
@@ -328,7 +328,7 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
         };
       }
 
-      // Default tangent for OBJ files (will be calculated later if needed)
+      // Default tangent for OBJ files
       vertex.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
 
         if (uniqueVertices.count(vertex) == 0) {
