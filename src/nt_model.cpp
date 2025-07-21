@@ -2,26 +2,11 @@
 #include "nt_utils.hpp"
 #include <memory>
 
-// Fix Windows macro conflicts
-#ifdef _WIN32
-#ifndef NOMINMAX
-#define NOMINMAX
-#endif
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#undef APIENTRY
-#endif
-
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tinyobjloader/tiny_obj_loader.h"
 #define TINYGLTF_IMPLEMENTATION
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #include "tinygltf/tiny_gltf.h"
-
-// Fix GLM GTX hash C++11 support issue
-#define GLM_FORCE_CXX20
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
 
@@ -33,7 +18,6 @@
 #include <algorithm>
 #include <iostream>
 #include <cctype>
-#include <limits>
 
 namespace std {
 template<>
@@ -309,7 +293,7 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
       if (materialGroups.size() > 1) {
         mesh.name += "_Mat" + std::to_string(materialId);
       }
-      mesh.materialIndex = (std::min)(static_cast<uint32_t>(materialId), static_cast<uint32_t>(this->materials.size() - 1));
+      mesh.materialIndex = std::min(static_cast<uint32_t>(materialId), static_cast<uint32_t>(this->materials.size() - 1));
 
       std::unordered_map<Vertex, uint32_t> uniqueVertices{};
       for (const auto &index : indices) {
