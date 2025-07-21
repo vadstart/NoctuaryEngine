@@ -9,9 +9,9 @@ add_rules("mode.debug", "mode.release")
 -- Add the main target
 target("NoctuaryEngine")
 set_kind("binary")
-add_files("src/*.cpp")                                  -- Add all your source files
-add_includedirs("src", "$(env VULKAN_SDK)/include")     -- Add include directories
-add_linkdirs("$(env VULKAN_SDK)/lib")                   -- Add Vulkan library directory
+add_files("src/*.cpp")                              -- Add all your source files
+add_includedirs("src", "$(env VULKAN_SDK)/include") -- Add include directories
+add_linkdirs("$(env VULKAN_SDK)/lib")               -- Add Vulkan library directory
 
 
 
@@ -27,19 +27,28 @@ end
 
 if is_plat("windows") then
     set_toolchains("msvc")
-    set_runtimes("MD")     -- dynamic CRT
+    set_runtimes("MD") -- dynamic CRT
 
-    add_cxxflags("-std=c++20")
+    -- Ensure C++20 support with proper MSVC version
+    set_languages("c++20")
+    add_cxxflags("/std:c++20")
+
+    -- Require minimum MSVC version for C++20
+    add_cxxflags("/Zc:__cplusplus") -- Enable proper __cplusplus macro
 
     -- Fix Windows macro conflicts
     add_defines("NOMINMAX", "WIN32_LEAN_AND_MEAN")
 
     -- Fix GLM GTX hash C++11 support issue
-    add_defines("GLM_FORCE_CXX20")
+    add_defines("GLM_FORCE_CXX20", "GLM_ENABLE_EXPERIMENTAL")
 
     -- Suppress common Windows warnings
-    add_cxxflags("/wd4005")     -- macro redefinition
-    add_cxxflags("/wd4996")     -- deprecated function warnings
+    add_cxxflags("/wd4005") -- macro redefinition
+    add_cxxflags("/wd4996") -- deprecated function warnings
+    add_cxxflags("/wd4068") -- unknown pragma warning
+
+    -- Enable proper C++ conformance
+    add_cxxflags("/permissive-")
 
     -- Clang + MinGW section
     -- set_toolchains("msvc")
@@ -65,10 +74,10 @@ if is_plat("windows") then
 end
 
 if is_plat("macosx") then
-    add_defines("VK_USE_PLATFORM_METAL_EXT")     -- Use Metal for Vulkan on macOS
+    add_defines("VK_USE_PLATFORM_METAL_EXT") -- Use Metal for Vulkan on macOS
     add_links("glfw", "vulkan")
-    add_includedirs("/opt/homebrew/include")     -- Include GLFW headers
-    add_linkdirs("/opt/homebrew/lib")            -- Link GLFW library
+    add_includedirs("/opt/homebrew/include") -- Include GLFW headers
+    add_linkdirs("/opt/homebrew/lib")        -- Link GLFW library
 end
 
 -- imGUI
@@ -110,5 +119,5 @@ end)
 
 on_clean(function(target)
     local shaderDir = target:targetdir() .. "/shaders/"
-    os.rm(shaderDir)     -- Remove the shaders directory
+    os.rm(shaderDir) -- Remove the shaders directory
 end)

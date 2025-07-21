@@ -1,11 +1,25 @@
 #pragma once
 
-#include "nt_device.hpp"
-#include "nt_image.hpp"
-#include <glm/glm.hpp>
+// Fix Windows macro conflicts before any includes
+#ifdef _WIN32
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+// Fix GLM issues on Windows
+#define GLM_FORCE_CXX20
+#define GLM_ENABLE_EXPERIMENTAL
+#endif
+
 #include <memory>
 #include <string>
 #include <vector>
+#include <cstdint>
+#include <glm/glm.hpp>
+#include "nt_device.hpp"
+#include "nt_image.hpp"
 
 namespace nt {
 
