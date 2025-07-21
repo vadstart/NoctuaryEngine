@@ -8,7 +8,10 @@ layout(push_constant) uniform Push {
     mat4 modelMatrix;
     mat4 normalMatrix;
     int hasNormalTexture;
+    int hasMetallicRoughnessTexture;
     int debugMode;
+    float metallicFactor;
+    float roughnessFactor;
 } push;
 
 void main() {

@@ -8,13 +8,17 @@ layout(location = 5) in vec4 fragTangentWorld;
 
 layout(set = 1, binding = 0) uniform sampler2D diffuseTexSampler;
 layout(set = 1, binding = 1) uniform sampler2D normalTexSampler;
+layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessTexSampler;
 
 // Push constant to indicate if normal texture is available
 layout(push_constant) uniform Push {
     mat4 modelMatrix;
     mat4 normalMatrix;
     int hasNormalTexture;
+    int hasMetallicRoughnessTexture;
     int debugMode; // 0 = normal, 1 = tangent, 2 = bitangent, 3 = normal map
+    float metallicFactor;
+    float roughnessFactor;
 } push;
 
 layout(location = 0) out vec4 outColor;
@@ -71,7 +75,6 @@ void main() {
 
     // Apply normal mapping if available
     if (push.hasNormalTexture > 0) {
-        // Sample normal map
         vec3 normalMapSample = texture(normalTexSampler, fragTexCoord).rgb;
 
         // Convert from [0,1] to [-1,1] range
@@ -94,8 +97,21 @@ void main() {
         surfaceNormal = normalize(TBN * normalMapSample);
     }
 
+    // Sample metallic-roughness texture if available
+    float roughness = push.roughnessFactor; // Use material factor as default
+    float metallic = push.metallicFactor; // Use material factor as default
+
+    if (push.hasMetallicRoughnessTexture > 0) {
+        vec3 metallicRoughnessSample = texture(metallicRoughnessTexSampler, fragTexCoord).rgb;
+        roughness *= metallicRoughnessSample.g; // Green channel = roughness * factor
+        metallic *= metallicRoughnessSample.b; // Blue channel = metallic * factor
+    }
+
     vec3 camWorldPos = ubo.inverseView[3].xyz;
     vec3 viewDirection = normalize(camWorldPos - fragPosWorld);
+
+    // Sample base color texture
+    vec4 texColor = texture(diffuseTexSampler, fragTexCoord);
 
     for (int i = 0; i < ubo.numLights; i++) {
         PointLight light = ubo.pointLights[i];
@@ -109,20 +125,23 @@ void main() {
 
         diffuseLight += intensity * cosAngIncidence;
 
-        // Specular
+        // PBR Specular calculation
         vec3 halfAngle = normalize(directionToLight + viewDirection);
-        float blinnTerm = dot(surfaceNormal, halfAngle);
-        blinnTerm = clamp(blinnTerm, 0, 1);
-        blinnTerm = pow(blinnTerm, 1024.0);
-        specularLight += intensity * blinnTerm;
+        float NdotH = max(dot(surfaceNormal, halfAngle), 0.0);
+
+        // Convert roughness to shininess (roughness 0 = very shiny, roughness 1 = very rough)
+        float shininess = mix(1024.0, 1.0, roughness);
+        float blinnTerm = pow(NdotH, shininess);
+
+        // Metallic materials have different specular behavior
+        vec3 F0 = mix(vec3(0.04), texColor.rgb, metallic); // Fresnel reflectance
+        vec3 specular = F0 * blinnTerm * (1.0 - roughness);
+
+        specularLight += intensity * specular;
     }
 
-    // outColor = vec4(diffuseLight * fragColor + specularLight * fragColor, 1.0);
-    // outColor = vec4(surfaceNormal, 1.0);
+    // For metallic materials, reduce diffuse contribution
+    vec3 diffuse = mix(texColor.rgb * diffuseLight, vec3(0.0), metallic);
 
-    vec4 texColor = texture(diffuseTexSampler, fragTexCoord);
-    outColor = vec4(texColor.rgb * (diffuseLight * fragColor + specularLight * fragColor), texColor.a);
-
-    // vec4 texColor = texture(normalTexSampler, fragTexCoord);
-    // outColor = vec4(texColor.rgb * fragColor, texColor.a);
+    outColor = vec4((diffuse + specularLight) * fragColor, texColor.a);
 }

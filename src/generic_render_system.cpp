@@ -41,7 +41,10 @@ struct NtPushConstantData {
   alignas(16) glm::mat4 modelMatrix{1.f};
   alignas(16) glm::mat4 normalMatrix{1.f};
   alignas(4) int hasNormalTexture{0};
+  alignas(4) int hasMetallicRoughnessTexture{0};
   alignas(4) int debugMode{0};
+  alignas(4) float metallicFactor{1.0f};
+  alignas(4) float roughnessFactor{1.0f};
 };
 
 GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout) : ntDevice{device} {
@@ -224,8 +227,14 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
       // Get the material for this specific mesh
       if (materials.size() > materialIndex) {
         push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
+        push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
+        push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
+        push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
       } else {
         push.hasNormalTexture = 0;
+        push.hasMetallicRoughnessTexture = 0;
+        push.metallicFactor = 1.0f;
+        push.roughnessFactor = 1.0f;
       }
 
       vkCmdPushConstants(
@@ -259,40 +268,10 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
       auto& obj = kv.second;
       if (obj.model == nullptr) continue;
 
-      // Render each mesh with its own material (wireframe mode)
-      // const auto& materials = obj.model->getMaterials();
       for (uint32_t meshIndex = 0; meshIndex < obj.model->getMeshCount(); ++meshIndex) {
-          // Debug: Print material usage for verification
-          // if (meshIndex == 0) {
-          //   std::cout << "Rendering model with " << obj.model->getMeshCount() << " meshes and " << materials.size() << " materials" << std::endl;
-          // }
-
-        // // Bind the material descriptor set for this specific mesh
-        // uint32_t materialIndex = obj.model->getMaterialIndex(meshIndex);
-        // if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
-        //   VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
-        //   vkCmdBindDescriptorSets(
-        //     frameInfo.commandBuffer,
-        //     VK_PIPELINE_BIND_POINT_GRAPHICS,
-        //     pipelineLayout,
-        //     1, 1,
-        //     &materialDescriptorSet,
-        //     0, nullptr);
-        // }
 
         NtPushConstantData push{};
         push.modelMatrix = obj.transform.mat4();
-        // push.normalMatrix = obj.transform.normalMatrix();
-        // push.debugMode = 0; // Normal rendering
-
-        // // Get the material for this specific mesh
-        // if (materials.size() > materialIndex) {
-        //   push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
-        //   std::cout << "  Mesh " << meshIndex << " using material " << materialIndex << " (hasNormal: " << push.hasNormalTexture << ")" << std::endl;
-        // } else {
-        //   push.hasNormalTexture = 0;
-        //   std::cout << "  Mesh " << meshIndex << " using default material (no normal)" << std::endl;
-        // }
 
         vkCmdSetDepthBias(
           frameInfo.commandBuffer,

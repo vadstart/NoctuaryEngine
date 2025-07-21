@@ -44,7 +44,7 @@ public:
   NtGameObject &operator=(NtGameObject&&) = default;
 
   id_t getId() { return id; }
-  
+
   glm::vec3 color{};
   TransformComponent transform{};
 
@@ -52,6 +52,7 @@ public:
   VkDescriptorSet materialDescriptorSet = VK_NULL_HANDLE;
   std::shared_ptr<NtImage> diffuseTexture{};
   std::shared_ptr<NtImage> normalTexture{};
+  std::shared_ptr<NtImage> roughnessTexture{};
   std::unique_ptr<PointLightComponent> pointLight = nullptr;
 
 private:
