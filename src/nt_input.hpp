@@ -19,12 +19,18 @@ class NtInputController {
         int lookRight = GLFW_KEY_RIGHT;
         int lookUp = GLFW_KEY_UP;
         int lookDown = GLFW_KEY_DOWN;
+        int toggleCursor = GLFW_KEY_TAB;
       };
 
     float orthoZoomLevel{0.0f};
+    bool cursorLocked{true};
 
-    void update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY, CameraType camType);
-    
+    void update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY,
+        CameraProjectionType camProjType, CameraControlType camControlType);
+    void updateCamFPS(NtWindow* ntWindow, NtGameObject& cameraObject, float dt);
+    void updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraObject, NtGameObject& targetObject, float dt, float mouseScrollY,
+        CameraProjectionType projectionType);
+
 private:
   KeyMappings keys{};
 
@@ -38,4 +44,3 @@ private:
 };
 
 }
-

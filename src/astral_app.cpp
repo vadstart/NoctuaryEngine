@@ -143,7 +143,8 @@ void AstralApp::run() {
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
     currentTime = newTime;
 
-    static int cameraType = 0;
+    static int camProjType = 0;
+    static int camControlType = 0;
     static bool autoRotate = false;
     static float autoRotateSpeed = glm::radians(30.0f); // degrees per second
 
@@ -172,15 +173,19 @@ void AstralApp::run() {
       targetObject,
       deltaTime,
       io.MouseWheel,
-      static_cast<nt::CameraType>(cameraType)
+      static_cast<nt::CameraProjectionType>(camProjType),
+      static_cast<nt::CameraControlType>(camControlType)
     );
 
     if (autoRotate) {
       viewerObject.transform.rotation.y += autoRotateSpeed * deltaTime;
     }
 
-    // camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-    camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
+    if (!camControlType) {
+      camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+    } else {
+      camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
+    }
     // }
 
     if (ntWindow.getShowImGUI())
@@ -234,8 +239,11 @@ void AstralApp::run() {
               targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
           }
 
-          ImGui::RadioButton("Perspective", &cameraType, 0); ImGui::SameLine();
-          ImGui::RadioButton("Orthographic", &cameraType, 1);
+          ImGui::RadioButton("FPS", &camControlType, 0); ImGui::SameLine();
+          ImGui::RadioButton("Orbital", &camControlType, 1);
+
+          ImGui::RadioButton("Perspective", &camProjType, 0); ImGui::SameLine();
+          ImGui::RadioButton("Orthographic", &camProjType, 1);
 
           ImGui::Text("Position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
           ImGui::Text("Rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
@@ -288,7 +296,7 @@ void AstralApp::run() {
 
     float aspect = ntRenderer.getAspectRatio();
 
-    if (!cameraType) {
+    if (!camProjType) {
       camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 500.f);
     }
     else

@@ -2,12 +2,16 @@
 
 namespace nt {
 
-enum class CameraType {
+enum class CameraProjectionType {
   Perspective,
   Orthographic
 };
+enum class CameraControlType {
+    FPS,
+    Orbit
+};
 
-enum class RenderMode { 
+enum class RenderMode {
   Lit,
   Unlit,
   Normals,
