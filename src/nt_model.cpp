@@ -391,7 +391,7 @@ void NtModel::Data::loadGltfModel(const std::string &filepath) {
 
   // Apply coordinate system transformation from glTF (Y-up) to engine coordinate system
   // glTF uses Y-up, but when exported from Blender with Z-up, we need to rotate around X-axis
-  glm::mat4 transform = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+  glm::mat4 transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
   glm::mat3 normalTransform = glm::transpose(glm::inverse(glm::mat3(transform)));
 
   for (auto& mesh : meshes) {

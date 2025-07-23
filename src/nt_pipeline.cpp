@@ -207,6 +207,21 @@ NtPipeline::~NtPipeline() {
        configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
        break;
 
+     case nt::RenderMode::Billboard:
+       configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
+       configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
+       configInfo.depthStencilInfo.depthTestEnable = VK_TRUE;
+       configInfo.depthStencilInfo.depthWriteEnable = VK_FALSE;
+       configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE;
+       configInfo.colorBlendAttachment.blendEnable = VK_TRUE;
+       configInfo.colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+       configInfo.colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+       configInfo.colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+       configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+       configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+       configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+       break;
+
      default:
        configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
        configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE;

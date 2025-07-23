@@ -39,7 +39,7 @@ void NtRenderer::recreateSwapChain()
       throw std::runtime_error("Swap chain image (or depth) format has changed!");
     }
   }
-} 
+}
 
 void NtRenderer::createCommandBuffers() {
   commandBuffers.resize(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -59,7 +59,7 @@ void NtRenderer::freeCommandBuffers() {
   vkFreeCommandBuffers(
     ntDevice.device(),
     ntDevice.getCommandPool(),
-    static_cast<uint32_t>(commandBuffers.size()), 
+    static_cast<uint32_t>(commandBuffers.size()),
     commandBuffers.data());
 
   commandBuffers.clear();
@@ -103,7 +103,7 @@ void NtRenderer::endFrame() {
   if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR) {
     ntWindow.resetWindowResizedFlag();
     recreateSwapChain();
-  } 
+  }
   else if (result != VK_SUCCESS) {
     throw std::runtime_error("failed to present swap chain image!");
   }
@@ -125,7 +125,7 @@ void NtRenderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer) {
   renderPassInfo.renderArea.extent = ntSwapChain->getSwapChainExtent();
 
   std::array<VkClearValue, 2> clearValues{};
-  clearValues[0].color = {0.02f, 0.02f, 0.02f, 1.0f};
+  clearValues[0].color = {0.0f, 0.0f, 0.0f, 1.0f};
   clearValues[1].depthStencil = {1.0f, 0};
   renderPassInfo.clearValueCount = static_cast<uint32_t>(clearValues.size());
   renderPassInfo.pClearValues = clearValues.data();
@@ -147,7 +147,7 @@ void NtRenderer::beginSwapChainRenderPass(VkCommandBuffer commandBuffer) {
 void NtRenderer::endSwapChainRenderPass(VkCommandBuffer commandBuffer) {
   assert(isFrameStarted && "Can't call endSwapChainRenderPass if frame is not in progress");
   assert(commandBuffer == getCurrentCommandBuffer() && "Can't end render pass on command buffer from a different frame");
-  
+
   vkCmdEndRenderPass(commandBuffer);
 }
 

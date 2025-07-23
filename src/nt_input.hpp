@@ -34,7 +34,7 @@ class NtInputController {
 private:
   KeyMappings keys{};
 
-  float moveSpeed{1.5f};
+  float moveSpeed{25.0f};
   float lookSpeed{1.5f};
 
   const float sensitivity { 0.002f };

@@ -123,6 +123,7 @@ void AstralApp::run() {
 
   auto viewerObject = NtGameObject::createGameObject();
   viewerObject.transform.rotation = {glm::radians(-25.0f), glm::radians(-135.0f), 0};
+  viewerObject.transform.translation = {-1.0f, -2.5f, 0};
   auto targetObject = NtGameObject::createGameObject();
   targetObject.transform.translation = {-0.1f, -0.5f, 0};
   NtInputController inputController{};
@@ -181,11 +182,9 @@ void AstralApp::run() {
       viewerObject.transform.rotation.y += autoRotateSpeed * deltaTime;
     }
 
-    if (!camControlType) {
-      camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-    } else {
-      camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
-    }
+    if (!camControlType)
+        camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+    else camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
     // }
 
     if (ntWindow.getShowImGUI())
@@ -240,7 +239,7 @@ void AstralApp::run() {
           }
 
           ImGui::RadioButton("FPS", &camControlType, 0); ImGui::SameLine();
-          ImGui::RadioButton("Orbital", &camControlType, 1);
+          ImGui::RadioButton("Orbit", &camControlType, 1);
 
           ImGui::RadioButton("Perspective", &camProjType, 0); ImGui::SameLine();
           ImGui::RadioButton("Orthographic", &camProjType, 1);
@@ -331,25 +330,44 @@ void AstralApp::run() {
       float time = static_cast<float>(glfwGetTime());
       float orbitRadius = 3.0f;
       float bounceAmplitude = 1.0f;
-      float speed = .5f;
+      float speed8 = .2f;
+      float speedVert = 0.75f;
 
-      for (int i = 0; i < ubo.numLights; i++) {
-          float angleOffset = glm::two_pi<float>() * i / ubo.numLights;
-          float t = time * speed + angleOffset;
+      int lightIndex = 0;
+      for (auto& kv : frameInfo.gameObjects) {
+          auto& obj = kv.second;
+          if (obj.pointLight == nullptr || lightIndex >= ubo.numLights) continue;
 
-          // Circular orbit on XZ plane
-          float x = glm::cos(t) * orbitRadius;
-          float z = glm::sin(t) * orbitRadius;
+          float angleOffset = glm::two_pi<float>() * lightIndex / ubo.numLights;
+          float t = time * speed8 + angleOffset;
+          float t2 = time * speedVert + angleOffset;
 
-          // Optional: Figure-8 shape (Lissajous-like curve)
-          // float x = glm::sin(t) * orbitRadius;
-          // float z = glm::sin(2 * t) * orbitRadius * 0.5f;
+          glm::vec3 newPos;
 
-          // Vertical bounce (like dancing)
-          float y = -1.2f + glm::sin(t * 2.0f) * bounceAmplitude;
+          if (lightIndex == 5) {
+              newPos = viewerObject.transform.translation;
+          }
+          else if (lightIndex == 4) {
+              // Light 0 — figure-8 motion (centered at 0, -10, 0)
+              float x = glm::sin(t) * 39.4f;
+              float z = glm::sin(2.0f * t) * 9.5f + 1.0f;
+              float y = -10.0f;
+              newPos = glm::vec3(x, y, z);
+          } else {
+              // Other lights — bounce vertically
+              float x = obj.transform.translation.x;  // keep current X
+              float z = obj.transform.translation.z;  // keep current Z
+              float y = -9.0f + glm::sin(t2 * 2.0f) * 2.0f;
+              newPos = glm::vec3(x, y, z);
+          }
 
-          ubo.pointLights[i].position = glm::vec4(x, y, z, 1.0f);
+          // Update UBO and object transform
+          ubo.pointLights[lightIndex].position = glm::vec4(newPos, 1.0f);
+          obj.transform.translation = newPos;
+
+          lightIndex++;
       }
+
 
       uboBuffers[frameIndex]->writeToBuffer(&ubo);
       uboBuffers[frameIndex]->flush();
@@ -358,6 +376,7 @@ void AstralApp::run() {
       ntRenderer.beginSwapChainRenderPass(commandBuffer);
       genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
       genericRenderSystem.renderGameObjects(frameInfo);
+      genericRenderSystem.renderLightBillboards(frameInfo);
 
       ImGui::Render();
       ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
@@ -453,32 +472,119 @@ std::unique_ptr<NtModel> AstralApp::createGOCube(float size) {
   return std::make_unique<NtModel>(ntDevice, modelData);
 }
 
+std::unique_ptr<NtModel> AstralApp::createBillboardQuad(float size) {
+  NtModel::Data modelData{ntDevice};
+  modelData.meshes.resize(1);
+
+  // Billboard quad vertices (facing forward, centered at origin)
+  modelData.meshes[0].vertices = {
+    {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
+    {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
+    {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
+    {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
+  };
+
+  modelData.meshes[0].indices = {0, 1, 2, 2, 3, 0};
+
+  modelData.materials.resize(1);
+  NtMaterial::MaterialData materialData;
+  materialData.name = "BillboardMaterial";
+  materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+  modelData.materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
+
+  // Update the material with descriptor set
+  modelData.materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+
+  return std::make_unique<NtModel>(ntDevice, modelData);
+}
+
+std::unique_ptr<NtModel> AstralApp::createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture) {
+  NtModel::Data modelData{ntDevice};
+  modelData.meshes.resize(1);
+
+  // Billboard quad vertices (facing forward, centered at origin)
+  modelData.meshes[0].vertices = {
+    {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
+    {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
+    {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
+    {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
+  };
+
+  modelData.meshes[0].indices = {0, 1, 2, 2, 3, 0};
+
+  modelData.materials.resize(1);
+  NtMaterial::MaterialData materialData;
+  materialData.name = "BillboardMaterial";
+  materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+  materialData.pbrMetallicRoughness.baseColorTexture = texture;
+  modelData.materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
+
+  // Update the material with descriptor set
+  modelData.materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+
+  return std::make_unique<NtModel>(ntDevice, modelData);
+}
+
 void AstralApp::loadGameObjects() {
   auto go_Atrium = NtGameObject::createGameObject();
-  go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/SponzaAtrium.glb"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  go_Atrium.transform.scale = {0.2f, 0.2f, 0.2f};
+  go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Sponza/Sponza.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  go_Atrium.transform.scale = {0.06f, 0.06f, 0.06f};
   gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
 
-  auto go_Bunny = NtGameObject::createGameObject();
-  go_Bunny.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/SciFiHelmet.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  // auto go_Suzanne = NtGameObject::createGameObject();
+  // go_Suzanne.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Suzanne/Suzanne.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  // // go_Bunny.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
+  // // go_Bunny.transform.translation = {0.0f, -1.0f, 0.0f};
+  // gameObjects.emplace(go_Suzanne.getId(), std::move(go_Suzanne));
 
-  go_Bunny.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
-  go_Bunny.transform.translation = {0.0f, -1.0f, 0.0f};
-  gameObjects.emplace(go_Bunny.getId(), std::move(go_Bunny));
+  // auto go_Bunny = NtGameObject::createGameObject();
+  // go_Bunny.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/SciFiHelmet.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+
+  // go_Bunny.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
+  // go_Bunny.transform.translation = {0.0f, -1.0f, 0.0f};
+  // gameObjects.emplace(go_Bunny.getId(), std::move(go_Bunny));
 
   // auto go_Stalker = NtGameObject::createGameObject();
-  // go_Stalker.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dewstalker.obj"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  // go_Stalker.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dewstalker.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
   // // go_Stalker.transform.translation = {0.0f, 3.0f, 0.0f};
   // // go_Stalker.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
   // gameObjects.emplace(go_Stalker.getId(), std::move(go_Stalker));
 
-  auto PointLight1 = NtGameObject::makePointLight(3.0f, 2.0f);
+  // Create light sprite texture
+  std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
+
+  auto PointLightCam = NtGameObject::makePointLight(0.0f, 0.0f);
+  PointLightCam.transform.translation = {0.0f, 0.0f, 0.0f};
+  PointLightCam.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  gameObjects.emplace(PointLightCam.getId(), std::move(PointLightCam));
+
+  auto PointLight1 = NtGameObject::makePointLight(20.0f, 0.0f);
+  PointLight1.transform.translation = {0.0f, 0.0f, 0.0f};
+  PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
-  auto PointLight2 = NtGameObject::makePointLight(1.5f, 1.1f, glm::vec3(0.f, 1.f, 1.f));
+
+  auto PointLight2 = NtGameObject::makePointLight(20.0f, 0.0f, glm::vec3(0.f, 0.f, 1.f));
+  PointLight2.transform.translation = {67.3f, -7.0f, 26.8f};
+  PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
-  auto PointLight3 = NtGameObject::makePointLight(.5f, 1.1f, glm::vec3(1.f, 0.f, 0.f));
+
+  auto PointLight3 = NtGameObject::makePointLight(20.0f, 0.0f, glm::vec3(0.f, 0.f, 1.f));
+  PointLight3.transform.translation = {67.3f, -7.0f, -24.6f};
+  PointLight3.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight3.getId(), std::move(PointLight3));
 
+  auto PointLight4 = NtGameObject::makePointLight(20.0f, 0.0f, glm::vec3(1.f, 0.f, 0.f));
+  PointLight4.transform.translation = {-72.2f, -7.0f, 26.8f};
+  PointLight4.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  gameObjects.emplace(PointLight4.getId(), std::move(PointLight4));
+
+  auto PointLight5 = NtGameObject::makePointLight(20.0f, 0.0f, glm::vec3(1.f, 0.f, 0.f));
+  PointLight5.transform.translation = {-72.7f, -7.0f, -24.6f};
+  PointLight5.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  gameObjects.emplace(PointLight5.getId(), std::move(PointLight5));
+
 }
+
+
 
 }

@@ -19,7 +19,8 @@ enum class RenderMode {
   Lighting,
   LitWireframe,
   Wireframe,
-  DebugGrid
+  DebugGrid,
+  Billboard
 };
 
 }

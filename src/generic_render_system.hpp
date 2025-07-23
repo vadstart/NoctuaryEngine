@@ -26,6 +26,7 @@ namespace nt
 
     void renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject, glm::vec3 cameraPos);
     void renderGameObjects(FrameInfo &frameInfo);
+    void renderLightBillboards(FrameInfo &frameInfo);
     void switchRenderMode(RenderMode newRenderMode);
 
 	private:
@@ -40,6 +41,7 @@ namespace nt
     std::unique_ptr<NtPipeline> wireframePipeline;
     std::unique_ptr<NtPipeline> normalsPipeline;
     std::unique_ptr<NtPipeline> depthPipeline;
+    std::unique_ptr<NtPipeline> billboardPipeline;
     VkPipelineLayout pipelineLayout;
 
     RenderMode currentRenderMode = RenderMode::Lit;

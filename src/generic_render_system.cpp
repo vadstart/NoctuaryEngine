@@ -45,6 +45,9 @@ struct NtPushConstantData {
   alignas(4) int debugMode{0};
   alignas(4) float metallicFactor{1.0f};
   alignas(4) float roughnessFactor{1.0f};
+  alignas(16) glm::vec3 lightColor{1.0f, 1.0f, 1.0f};
+  alignas(4) float lightIntensity{1.0f};
+  alignas(4) float billboardSize{1.0f};
 };
 
 GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout) : ntDevice{device} {
@@ -147,6 +150,17 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         depthPipelineConfig,
         "shaders/depth_shader.vert.spv",
         "shaders/depth_shader.frag.spv");
+
+    PipelineConfigInfo billboardPipelineConfig{};
+    NtPipeline::defaultPipelineConfigInfo(billboardPipelineConfig, nt::RenderMode::Billboard);
+    billboardPipelineConfig.renderPass = renderPass;
+    billboardPipelineConfig.pipelineLayout = pipelineLayout;
+
+    billboardPipeline = std::make_unique<NtPipeline>(
+        ntDevice,
+        billboardPipelineConfig,
+        "shaders/billboard.vert.spv",
+        "shaders/billboard.frag.spv");
 }
 
 void GenericRenderSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo) {
@@ -200,7 +214,7 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
 
   for (auto& kv: frameInfo.gameObjects) {
     auto& obj = kv.second;
-    if (obj.model == nullptr) continue;
+    if (obj.model == nullptr || obj.pointLight != nullptr) continue;
 
     // Render each mesh with its own material
     const auto& materials = obj.model->getMaterials();
@@ -266,7 +280,7 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
 
     for (auto& kv: frameInfo.gameObjects) {
       auto& obj = kv.second;
-      if (obj.model == nullptr) continue;
+      if (obj.model == nullptr || obj.pointLight != nullptr) continue;
 
       for (uint32_t meshIndex = 0; meshIndex < obj.model->getMeshCount(); ++meshIndex) {
 
@@ -324,6 +338,58 @@ void GenericRenderSystem::renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gr
   gridObject.model->drawAll(frameInfo.commandBuffer);
 }
 
+
+void GenericRenderSystem::renderLightBillboards(FrameInfo &frameInfo) {
+  billboardPipeline->bind(frameInfo.commandBuffer);
+
+  vkCmdBindDescriptorSets(
+    frameInfo.commandBuffer,
+    VK_PIPELINE_BIND_POINT_GRAPHICS,
+    pipelineLayout,
+    0, 1,
+    &frameInfo.globalDescriptorSet,
+    0, nullptr);
+
+  for (auto& kv: frameInfo.gameObjects) {
+    auto& obj = kv.second;
+    if (obj.pointLight == nullptr || obj.model == nullptr) continue;
+
+    // Bind the material descriptor set for the billboard texture
+    const auto& materials = obj.model->getMaterials();
+    if (materials.size() > 0 && materials[0]->getDescriptorSet() != VK_NULL_HANDLE) {
+      VkDescriptorSet materialDescriptorSet = materials[0]->getDescriptorSet();
+      vkCmdBindDescriptorSets(
+        frameInfo.commandBuffer,
+        VK_PIPELINE_BIND_POINT_GRAPHICS,
+        pipelineLayout,
+        1, 1,
+        &materialDescriptorSet,
+        0, nullptr);
+    }
+
+    NtPushConstantData push{};
+    push.modelMatrix = obj.transform.mat4();
+    push.normalMatrix = obj.transform.normalMatrix();
+    push.debugMode = 0;
+    push.hasNormalTexture = 0;
+    push.hasMetallicRoughnessTexture = 0;
+    push.metallicFactor = 1.0f;
+    push.roughnessFactor = 1.0f;
+    push.lightColor = obj.color;
+    push.lightIntensity = obj.pointLight->lightIntensity;
+    push.billboardSize = 0.5f; // Default billboard size
+
+    vkCmdPushConstants(
+      frameInfo.commandBuffer,
+      pipelineLayout,
+      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+      0,
+      sizeof(NtPushConstantData),
+      &push);
+
+    obj.model->drawAll(frameInfo.commandBuffer);
+  }
+}
 
 void GenericRenderSystem::switchRenderMode(RenderMode newRenderMode) {
   currentRenderMode = newRenderMode;

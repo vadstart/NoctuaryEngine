@@ -130,14 +130,23 @@ void main() {
         float NdotH = max(dot(surfaceNormal, halfAngle), 0.0);
 
         // Convert roughness to shininess (roughness 0 = very shiny, roughness 1 = very rough)
-        float shininess = mix(1024.0, 1.0, roughness);
+        // float shininess = mix(1024.0, 1.0, roughness);
+        // float shininess = 32.0 / (roughness * roughness + 0.01); // cheap & effective
+        roughness = clamp(roughness, 0.04, 1.0); // Prevent extreme diffusion
+        float shininess = pow(2.0 / (roughness * roughness) - 2.0, 0.25); // Approximate conversion
+
         float blinnTerm = pow(NdotH, shininess);
 
         // Metallic materials have different specular behavior
         vec3 F0 = mix(vec3(0.04), texColor.rgb, metallic); // Fresnel reflectance
-        vec3 specular = F0 * blinnTerm * (1.0 - roughness);
+        F0 = clamp(F0 * 1.2, 0.0, 1.0);
+        // boost specular light for metallic
+        float roughFactor = mix(1.0, 0.1, roughness); // Don’t let roughness kill it
+        vec3 specular = F0 * blinnTerm * roughFactor * 2.5f;
+        // vec3 specular = F0 * blinnTerm * (1.0 - roughness);
 
         specularLight += intensity * specular;
+        // specularLight += F0 * 0.1; // ambient spec
     }
 
     // For metallic materials, reduce diffuse contribution

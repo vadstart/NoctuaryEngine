@@ -33,6 +33,8 @@ namespace nt
 
     std::unique_ptr<NtModel> createGOPlane(float size);
     std::unique_ptr<NtModel> createGOCube(float size);
+    std::unique_ptr<NtModel> createBillboardQuad(float size = 1.0f);
+    std::unique_ptr<NtModel> createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture);
 
     NtWindow ntWindow{ WIDTH, HEIGHT, "🌋 You are wandering through the Astral Realm.." };
     NtDevice ntDevice{ntWindow};
