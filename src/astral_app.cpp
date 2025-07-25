@@ -233,7 +233,7 @@ void AstralApp::run() {
         // ImGui::SetNextItemOpen(true, ImGuiCond_Once);
         if (ImGui::TreeNode("Camera"))
         {
-          ImGui::Checkbox("Auto Rotate", &autoRotate);ImGui::SameLine();
+
           if (ImGui::Button("Reset")) {
               targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
           }
@@ -241,8 +241,11 @@ void AstralApp::run() {
           ImGui::RadioButton("FPS", &camControlType, 0); ImGui::SameLine();
           ImGui::RadioButton("Orbit", &camControlType, 1);
 
-          ImGui::RadioButton("Perspective", &camProjType, 0); ImGui::SameLine();
-          ImGui::RadioButton("Orthographic", &camProjType, 1);
+          if (camControlType == 1) {
+              ImGui::RadioButton("Perspective", &camProjType, 0); ImGui::SameLine();
+              ImGui::RadioButton("Orthographic", &camProjType, 1);
+              ImGui::Checkbox("Auto Rotate", &autoRotate);ImGui::SameLine();
+          }
 
           ImGui::Text("Position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
           ImGui::Text("Rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
@@ -253,6 +256,67 @@ void AstralApp::run() {
         glm::vec4 ambientLightColor{1.f, 1.f, 1.f, 0.2f};
         alignas(16) glm::vec3 lightPosition{-1.f};
         glm::vec4 lightColor{1.f};
+
+        if (ImGui::TreeNode("Gamepad")) {
+            if (inputController.gamepadConnected) {
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (ID: %d)", inputController.connectedGamepadId);
+                const char* name = glfwGetGamepadName(inputController.connectedGamepadId);
+                if (name) {
+                    ImGui::Text("Name: %s", name);
+                }
+            } else {
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No gamepad detected");
+            }
+
+            // Gamepad configuration
+            if (inputController.gamepadConnected) {
+                float sensitivity = inputController.getGamepadSensitivity();
+                if (ImGui::SliderFloat("Look Sensitivity", &sensitivity, 0.1f, 5.0f, "%.2f")) {
+                    inputController.setGamepadSensitivity(sensitivity);
+                }
+
+                float moveSpeed = inputController.getGamepadMoveSpeed();
+                if (ImGui::SliderFloat("Move Speed", &moveSpeed, 1.0f, 100.0f, "%.1f")) {
+                    inputController.setGamepadMoveSpeed(moveSpeed);
+                }
+
+                float deadzone = inputController.getGamepadDeadzone();
+                if (ImGui::SliderFloat("Stick Deadzone", &deadzone, 0.0f, 0.5f, "%.3f")) {
+                    inputController.setGamepadDeadzone(deadzone);
+                }
+
+                float zoomSpeed = inputController.getGamepadZoomSpeed();
+                if (ImGui::SliderFloat("Zoom Speed", &zoomSpeed, 0.1f, 10.0f, "%.2f")) {
+                    inputController.setGamepadZoomSpeed(zoomSpeed);
+                }
+
+                if (ImGui::Button("Reset to Defaults")) {
+                    inputController.setGamepadSensitivity(2.0f);
+                    inputController.setGamepadMoveSpeed(25.0f);
+                    inputController.setGamepadDeadzone(0.15f);
+                    inputController.setGamepadZoomSpeed(2.0f);
+                }
+
+                // Live input display for debugging
+                if (ImGui::CollapsingHeader("Live Input Debug")) {
+                    float leftX = inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
+                    float leftY = inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
+                    float rightX = inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_X);
+                    float rightY = inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_Y);
+
+                    ImGui::Text("Left Stick: (%.3f, %.3f)", leftX, leftY);
+                    ImGui::Text("Right Stick: (%.3f, %.3f)", rightX, rightY);
+
+                    ImGui::Text("Buttons:");
+                    ImGui::Text("A: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_A) ? "PRESSED" : "released");
+                    ImGui::Text("B: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_B) ? "PRESSED" : "released");
+                    ImGui::Text("Start: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_START) ? "PRESSED" : "released");
+                    ImGui::Text("L1: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_BUMPER) ? "PRESSED" : "released");
+                    ImGui::Text("R1: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER) ? "PRESSED" : "released");
+                }
+            }
+            ImGui::TreePop();
+        }
 
         if (ImGui::TreeNode("Lighting"))
         {
@@ -294,6 +358,12 @@ void AstralApp::run() {
     }
 
     float aspect = ntRenderer.getAspectRatio();
+
+    // Ortho projection and Auto Rotate can only be used with Orbital camera
+    if (!camControlType) {
+      camProjType = 0;
+      autoRotate = false;
+    }
 
     if (!camProjType) {
       camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 500.f);

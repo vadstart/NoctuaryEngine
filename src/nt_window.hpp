@@ -24,7 +24,7 @@ namespace nt
     VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
     bool wasWindowResized() { return framebufferResized; }
     void resetWindowResizedFlag() { framebufferResized = false; }
-  
+
     bool getShowImGUI() { return bShowImGUI; }
     bool getShowCursor() { return bShowCursor; }
 
@@ -43,7 +43,7 @@ namespace nt
 		int height;
     bool framebufferResized = false;
     bool bShowImGUI = true;
-    bool bShowCursor = true;
+    bool bShowCursor = false;
 
 		string windowName;
 		GLFWwindow* window_;

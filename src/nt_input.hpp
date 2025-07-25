@@ -3,6 +3,7 @@
 #include "nt_window.hpp"
 #include "nt_game_object.hpp"
 #include "nt_types.hpp"
+#include <GLFW/glfw3.h>
 
 namespace nt {
 
@@ -22,8 +23,19 @@ class NtInputController {
         int toggleCursor = GLFW_KEY_TAB;
       };
 
+      struct GamepadMappings {
+        int moveLeftStick = 0;  // Left stick X/Y axes (0, 1)
+        int lookRightStick = 2; // Right stick X/Y axes (2, 3)
+        int moveUp = GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER;
+        int moveDown = GLFW_GAMEPAD_BUTTON_LEFT_BUMPER;
+        int toggleCursor = GLFW_GAMEPAD_BUTTON_START;
+        int orbitModifier = GLFW_GAMEPAD_BUTTON_A;
+        int panModifier = GLFW_GAMEPAD_BUTTON_B;
+      };
+
     float orthoZoomLevel{0.0f};
-    bool cursorLocked{true};
+    bool gamepadConnected{false};
+    int connectedGamepadId{-1};
 
     void update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY,
         CameraProjectionType camProjType, CameraControlType camControlType);
@@ -31,8 +43,27 @@ class NtInputController {
     void updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraObject, NtGameObject& targetObject, float dt, float mouseScrollY,
         CameraProjectionType projectionType);
 
+    // Gamepad methods
+    void checkGamepadConnection();
+    bool isGamepadButtonPressed(int button);
+    float getGamepadAxis(int axis);
+    void updateCamFPSGamepad(NtGameObject& cameraObject, float dt);
+    void updateCamOrbitGamepad(NtGameObject& cameraObject, NtGameObject& targetObject, float dt);
+
+    // Runtime configuration methods
+    void setGamepadSensitivity(float sensitivity) { gamepadSensitivity = sensitivity; }
+    void setGamepadMoveSpeed(float speed) { gamepadMoveSpeed = speed; }
+    void setGamepadDeadzone(float deadzone) { gamepadDeadzone = deadzone; }
+    void setGamepadZoomSpeed(float speed) { gamepadZoomSpeed = speed; }
+
+    float getGamepadSensitivity() const { return gamepadSensitivity; }
+    float getGamepadMoveSpeed() const { return gamepadMoveSpeed; }
+    float getGamepadDeadzone() const { return gamepadDeadzone; }
+    float getGamepadZoomSpeed() const { return gamepadZoomSpeed; }
+
 private:
   KeyMappings keys{};
+  GamepadMappings gamepad{};
 
   float moveSpeed{25.0f};
   float lookSpeed{1.5f};
@@ -41,6 +72,12 @@ private:
   const float zoomSpeed { .3f };
   const float orbitSpeed { 0.005f };
   const float panSpeed = { 0.005f };
+
+  // Gamepad settings (configurable at runtime)
+  float gamepadSensitivity { 2.0f };
+  float gamepadMoveSpeed { 25.0f };
+  float gamepadDeadzone { 0.15f };
+  float gamepadZoomSpeed { 2.0f };
 };
 
 }

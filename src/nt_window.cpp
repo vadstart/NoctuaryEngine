@@ -23,6 +23,7 @@ namespace nt
       // glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 			window_ = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
 
+			glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 			glfwSetWindowUserPointer (window_, this);
 			glfwSetFramebufferSizeCallback(window_, framebufferResizeCallback);
 
@@ -47,14 +48,15 @@ namespace nt
     }
     else if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
       if (ntWindow->bShowCursor) {
+
+        // if (glfwRawMouseMotionSupported())
+        //   glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        if (glfwRawMouseMotionSupported())
-          glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
         ntWindow->bShowCursor = false;
       }
       else {
+        // glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
         ntWindow->bShowCursor = true;
       }
     }
