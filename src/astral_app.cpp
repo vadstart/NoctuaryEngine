@@ -1,6 +1,5 @@
 #include "astral_app.hpp"
 #include "generic_render_system.hpp"
-#include "glm/geometric.hpp"
 #include "nt_camera.hpp"
 #include "nt_buffer.hpp"
 #include "nt_descriptors.hpp"
@@ -26,7 +25,6 @@
 #include <glm/gtc/constants.hpp>
 
 // Std
-#include <iostream>
 #include <cassert>
 #include <memory>
 
@@ -58,7 +56,8 @@ AstralApp::AstralApp()
   init_info.QueueFamily = g_QueueFamily;
   init_info.Queue = ntDevice.graphicsQueue();
   init_info.PipelineCache = VK_NULL_HANDLE;
-  init_info.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE;
+  // init_info.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE;
+  init_info.DescriptorPoolSize = 1000;
   // init_info.DescriptorPool = g_DescriptorPool;
   init_info.RenderPass = ntRenderer.getSwapChainRenderPass();
   init_info.Subpass = 0;
@@ -226,7 +225,7 @@ void AstralApp::run() {
 
         const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "Depth", "Lighting", "LitWireframe", "Wireframe" };
         static int renderModeCurrent = 0;
-        ImGui::Combo(" ", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
+        ImGui::Combo("##RenderMode", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
         ImGui::SetItemTooltip("View mode");
         genericRenderSystem.switchRenderMode(static_cast<RenderMode>(renderModeCurrent));
 
@@ -355,7 +354,7 @@ void AstralApp::run() {
         }
 
         ImGui::End();
-    }
+        }
 
     float aspect = ntRenderer.getAspectRatio();
 
@@ -366,7 +365,7 @@ void AstralApp::run() {
     }
 
     if (!camProjType) {
-      camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 500.f);
+      camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 1500.f);
     }
     else
     {
@@ -601,18 +600,12 @@ void AstralApp::loadGameObjects() {
   go_Atrium.transform.scale = {0.06f, 0.06f, 0.06f};
   gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
 
-  // auto go_Suzanne = NtGameObject::createGameObject();
-  // go_Suzanne.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Suzanne/Suzanne.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  // // go_Bunny.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
-  // // go_Bunny.transform.translation = {0.0f, -1.0f, 0.0f};
-  // gameObjects.emplace(go_Suzanne.getId(), std::move(go_Suzanne));
-
-  // auto go_Bunny = NtGameObject::createGameObject();
-  // go_Bunny.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/SciFiHelmet.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-
+  auto go_Cassandra = NtGameObject::createGameObject();
+  go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
   // go_Bunny.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
-  // go_Bunny.transform.translation = {0.0f, -1.0f, 0.0f};
-  // gameObjects.emplace(go_Bunny.getId(), std::move(go_Bunny));
+  // go_Cassandra.transform.translation = {0.0f, -1.0f, 0.0f};
+  // go_Cassandra.transform.scale = {0.6f, 0.6f, 0.6f};
+  gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
 
   // auto go_Stalker = NtGameObject::createGameObject();
   // go_Stalker.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dewstalker.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
