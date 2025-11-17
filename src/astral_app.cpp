@@ -608,7 +608,7 @@ void AstralApp::loadGameObjects() {
   auto go_Cassandra = NtGameObject::createGameObject();
   go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
   go_Cassandra.transform.rotation = {0.0f, glm::radians(90.0f), 0.0f};
-  go_Cassandra.transform.scale = {0.85f, 0.55f, 0.85f};
+  go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};
   gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
 
   // Create light sprite texture

@@ -347,7 +347,7 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
     }
   }
 
-  std::cout << "  Loaded " << meshes.size() << " mesh(es) with " << this->materials.size() << " material(s)" << std::endl;
+  std::cout << "  Loaded " << meshes.size()-1 << " mesh(es) with " << this->materials.size() << " material(s)" << std::endl;
 }
 
 void NtModel::Data::loadGltfModel(const std::string &filepath) {
@@ -409,7 +409,7 @@ void NtModel::Data::loadGltfModel(const std::string &filepath) {
     }
   }
 
-  std::cout << "  Loaded " << meshes.size() << " mesh(es) with " << materials.size() << " material(s)" << std::endl;
+  std::cout << "  Loaded " << meshes.size()-1 << " mesh(es) with " << materials.size() << " material(s)" << std::endl;
 }
 
 void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::string &filepath) {
