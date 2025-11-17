@@ -13,7 +13,7 @@ target("NoctuaryEngine")
     add_includedirs("src", "$(env VULKAN_SDK)/include") -- Add include directories
     add_linkdirs("$(env VULKAN_SDK)/lib") -- Add Vulkan library directory
 
-    
+
 
     -- Platform-specific settings
     if is_plat("linux") then
@@ -27,39 +27,29 @@ target("NoctuaryEngine")
 
     if is_plat("windows") then
         set_toolchains("msvc")
-        set_runtimes("MD") -- dynamic CRT
+        set_runtimes("MD")
+        add_cxxflags("/std:c++20")
 
-        add_cxxflags("-std=c++20")
+        -- Vulkan paths
+        local vk = "C:/VulkanSDK"
+        add_includedirs(vk .. "/Include")
+        add_linkdirs(vk .. "/Lib")
+        add_links("vulkan-1")
 
-        -- Clang + MinGW section
-        -- set_toolchains("msvc")
-        -- Use proper include paths for libc++ and headers
-        -- add_cxxflags("-isystem", "C:/llvm-mingw/include/c++/v1", {force = true})
-        -- add_cxxflags("-isystem", "C:/llvm-mingw/lib/clang/20/include", {force = true})
-        -- add_cxxflags("-isystem", "C:/llvm-mingw/x86_64-w64-mingw32/include", {force = true})
-        -- add_cxxflags("-D__USE_MINGW_ANSI_STDIO=1", {force = true})
-        --
-        -- add_ldflags("-L", "C:/llvm-mingw/x86_64-w64-mingw32/lib", {force = true})
-        -- add_linkdirs("C:/VulkanSDK/Libraries/glfw/lib-mingw-w64")
-
-        -- add_includedirs("src")
-        add_includedirs("C:/VulkanSDK/Include")
-        add_includedirs("C:/VulkanSDK/Libraries/glfw/include")
-        add_includedirs("C:/VulkanSDK/Libraries/glm")
-
-        add_linkdirs("C:/VulkanSDK/Lib")
-        add_linkdirs("C:/VulkanSDK/Libraries/glfw/lib-vc2022") 
-        add_links("glfw3", "vulkan-1")
+        -- GLFW paths
+        add_includedirs(vk .. "/Libraries/glfw/include")
+        add_linkdirs(vk .. "/Libraries/glfw/lib-vc2022")
+        add_links("glfw3")
 
         add_syslinks("gdi32", "shell32", "user32", "opengl32")
     end
 
     if is_plat("macosx") then
         add_defines("VK_USE_PLATFORM_METAL_EXT") -- Use Metal for Vulkan on macOS
-        add_links("glfw", "vulkan")      
+        add_links("glfw", "vulkan")
         add_includedirs("/opt/homebrew/include") -- Include GLFW headers
         add_linkdirs("/opt/homebrew/lib") -- Link GLFW library
-    end 
+    end
 
     -- imGUI
     add_files("src/imgui/*.cpp")
@@ -95,7 +85,7 @@ target("NoctuaryEngine")
         end
 
         -- Copy shaders to build directory
-        os.cp("shaders/*.spv", path.join(target:targetdir(), "/shaders/"))    
+        os.cp("shaders/*.spv", path.join(target:targetdir(), "/shaders/"))
     end)
 
     on_clean(function (target)

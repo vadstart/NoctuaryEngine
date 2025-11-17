@@ -12,9 +12,9 @@ namespace nt {
 class NtMaterial {
 public:
     enum class AlphaMode {
-        OPAQUE,
-        MASK,
-        BLEND
+        Opaque,
+        Mask,
+        Blend
     };
 
     struct PbrMetallicRoughness {
@@ -42,7 +42,7 @@ public:
         float normalScale{1.0f};
         float occlusionStrength{1.0f};
 
-        AlphaMode alphaMode{AlphaMode::OPAQUE};
+        AlphaMode alphaMode{AlphaMode::Opaque};
         float alphaCutoff{0.5f};
 
         bool doubleSided{false};

@@ -560,11 +560,11 @@ void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::s
 
     // Alpha mode
     if (material.alphaMode == "OPAQUE") {
-      materialData.alphaMode = NtMaterial::AlphaMode::OPAQUE;
+      materialData.alphaMode = NtMaterial::AlphaMode::Opaque;
     } else if (material.alphaMode == "MASK") {
-      materialData.alphaMode = NtMaterial::AlphaMode::MASK;
+      materialData.alphaMode = NtMaterial::AlphaMode::Mask;
     } else if (material.alphaMode == "BLEND") {
-      materialData.alphaMode = NtMaterial::AlphaMode::BLEND;
+      materialData.alphaMode = NtMaterial::AlphaMode::Blend;
     }
 
     materialData.alphaCutoff = material.alphaCutoff;
