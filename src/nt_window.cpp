@@ -52,7 +52,7 @@ void NtWindow::keyCallback(GLFWwindow* window, int key, int scancode, int action
           glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         ntWindow->bShowCursor = false;
-        // }
+        }
         else {
         // glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
