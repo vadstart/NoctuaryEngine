@@ -595,23 +595,21 @@ std::unique_ptr<NtModel> AstralApp::createBillboardQuadWithTexture(float size, s
 }
 
 void AstralApp::loadGameObjects() {
-  auto go_Atrium = NtGameObject::createGameObject();
-  go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Sponza/Sponza.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  go_Atrium.transform.scale = {0.06f, 0.06f, 0.06f};
-  gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
+  // auto go_Atrium = NtGameObject::createGameObject();
+  // go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Sponza/Sponza.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  // go_Atrium.transform.scale = {0.06f, 0.06f, 0.06f};
+  // gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
+
+  auto go_MoonlitCafe = NtGameObject::createGameObject();
+  go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  // go_MoonlitCafe.transform.scale = {0.06f, 0.06f, 0.06f};
+  gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
 
   auto go_Cassandra = NtGameObject::createGameObject();
   go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  // go_Bunny.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
-  // go_Cassandra.transform.translation = {0.0f, -1.0f, 0.0f};
-  // go_Cassandra.transform.scale = {0.6f, 0.6f, 0.6f};
+  go_Cassandra.transform.rotation = {0.0f, glm::radians(90.0f), 0.0f};
+  go_Cassandra.transform.scale = {0.85f, 0.55f, 0.85f};
   gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
-
-  // auto go_Stalker = NtGameObject::createGameObject();
-  // go_Stalker.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/dewstalker.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  // // go_Stalker.transform.translation = {0.0f, 3.0f, 0.0f};
-  // // go_Stalker.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
-  // gameObjects.emplace(go_Stalker.getId(), std::move(go_Stalker));
 
   // Create light sprite texture
   std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));

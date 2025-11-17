@@ -6,15 +6,15 @@
 #include <cstdint>
 #include <fstream>
 #include <iostream>
-#include <stdexcept>  
+#include <stdexcept>
 #include <cassert>
 
 namespace nt {
 
 NtPipeline::NtPipeline(
         NtDevice &device,
-        const PipelineConfigInfo& configInfo, 
-        const string& vertFilepath, 
+        const PipelineConfigInfo& configInfo,
+        const string& vertFilepath,
         const string& fragFilepath)
         : ntDevice{device} {
   createGraphicalPipeline(configInfo, vertFilepath, fragFilepath);
@@ -43,9 +43,9 @@ NtPipeline::~NtPipeline() {
    return buffer;
  }
 
- void NtPipeline::createGraphicalPipeline( 
-        const PipelineConfigInfo& configInfo, 
-        const string& vertFilepath, 
+ void NtPipeline::createGraphicalPipeline(
+        const PipelineConfigInfo& configInfo,
+        const string& vertFilepath,
         const string& fragFilepath) {
 
    assert (configInfo.pipelineLayout != VK_NULL_HANDLE &&
@@ -55,7 +55,7 @@ NtPipeline::~NtPipeline() {
 
    auto vertCode = readFile(vertFilepath);
    auto fragCode = readFile(fragFilepath);
-   
+
    createShaderModule(vertCode, &vertShaderModule);
    createShaderModule(fragCode, &fragShaderModule);
 
@@ -140,9 +140,9 @@ NtPipeline::~NtPipeline() {
    configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
    configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;
    configInfo.rasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
-   configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
-   configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
-   
+   configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+   configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
    configInfo.multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
    configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
    configInfo.multisampleInfo.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
@@ -150,8 +150,8 @@ NtPipeline::~NtPipeline() {
    configInfo.multisampleInfo.pSampleMask = nullptr; // Optional
    configInfo.multisampleInfo.alphaToCoverageEnable = VK_FALSE; // Optional
    configInfo.multisampleInfo.alphaToOneEnable = VK_FALSE; // Optional
-  
-   configInfo.colorBlendAttachment.colorWriteMask = 
+
+   configInfo.colorBlendAttachment.colorWriteMask =
      VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT |
      VK_COLOR_COMPONENT_A_BIT;
    configInfo.colorBlendAttachment.blendEnable = VK_FALSE;
@@ -182,14 +182,14 @@ NtPipeline::~NtPipeline() {
    configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
    configInfo.depthStencilInfo.front = {}; // Optional
    configInfo.depthStencilInfo.back = {}; // Optional
-  
+
    switch (pipeRenderMode) {
      case nt::RenderMode::Wireframe:
        configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
        configInfo.rasterizationInfo.lineWidth = 1.0f;
        configInfo.depthStencilInfo.depthWriteEnable = VK_FALSE;
        configInfo.rasterizationInfo.depthBiasEnable = VK_TRUE;
-       configInfo.rasterizationInfo.depthBiasConstantFactor = 1.0f; 
+       configInfo.rasterizationInfo.depthBiasConstantFactor = 1.0f;
        configInfo.rasterizationInfo.depthBiasClamp = 0.0f;
        configInfo.rasterizationInfo.depthBiasSlopeFactor = 1.0f;
        break;
@@ -234,10 +234,10 @@ NtPipeline::~NtPipeline() {
        configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
        break;
    }
-  
+
    configInfo.dynamicStateEnables = {
-    VK_DYNAMIC_STATE_VIEWPORT, 
-    VK_DYNAMIC_STATE_SCISSOR, 
+    VK_DYNAMIC_STATE_VIEWPORT,
+    VK_DYNAMIC_STATE_SCISSOR,
     VK_DYNAMIC_STATE_DEPTH_BIAS
    };
    configInfo.dynamicStateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;

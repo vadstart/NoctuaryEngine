@@ -34,6 +34,10 @@ public:
 
         PbrMetallicRoughness pbrMetallicRoughness;
 
+        glm::vec2 uvScale{1.0f, 1.0f};
+        glm::vec2 uvOffset{0.0f, 0.0f};
+        float uvRotation{0.0f};
+
         std::shared_ptr<NtImage> normalTexture;
         std::shared_ptr<NtImage> occlusionTexture;
         std::shared_ptr<NtImage> emissiveTexture;

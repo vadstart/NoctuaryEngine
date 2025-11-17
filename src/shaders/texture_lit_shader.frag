@@ -74,28 +74,28 @@ void main() {
     }
 
     // Apply normal mapping if available
-    if (push.hasNormalTexture > 0) {
-        vec3 normalMapSample = texture(normalTexSampler, fragTexCoord).rgb;
+    // if (push.hasNormalTexture > 0) {
+    //     vec3 normalMapSample = texture(normalTexSampler, fragTexCoord).rgb;
 
-        // Convert from [0,1] to [-1,1] range
-        normalMapSample = normalMapSample * 2.0 - 1.0;
+    //     // Convert from [0,1] to [-1,1] range
+    //     normalMapSample = normalMapSample * 2.0 - 1.0;
 
-        // Use proper tangent space from vertex attributes
-        vec3 N = normalize(fragNormalWorld);
-        vec3 T = normalize(fragTangentWorld.xyz);
+    //     // Use proper tangent space from vertex attributes
+    //     vec3 N = normalize(fragNormalWorld);
+    //     vec3 T = normalize(fragTangentWorld.xyz);
 
-        // Re-orthogonalize the tangent with respect to the normal
-        T = normalize(T - dot(T, N) * N);
+    //     // Re-orthogonalize the tangent with respect to the normal
+    //     T = normalize(T - dot(T, N) * N);
 
-        // Calculate bitangent
-        vec3 B = normalize(cross(N, T)) * fragTangentWorld.w;
+    //     // Calculate bitangent
+    //     vec3 B = normalize(cross(N, T)) * fragTangentWorld.w;
 
-        // Create TBN matrix - the column order is important
-        mat3 TBN = mat3(T, B, N);
+    //     // Create TBN matrix - the column order is important
+    //     mat3 TBN = mat3(T, B, N);
 
-        // Transform normal from tangent space to world space
-        surfaceNormal = normalize(TBN * normalMapSample);
-    }
+    //     // Transform normal from tangent space to world space
+    //     surfaceNormal = normalize(TBN * normalMapSample);
+    // }
 
     // Sample metallic-roughness texture if available
     float roughness = push.roughnessFactor; // Use material factor as default

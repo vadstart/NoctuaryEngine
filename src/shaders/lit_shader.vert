@@ -31,6 +31,9 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 layout(push_constant) uniform Push {
     mat4 modelMatrix;
     mat4 normalMatrix;
+    vec2 uvScale;
+    vec2 uvOffset;
+    float uvRotation;
     int hasNormalTexture;
     int hasMetallicRoughnessTexture;
     int debugMode;
@@ -38,13 +41,34 @@ layout(push_constant) uniform Push {
     float roughnessFactor;
 } push;
 
+vec2 transformUV(vec2 uv, vec2 scale, vec2 offset, float rotation) {
+    // Apply scale and offset first
+    vec2 transformed = uv * scale + offset;
+
+    // Apply rotation around (0.5, 0.5) pivot
+    if (rotation != 0.0) {
+        vec2 pivot = vec2(0.5, 0.5);
+        transformed -= pivot;
+
+        float cosR = cos(rotation);
+        float sinR = sin(rotation);
+        mat2 rotMatrix = mat2(cosR, -sinR, sinR, cosR);
+        transformed = rotMatrix * transformed;
+
+        transformed += pivot;
+    }
+
+    return transformed;
+}
+
 void main() {
     // Transform to World Space
     vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
     gl_Position = ubo.projection * ubo.view * positionWorld;
 
     fragColor = color;
-    fragTexCoord = uv;
+    // fragTexCoord = uv;
+    fragTexCoord = transformUV(uv, push.uvScale, push.uvOffset, push.uvRotation);
     fragNormalWorld = normalize(mat3(push.normalMatrix) * normal);
     fragPosWorld = positionWorld.xyz;
     fragTangentWorld = vec4(normalize(mat3(push.normalMatrix) * tangent.xyz), tangent.w);

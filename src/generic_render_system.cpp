@@ -40,6 +40,9 @@ struct PointLightPushConstants {
 struct NtPushConstantData {
   alignas(16) glm::mat4 modelMatrix{1.f};
   alignas(16) glm::mat4 normalMatrix{1.f};
+  alignas(8) glm::vec2 uvScale{1.0f, 1.0f};
+  alignas(8) glm::vec2 uvOffset{0.0f, 0.0f};
+  alignas(4) float uvRotation{0.0f};
   alignas(4) int hasNormalTexture{0};
   alignas(4) int hasMetallicRoughnessTexture{0};
   alignas(4) int debugMode{0};
@@ -240,11 +243,17 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
 
       // Get the material for this specific mesh
       if (materials.size() > materialIndex) {
+        push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
+        push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
+        push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
         push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
         push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
         push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
         push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
       } else {
+        push.uvScale = glm::vec2(1.0f);
+        push.uvOffset = glm::vec2(0.0f);
+        push.uvRotation = 0.0f;
         push.hasNormalTexture = 0;
         push.hasMetallicRoughnessTexture = 0;
         push.metallicFactor = 1.0f;

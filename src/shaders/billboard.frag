@@ -10,6 +10,9 @@ layout(set = 1, binding = 0) uniform sampler2D texSampler;
 layout(push_constant) uniform Push {
     mat4 modelMatrix;
     mat4 normalMatrix;
+    vec2 uvScale;
+    vec2 uvOffset;
+    float uvRotation;
     int hasNormalTexture;
     int hasMetallicRoughnessTexture;
     int debugMode;

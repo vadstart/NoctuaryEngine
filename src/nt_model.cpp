@@ -458,6 +458,39 @@ void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::s
             std::cerr << "    Failed to load embedded base color texture: " << e.what() << std::endl;
           }
       }
+
+      // Parse UV transform from GLTF (access pbr.baseColorTexture, not materialData)
+      if (pbr.baseColorTexture.extensions.count("KHR_texture_transform") > 0) {
+            const auto& transform = pbr.baseColorTexture.extensions.at("KHR_texture_transform");
+
+            // Parse scale
+            if (transform.Has("scale") && transform.Get("scale").IsArray()) {
+                auto scaleArray = transform.Get("scale").Get<tinygltf::Value::Array>();
+                if (scaleArray.size() >= 2) {
+                    materialData.uvScale.x = scaleArray[0].GetNumberAsDouble();
+                    materialData.uvScale.y = scaleArray[1].GetNumberAsDouble();
+                    std::cout << "    UV Scale: " << materialData.uvScale.x << ", "
+                            << materialData.uvScale.y << std::endl;
+                }
+            }
+
+            // Parse offset
+            if (transform.Has("offset") && transform.Get("offset").IsArray()) {
+                auto offsetArray = transform.Get("offset").Get<tinygltf::Value::Array>();
+                if (offsetArray.size() >= 2) {
+                    materialData.uvOffset.x = offsetArray[0].GetNumberAsDouble();
+                    materialData.uvOffset.y = offsetArray[1].GetNumberAsDouble();
+                    std::cout << "    UV Offset: " << materialData.uvOffset.x << ", "
+                            << materialData.uvOffset.y << std::endl;
+                }
+            }
+
+            // Parse rotation
+            if (transform.Has("rotation")) {
+                materialData.uvRotation = transform.Get("rotation").GetNumberAsDouble();
+                std::cout << "    UV Rotation: " << materialData.uvRotation << " radians" << std::endl;
+            }
+        }
     }
 
     // Load metallic-roughness texture

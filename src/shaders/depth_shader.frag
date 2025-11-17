@@ -7,6 +7,9 @@ layout(location = 0) out vec4 outColor;
 layout(push_constant) uniform Push {
     mat4 modelMatrix;
     mat4 normalMatrix;
+    vec2 uvScale;
+    vec2 uvOffset;
+    float uvRotation;
     int hasNormalTexture;
     int hasMetallicRoughnessTexture;
     int debugMode;
@@ -15,9 +18,9 @@ layout(push_constant) uniform Push {
 } push;
 
 void main() {
-    float depth = fragPosView.z / 50.0; // TODO:Dynamically replace with CameraFar
-    depth = pow(depth, 1.0 / 2.2);
-    depth = 1.0 - depth;
+    float depth = fragPosView.z / 1500.0; // TODO:Dynamically replace with CameraFar
+    // depth = pow(depth, 1.0 / 2.2);
+    // depth = 1.0 - depth;
 
     outColor = vec4(vec3(depth), 1.0f);
 }
