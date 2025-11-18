@@ -14,11 +14,16 @@ layout(set = 1, binding = 2) uniform sampler2D metallicRoughnessTexSampler;
 layout(push_constant) uniform Push {
     mat4 modelMatrix;
     mat4 normalMatrix;
+    vec2 uvScale;
+    vec2 uvOffset;
+    float uvRotation;
     int hasNormalTexture;
     int hasMetallicRoughnessTexture;
-    int debugMode; // 0 = normal, 1 = tangent, 2 = bitangent, 3 = normal map
+    int debugMode; // 0 = normal, 1 = tangent, 2 = bitangent, 3 = normal map, 4 = tangent map
     float metallicFactor;
     float roughnessFactor;
+    vec3 lightColor;
+    float lightIntensity;
 } push;
 
 layout(location = 0) out vec4 outColor;
@@ -50,23 +55,19 @@ void main() {
     if (push.debugMode > 0) {
         vec3 debugColor = vec3(1.0, 0.0, 1.0); // Default magenta for invalid
 
-        if (push.debugMode == 1) {
-            // Visualize tangent vectors
-            debugColor = normalize(fragTangentWorld.xyz) * 0.5 + 0.5;
-        } else if (push.debugMode == 2) {
-            // Visualize bitangent vectors
-            vec3 N = normalize(fragNormalWorld);
-            vec3 T = normalize(fragTangentWorld.xyz);
-            T = normalize(T - dot(T, N) * N);
-            vec3 B = normalize(cross(N, T)) * fragTangentWorld.w;
-            debugColor = B * 0.5 + 0.5;
-        } else if (push.debugMode == 3) {
-            // Visualize normal map directly
-            if (push.hasNormalTexture > 0) {
-                debugColor = texture(normalTexSampler, fragTexCoord).rgb;
-            } else {
-                debugColor = vec3(0.5, 0.5, 1.0); // Default normal color
-            }
+        // Visualize normal-mapped surface normals (or vertex normals if no map)
+        vec3 N = normalize(fragNormalWorld);
+        vec3 T = normalize(fragTangentWorld.xyz);
+        T = normalize(T - dot(T, N) * N);
+        vec3 B = cross(T, N) * fragTangentWorld.w;
+
+        if (push.hasNormalTexture > 0) {
+            vec3 normalMapSample = texture(normalTexSampler, fragTexCoord).rgb;
+            normalMapSample = normalMapSample * 2.0 - 1.0;
+
+            mat3 TBN = mat3(T, B, N);
+            vec3 transformedNormal = normalize(TBN * normalMapSample);
+            debugColor = transformedNormal * 0.5 + 0.5;
         }
 
         outColor = vec4(debugColor, 1.0);
@@ -74,28 +75,28 @@ void main() {
     }
 
     // Apply normal mapping if available
-    // if (push.hasNormalTexture > 0) {
-    //     vec3 normalMapSample = texture(normalTexSampler, fragTexCoord).rgb;
+    if (push.hasNormalTexture > 0) {
+        vec3 normalMapSample = texture(normalTexSampler, fragTexCoord).rgb;
 
-    //     // Convert from [0,1] to [-1,1] range
-    //     normalMapSample = normalMapSample * 2.0 - 1.0;
+        // Convert from [0,1] to [-1,1] range
+        normalMapSample = normalMapSample * 2.0 - 1.0;
 
-    //     // Use proper tangent space from vertex attributes
-    //     vec3 N = normalize(fragNormalWorld);
-    //     vec3 T = normalize(fragTangentWorld.xyz);
+        // Use proper tangent space from vertex attributes
+        vec3 N = normalize(fragNormalWorld);
+        vec3 T = normalize(fragTangentWorld.xyz);
 
-    //     // Re-orthogonalize the tangent with respect to the normal
-    //     T = normalize(T - dot(T, N) * N);
+        // Re-orthogonalize the tangent with respect to the normal
+        T = normalize(T - dot(T, N) * N);
 
-    //     // Calculate bitangent
-    //     vec3 B = normalize(cross(N, T)) * fragTangentWorld.w;
+        // Calculate bitangent
+        vec3 B = normalize(cross(N, T)) * fragTangentWorld.w;
 
-    //     // Create TBN matrix - the column order is important
-    //     mat3 TBN = mat3(T, B, N);
+        // Create TBN matrix - the column order is important
+        mat3 TBN = mat3(T, B, N);
 
-    //     // Transform normal from tangent space to world space
-    //     surfaceNormal = normalize(TBN * normalMapSample);
-    // }
+        // Transform normal from tangent space to world space
+        surfaceNormal = normalize(TBN * normalMapSample);
+    }
 
     // Sample metallic-roughness texture if available
     float roughness = push.roughnessFactor; // Use material factor as default

@@ -16,8 +16,8 @@ namespace nt
 	class AstralApp
 	{
 	public:
-		static constexpr int WIDTH = 1280;
-		static constexpr int HEIGHT = 1024;
+		static constexpr int WIDTH = 1920;
+		static constexpr int HEIGHT = 1080;
 
     AstralApp();
     ~AstralApp();
@@ -25,7 +25,7 @@ namespace nt
     AstralApp(const AstralApp&) = delete;
 		AstralApp& operator=(const AstralApp&) = delete;
 
-    
+
 		void run();
 
 	private:

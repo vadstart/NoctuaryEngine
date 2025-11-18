@@ -121,8 +121,8 @@ void AstralApp::run() {
   NtCamera camera{};
 
   auto viewerObject = NtGameObject::createGameObject();
-  viewerObject.transform.rotation = {glm::radians(-25.0f), glm::radians(-135.0f), 0};
-  viewerObject.transform.translation = {-1.0f, -2.5f, 0};
+  viewerObject.transform.rotation = {-1.2f, 2.8f, 0.0f};
+  viewerObject.transform.translation = {-12.5f, -7.8f, -10.8f};
   auto targetObject = NtGameObject::createGameObject();
   targetObject.transform.translation = {-0.1f, -0.5f, 0};
   NtInputController inputController{};
@@ -223,7 +223,7 @@ void AstralApp::run() {
         ImGui::Text("Current FPS: %.1f", io.Framerate);
 
 
-        const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "Depth", "Lighting", "LitWireframe", "Wireframe" };
+        const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "TangentNormals", "Depth", "Lighting", "LitWireframe", "Wireframe" };
         static int renderModeCurrent = 0;
         ImGui::Combo("##RenderMode", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
         ImGui::SetItemTooltip("View mode");
@@ -251,10 +251,6 @@ void AstralApp::run() {
 
           ImGui::TreePop();
         }
-
-        glm::vec4 ambientLightColor{1.f, 1.f, 1.f, 0.2f};
-        alignas(16) glm::vec3 lightPosition{-1.f};
-        glm::vec4 lightColor{1.f};
 
         if (ImGui::TreeNode("Gamepad")) {
             if (inputController.gamepadConnected) {
@@ -307,11 +303,17 @@ void AstralApp::run() {
                     ImGui::Text("Right Stick: (%.3f, %.3f)", rightX, rightY);
 
                     ImGui::Text("Buttons:");
-                    ImGui::Text("A: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_A) ? "PRESSED" : "released");
-                    ImGui::Text("B: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_B) ? "PRESSED" : "released");
+                    ImGui::Text("X: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_CROSS) ? "PRESSED" : "released");
+                    ImGui::Text("O: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_CIRCLE) ? "PRESSED" : "released");
+                    ImGui::Text("[]: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_SQUARE) ? "PRESSED" : "released");
+                    ImGui::Text("^: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_TRIANGLE) ? "PRESSED" : "released");
                     ImGui::Text("Start: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_START) ? "PRESSED" : "released");
                     ImGui::Text("L1: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_BUMPER) ? "PRESSED" : "released");
                     ImGui::Text("R1: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER) ? "PRESSED" : "released");
+                    ImGui::Text("L2: %.2f", inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_TRIGGER));
+                    ImGui::Text("R2: %.2f", inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER));
+                    ImGui::Text("L3: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_THUMB) ? "PRESSED" : "released");
+                    ImGui::Text("R3: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_THUMB) ? "PRESSED" : "released");
                 }
             }
             ImGui::TreePop();
@@ -365,7 +367,7 @@ void AstralApp::run() {
     }
 
     if (!camProjType) {
-      camera.setPerspectiveProjection(glm::radians(45.f), aspect, 0.1f, 1500.f);
+      camera.setPerspectiveProjection(glm::radians(65.f), aspect, 0.1f, 1500.f);
     }
     else
     {
@@ -413,29 +415,30 @@ void AstralApp::run() {
 
           glm::vec3 newPos;
 
-          if (lightIndex == 5) {
-              newPos = viewerObject.transform.translation;
-          }
-          else if (lightIndex == 4) {
-              // Light 0 — figure-8 motion (centered at 0, -10, 0)
-              float x = glm::sin(t) * 39.4f;
-              float z = glm::sin(2.0f * t) * 9.5f + 1.0f;
-              float y = -10.0f;
-              newPos = glm::vec3(x, y, z);
-          } else {
+          // Camera light
+          // if (lightIndex == 5) {
+          //     newPos = viewerObject.transform.translation;
+          // }
+          // else if (lightIndex == 4) {
+          //     // Light 0 — figure-8 motion (centered at 0, -10, 0)
+          //     float x = glm::sin(t) * 39.4f;
+          //     float z = glm::sin(2.0f * t) * 9.5f + 1.0f;
+          //     float y = -10.0f;
+          //     newPos = glm::vec3(x, y, z);
+          // } else {
               // Other lights — bounce vertically
               float x = obj.transform.translation.x;  // keep current X
               float z = obj.transform.translation.z;  // keep current Z
-              float y = -9.0f + glm::sin(t2 * 2.0f) * 2.0f;
+              float y = -3.0f + glm::sin(t2 * 2.0f) * 2.0f;
               newPos = glm::vec3(x, y, z);
-          }
+              // }
 
           // Update UBO and object transform
           ubo.pointLights[lightIndex].position = glm::vec4(newPos, 1.0f);
           obj.transform.translation = newPos;
 
           lightIndex++;
-      }
+          }
 
 
       uboBuffers[frameIndex]->writeToBuffer(&ubo);
@@ -602,7 +605,6 @@ void AstralApp::loadGameObjects() {
 
   auto go_MoonlitCafe = NtGameObject::createGameObject();
   go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  // go_MoonlitCafe.transform.scale = {0.06f, 0.06f, 0.06f};
   gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
 
   auto go_Cassandra = NtGameObject::createGameObject();
@@ -614,38 +616,21 @@ void AstralApp::loadGameObjects() {
   // Create light sprite texture
   std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
 
-  auto PointLightCam = NtGameObject::makePointLight(0.0f, 0.0f);
-  PointLightCam.transform.translation = {0.0f, 0.0f, 0.0f};
-  PointLightCam.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  gameObjects.emplace(PointLightCam.getId(), std::move(PointLightCam));
+  // auto PointLightCam = NtGameObject::makePointLight(20.0f, 0.0f);
+  // PointLightCam.transform.translation = {0.0f, 0.0f, 0.0f};
+  // PointLightCam.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  // gameObjects.emplace(PointLightCam.getId(), std::move(PointLightCam));
 
-  auto PointLight1 = NtGameObject::makePointLight(20.0f, 0.0f);
-  PointLight1.transform.translation = {0.0f, 0.0f, 0.0f};
+  auto PointLight1 = NtGameObject::makePointLight(10.0f, 0.0f, glm::vec3(1.0, 0.51, 0.17));
+  PointLight1.transform.translation = {3.2f, -7.7f, -4.0f};
   PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
 
-  auto PointLight2 = NtGameObject::makePointLight(20.0f, 0.0f, glm::vec3(0.f, 0.f, 1.f));
-  PointLight2.transform.translation = {67.3f, -7.0f, 26.8f};
+  auto PointLight2 = NtGameObject::makePointLight(5.0f, 0.0f, glm::vec3(1.0, 0.43, 0.03));
+  PointLight2.transform.translation = {13.2f, -6.2f, 9.9f};
   PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
 
-  auto PointLight3 = NtGameObject::makePointLight(20.0f, 0.0f, glm::vec3(0.f, 0.f, 1.f));
-  PointLight3.transform.translation = {67.3f, -7.0f, -24.6f};
-  PointLight3.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  gameObjects.emplace(PointLight3.getId(), std::move(PointLight3));
-
-  auto PointLight4 = NtGameObject::makePointLight(20.0f, 0.0f, glm::vec3(1.f, 0.f, 0.f));
-  PointLight4.transform.translation = {-72.2f, -7.0f, 26.8f};
-  PointLight4.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  gameObjects.emplace(PointLight4.getId(), std::move(PointLight4));
-
-  auto PointLight5 = NtGameObject::makePointLight(20.0f, 0.0f, glm::vec3(1.f, 0.f, 0.f));
-  PointLight5.transform.translation = {-72.7f, -7.0f, -24.6f};
-  PointLight5.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  gameObjects.emplace(PointLight5.getId(), std::move(PointLight5));
-
 }
-
-
 
 }

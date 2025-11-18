@@ -239,7 +239,11 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
       NtPushConstantData push{};
       push.modelMatrix = obj.transform.mat4();
       push.normalMatrix = obj.transform.normalMatrix();
-      push.debugMode = 0; // Normal rendering
+
+
+      if(currentRenderMode != nt::RenderMode::NormalTangents)
+        push.debugMode = 0; // Normal rendering
+      else push.debugMode = 1;
 
       // Get the material for this specific mesh
       if (materials.size() > materialIndex) {

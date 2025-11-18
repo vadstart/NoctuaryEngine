@@ -14,7 +14,7 @@ void NtCamera::setOrthographicProjection(
   projectionMatrix[3][1] = -(bottom + top) / (bottom - top);
   projectionMatrix[3][2] = -near / (far - near);
 }
- 
+
 void NtCamera::setPerspectiveProjection(float fovy, float aspect, float near, float far) {
   assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) && "Camera aspect ratio must be non-zero and finite");
   const float tanHalfFovy = tan(fovy / 2.f);

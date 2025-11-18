@@ -1,4 +1,5 @@
 #include "nt_image.hpp"
+#include <algorithm>
 #include <iostream>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
@@ -100,10 +101,12 @@ void NtImage::copyBufferToImage(VkBuffer buffer, VkImage image, uint32_t width, 
   ntDevice.endSingleTimeCommands(commandBuffer);
 }
 
-std::unique_ptr<NtImage> NtImage::createTextureFromFile(NtDevice &device, const std::string &filepath) {
+std::unique_ptr<NtImage> NtImage::createTextureFromFile(NtDevice &device, const std::string &filepath, bool isLinear) {
   int texWidth, texHeight, texChannels;
   stbi_set_flip_vertically_on_load(false);  // Temporarily disable flipping to test UV issues
   stbi_uc* pixels = stbi_load(filepath.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+  // texWidth = std::min(texWidth, 512);
+  // texHeight = std::min(texHeight, 512);
   VkDeviceSize imageSize = texWidth * texHeight * 4;
 
   if (!pixels) {
@@ -123,22 +126,26 @@ std::unique_ptr<NtImage> NtImage::createTextureFromFile(NtDevice &device, const 
 
   std::unique_ptr<NtImage> image = std::make_unique<NtImage>(device);
 
-  image->createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  // Choose format: linear (UNORM) for normal/data maps, SRGB for color textures
+  VkFormat format = isLinear ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+  image->imageFormat = format;
 
-  image->transitionImageLayout(image->textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  image->createImage(texWidth, texHeight, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+  image->transitionImageLayout(image->textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   image->copyBufferToImage(stagingBuffer, image->textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-  image->transitionImageLayout(image->textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  image->transitionImageLayout(image->textureImage, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
   vkDestroyBuffer(device.device(), stagingBuffer, nullptr);
   vkFreeMemory(device.device(), stagingBuffMemory, nullptr);
 
-  image->createTextureImageView();
+  image->createTextureImageView(format);
   image->createTextureSampler();
 
   return image;
 }
 
-std::unique_ptr<NtImage> NtImage::createTextureFromMemory(NtDevice &device, const void *data, size_t size) {
+std::unique_ptr<NtImage> NtImage::createTextureFromMemory(NtDevice &device, const void *data, size_t size, bool isLinear) {
   int texWidth, texHeight, texChannels;
   stbi_uc* pixels = nullptr;
   bool isRawData = false;
@@ -203,16 +210,19 @@ std::unique_ptr<NtImage> NtImage::createTextureFromMemory(NtDevice &device, cons
 
   std::unique_ptr<NtImage> image = std::make_unique<NtImage>(device);
 
-  image->createImage(texWidth, texHeight, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+  VkFormat format = isLinear ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8G8B8A8_SRGB;
+  image->imageFormat = format;
 
-  image->transitionImageLayout(image->textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  image->createImage(texWidth, texHeight, format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+  image->transitionImageLayout(image->textureImage, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   image->copyBufferToImage(stagingBuffer, image->textureImage, static_cast<uint32_t>(texWidth), static_cast<uint32_t>(texHeight));
-  image->transitionImageLayout(image->textureImage, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+  image->transitionImageLayout(image->textureImage, format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
   vkDestroyBuffer(device.device(), stagingBuffer, nullptr);
   vkFreeMemory(device.device(), stagingBuffMemory, nullptr);
 
-  image->createTextureImageView();
+  image->createTextureImageView(format);
   image->createTextureSampler();
 
   return image;
@@ -255,12 +265,12 @@ void NtImage::createImage(uint32_t width, uint32_t height, VkFormat format, VkIm
 
 }
 
-void NtImage::createTextureImageView() {
+void NtImage::createTextureImageView(VkFormat format) {
   VkImageViewCreateInfo viewInfo{};
   viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
   viewInfo.image = textureImage;
   viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-  viewInfo.format = VK_FORMAT_R8G8B8A8_SRGB;
+  viewInfo.format = format;
   viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
   viewInfo.subresourceRange.baseMipLevel = 0;
   viewInfo.subresourceRange.levelCount = 1;

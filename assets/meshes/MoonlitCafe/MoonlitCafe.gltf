@@ -74,7 +74,21 @@
 					"index":1
 				},
 				"metallicFactor":0,
-				"roughnessFactor":0.5
+				"metallicRoughnessTexture":{
+					"extensions":{
+						"KHR_texture_transform":{
+							"offset":[
+								0,
+								-4.639000058174133
+							],
+							"scale":[
+								4.5,
+								4.5
+							]
+						}
+					},
+					"index":2
+				}
 			}
 		},
 		{
@@ -102,7 +116,7 @@
 						]
 					}
 				},
-				"index":2
+				"index":3
 			},
 			"pbrMetallicRoughness":{
 				"baseColorTexture":{
@@ -118,10 +132,24 @@
 							]
 						}
 					},
-					"index":3
+					"index":4
 				},
 				"metallicFactor":0,
-				"roughnessFactor":0.5
+				"metallicRoughnessTexture":{
+					"extensions":{
+						"KHR_texture_transform":{
+							"offset":[
+								0,
+								-2
+							],
+							"scale":[
+								3,
+								3
+							]
+						}
+					},
+					"index":5
+				}
 			}
 		},
 		{
@@ -148,7 +176,7 @@
 						]
 					}
 				},
-				"index":4
+				"index":6
 			},
 			"pbrMetallicRoughness":{
 				"baseColorTexture":{
@@ -164,10 +192,24 @@
 							]
 						}
 					},
-					"index":5
+					"index":7
 				},
 				"metallicFactor":0,
-				"roughnessFactor":0.5527864098548889
+				"metallicRoughnessTexture":{
+					"extensions":{
+						"KHR_texture_transform":{
+							"offset":[
+								0,
+								-4.639000058174133
+							],
+							"scale":[
+								4.5,
+								4.5
+							]
+						}
+					},
+					"index":8
+				}
 			}
 		}
 	],
@@ -242,6 +284,18 @@
 		{
 			"sampler":0,
 			"source":5
+		},
+		{
+			"sampler":0,
+			"source":6
+		},
+		{
+			"sampler":0,
+			"source":7
+		},
+		{
+			"sampler":0,
+			"source":8
 		}
 	],
 	"images":[
@@ -257,6 +311,11 @@
 		},
 		{
 			"mimeType":"image/png",
+			"name":"Wall_INST_roughness",
+			"uri":"Wall_INST_roughness.png"
+		},
+		{
+			"mimeType":"image/png",
 			"name":"Floor_INST_normal",
 			"uri":"Floor_INST_normal.png"
 		},
@@ -267,6 +326,11 @@
 		},
 		{
 			"mimeType":"image/png",
+			"name":"Floor_INST_roughness",
+			"uri":"Floor_INST_roughness.png"
+		},
+		{
+			"mimeType":"image/png",
 			"name":"Ceiling_INST_normal",
 			"uri":"Ceiling_INST_normal.png"
 		},
@@ -274,6 +338,11 @@
 			"mimeType":"image/png",
 			"name":"Ceiling_INST_basecolor",
 			"uri":"Ceiling_INST_basecolor.png"
+		},
+		{
+			"mimeType":"image/png",
+			"name":"Ceiling_INST_roughness",
+			"uri":"Ceiling_INST_roughness.png"
 		}
 	],
 	"accessors":[

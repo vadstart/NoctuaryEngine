@@ -404,7 +404,7 @@ void NtModel::Data::loadGltfModel(const std::string &filepath) {
       vertex.normal = normalTransform * vertex.normal;
 
       // Transform tangent
-      glm::vec4 tangent = transform * glm::vec4(vertex.tangent.x, vertex.tangent.y, vertex.tangent.z, 0.0f);
+      glm::vec3 tangent = normalTransform * glm::vec3(vertex.tangent.x, vertex.tangent.y, vertex.tangent.z);
       vertex.tangent = glm::vec4(tangent.x, tangent.y, tangent.z, vertex.tangent.w);
     }
   }
@@ -503,7 +503,7 @@ void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::s
         std::cout << "    Loading metallic-roughness texture: " << texturePath << std::endl;
         try {
           materialData.pbrMetallicRoughness.metallicRoughnessTexture =
-            NtImage::createTextureFromFile(ntDevice, texturePath);
+            NtImage::createTextureFromFile(ntDevice, texturePath, true);
           materialData.pbrMetallicRoughness.metallicRoughnessTexCoord = pbr.metallicRoughnessTexture.texCoord;
         } catch (const std::exception& e) {
           std::cerr << "    Failed to load metallic-roughness texture: " << e.what() << std::endl;
@@ -511,7 +511,7 @@ void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::s
       } else if (!image.image.empty()) {
         // Embedded texture - so let's create texture from memory
         materialData.pbrMetallicRoughness.metallicRoughnessTexture =
-            NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
+            NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size(), true);
         materialData.pbrMetallicRoughness.metallicRoughnessTexCoord = pbr.metallicRoughnessTexture.texCoord;
         }
     }
@@ -525,7 +525,7 @@ void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::s
         std::string texturePath = baseDir + image.uri;
         std::cout << "    Loading normal texture: " << texturePath << std::endl;
         try {
-          materialData.normalTexture = NtImage::createTextureFromFile(ntDevice, texturePath);
+          materialData.normalTexture = NtImage::createTextureFromFile(ntDevice, texturePath, true);
           materialData.normalScale = material.normalTexture.scale;
           materialData.normalTexCoord = material.normalTexture.texCoord;
         } catch (const std::exception& e) {
@@ -534,7 +534,7 @@ void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::s
       } else if (!image.image.empty()) {
         // Embedded texture - so let's create texture from memory
         materialData.normalTexture =
-            NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
+            NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size(), true);
         materialData.normalScale = material.normalTexture.scale;
         materialData.normalTexCoord = material.normalTexture.texCoord;
     }
@@ -732,6 +732,11 @@ void NtModel::Data::loadGltfMeshes(const tinygltf::Model &model) {
           }
         }
       }
+
+      // Calculate tangents if not provided by the model
+    if (!tangentData && !mesh.indices.empty()) {
+        calculateTangents(mesh.vertices, mesh.indices);
+    }
 
       // std::cout << "    Vertices: " << mesh.vertices.size() << ", Indices: " << mesh.indices.size() << std::endl;
       meshes.push_back(mesh);
