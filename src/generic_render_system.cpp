@@ -217,7 +217,7 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
 
   for (auto& kv: frameInfo.gameObjects) {
     auto& obj = kv.second;
-    if (obj.model == nullptr || obj.pointLight != nullptr) continue;
+    if (obj.model == nullptr || obj.pointLight != nullptr || obj.isCharacter) continue;
 
     // Render each mesh with its own material
     const auto& materials = obj.model->getMaterials();
@@ -239,7 +239,6 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
       NtPushConstantData push{};
       push.modelMatrix = obj.transform.mat4();
       push.normalMatrix = obj.transform.normalMatrix();
-
 
       if(currentRenderMode != nt::RenderMode::NormalTangents)
         push.debugMode = 0; // Normal rendering
@@ -276,6 +275,76 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
       obj.model->draw(frameInfo.commandBuffer, meshIndex);
     }
   }
+
+//===================================================
+//  Character stylized Pipeline
+//===================================================
+unlitPipeline->bind(frameInfo.commandBuffer);
+
+vkCmdBindDescriptorSets(
+    frameInfo.commandBuffer,
+    VK_PIPELINE_BIND_POINT_GRAPHICS,
+    pipelineLayout,
+    0, 1,
+    &frameInfo.globalDescriptorSet,
+    0, nullptr);
+
+for (auto& kv: frameInfo.gameObjects) {
+    auto& obj = kv.second;
+    if (obj.model == nullptr || obj.pointLight != nullptr || !obj.isCharacter) continue;
+
+    // Render each mesh with its own material
+    const auto& materials = obj.model->getMaterials();
+    for (uint32_t meshIndex = 0; meshIndex < obj.model->getMeshCount(); ++meshIndex) {
+
+        // Bind the material descriptor set for this specific mesh
+        uint32_t materialIndex = obj.model->getMaterialIndex(meshIndex);
+        if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
+        VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
+        vkCmdBindDescriptorSets(
+            frameInfo.commandBuffer,
+            VK_PIPELINE_BIND_POINT_GRAPHICS,
+            pipelineLayout,
+            1, 1,
+            &materialDescriptorSet,
+            0, nullptr);
+        }
+
+        NtPushConstantData push{};
+        push.modelMatrix = obj.transform.mat4();
+        push.normalMatrix = obj.transform.normalMatrix();
+
+        // Get the material for this specific mesh
+        if (materials.size() > materialIndex) {
+            push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
+            push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
+            push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
+            push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
+            push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
+            push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
+            push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
+        } else {
+            push.uvScale = glm::vec2(1.0f);
+            push.uvOffset = glm::vec2(0.0f);
+            push.uvRotation = 0.0f;
+            push.hasNormalTexture = 0;
+            push.hasMetallicRoughnessTexture = 0;
+            push.metallicFactor = 1.0f;
+            push.roughnessFactor = 1.0f;
+        }
+
+        vkCmdPushConstants(
+        frameInfo.commandBuffer,
+        pipelineLayout,
+        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+        0,
+        sizeof(NtPushConstantData),
+        &push);
+
+        obj.model->bind(frameInfo.commandBuffer, meshIndex);
+        obj.model->draw(frameInfo.commandBuffer, meshIndex);
+    }
+}
 
 //===================================================
 //  Visualize Wireframe ON TOP of regular rendering

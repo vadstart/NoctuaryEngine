@@ -607,7 +607,7 @@ void AstralApp::loadGameObjects() {
   go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
   gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
 
-  auto go_Cassandra = NtGameObject::createGameObject();
+  auto go_Cassandra = NtGameObject::createGameObject(true);
   go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
   go_Cassandra.transform.rotation = {0.0f, glm::radians(90.0f), 0.0f};
   go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};

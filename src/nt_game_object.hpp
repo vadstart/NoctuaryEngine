@@ -31,9 +31,9 @@ public:
   using id_t = unsigned int;
   using Map = std::unordered_map<id_t, NtGameObject>;
 
-  static NtGameObject createGameObject() {
+  static NtGameObject createGameObject(bool isObjCharacter = false) {
     static id_t currentId = 0;
-    return NtGameObject{currentId++};
+    return NtGameObject{currentId++, isObjCharacter};
   }
 
   static NtGameObject makePointLight(float intensity = 5.0f, float radius = 0.1f, glm::vec3 color = glm::vec3(1.0f));
@@ -47,6 +47,7 @@ public:
 
   glm::vec3 color{};
   TransformComponent transform{};
+  bool isCharacter = false;
 
   std::shared_ptr<NtModel> model{};
   VkDescriptorSet materialDescriptorSet = VK_NULL_HANDLE;
@@ -56,7 +57,7 @@ public:
   std::unique_ptr<PointLightComponent> pointLight = nullptr;
 
 private:
-  NtGameObject(id_t objId) : id{objId} {}
+  NtGameObject(id_t objId, bool isObjCharacter) : id{objId}, isCharacter{isObjCharacter} {}
 
   id_t id;
 };
