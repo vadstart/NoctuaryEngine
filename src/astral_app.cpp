@@ -140,8 +140,8 @@ void AstralApp::run() {
   NtInputController inputController{};
 
   // Debug world grid
-  auto debugGridObject = NtGameObject::createGameObject();
-  debugGridObject.model = createGOPlane(1000.0f);
+  // auto debugGridObject = NtGameObject::createGameObject();
+  // debugGridObject.model = createGOPlane(1000.0f);
 
   loadGameObjects();
 
@@ -504,7 +504,7 @@ void AstralApp::run() {
 
       // render
       ntRenderer.beginSwapChainRenderPass(commandBuffer);
-      genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
+      // genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
       genericRenderSystem.renderGameObjects(frameInfo);
       genericRenderSystem.renderLightBillboards(frameInfo);
 
@@ -672,7 +672,7 @@ void AstralApp::loadGameObjects() {
       bonePool->getDescriptorPool());
   go_Cassandra.transform.translation = {0.0f, -1.3f, 0.0f};
   go_Cassandra.transform.rotation = {glm::radians(90.0f), glm::radians(90.0f), 0.0f};
-  go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};
+  // go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};
   if (go_Cassandra.model->hasSkeleton()) {
       go_Cassandra.animator = std::make_unique<NtAnimator>(*go_Cassandra.model);
 

@@ -181,8 +181,6 @@ void NtModel::createBoneBuffer() {
 
     boneBuffer->writeToBuffer(identityMatrices.data());
     boneBuffer->flush();
-
-    std::cout << "  Created bone buffer for " << boneCount << " bones" << std::endl;
 }
 
 void NtModel::updateBoneBuffer(VkDescriptorSetLayout boneLayout, VkDescriptorPool bonePool) {
@@ -214,8 +212,6 @@ void NtModel::updateBoneBuffer(VkDescriptorSetLayout boneLayout, VkDescriptorPoo
     descriptorWrite.pBufferInfo = &bufferInfo;
 
     vkUpdateDescriptorSets(ntDevice.device(), 1, &descriptorWrite, 0, nullptr);
-
-    std::cout << "  Bone descriptor set allocated" << std::endl;
 }
 
 void NtModel::bind (VkCommandBuffer commandBuffer, uint32_t meshIndex) {
@@ -464,7 +460,7 @@ void NtModel::Builder::loadGltfModel(const std::string &filepath) {
   std::cout << "  Meshes: " << model.meshes.size() << std::endl;
   std::cout << "  Materials: " << model.materials.size() << std::endl;
   std::cout << "  Textures: " << model.textures.size() << std::endl;
-  std::cout << "  Skeletons: " << model.skins.size() << std::endl;
+  std::cout << "  Animations: " << model.animations.size() << std::endl;
 
   // Load materials first
   loadGltfMaterials(model, filepath);
@@ -730,7 +726,6 @@ void NtModel::Builder::loadGltfMeshes(const tinygltf::Model &model) {
         const auto &jointsBuffer = model.buffers[jointsBufferView.buffer];
         jointsData = &jointsBuffer.data[jointsBufferView.byteOffset + jointsAccessor.byteOffset];
         jointsComponentType = jointsAccessor.componentType;
-        std::cout << "Found JOINTS_0 attribute, component type: " << jointsComponentType << std::endl;
       }
 
       // Bone weights
@@ -740,7 +735,6 @@ void NtModel::Builder::loadGltfMeshes(const tinygltf::Model &model) {
         const auto &weightsBufferView = model.bufferViews[weightsAccessor.bufferView];
         const auto &weightsBuffer = model.buffers[weightsBufferView.buffer];
         weightsData = reinterpret_cast<const float*>(&weightsBuffer.data[weightsBufferView.byteOffset + weightsAccessor.byteOffset]);
-        std::cout << "Found WEIGHTS_0 attribute" << std::endl;
       }
 
       // Extract vertex data
@@ -833,7 +827,6 @@ void NtModel::Builder::loadGltfMeshes(const tinygltf::Model &model) {
         calculateTangents(mesh.vertices, mesh.indices);
     }
 
-      // std::cout << "    Vertices: " << mesh.vertices.size() << ", Indices: " << mesh.indices.size() << std::endl;
       l_meshes.push_back(mesh);
     }
   }
@@ -876,18 +869,15 @@ void NtModel::Builder::loadGltfSkeleton(const tinygltf::Model &model) {
                 // TODO: sounds sketchy:
                 inverseBindMatrices = reinterpret_cast<const glm::mat4*>(&inverseBindBuffer.data[inverseBindBufferView.byteOffset + inverseBindAccessor.byteOffset]);
                 inverseBindComponentType = inverseBindAccessor.componentType;
-                std::cout << "Found INVERSEBINDMATRICES attribute, component type: " << inverseBindComponentType << std::endl;
 
             // loop over all joints from gltf model and fill our skeleton with bones
             for (size_t jointIndex = 0; jointIndex < numBones; ++jointIndex) {
-                std::cout << "    Loop: " << jointIndex << std::endl;
                 int globalGltfNodeIndex = skin.joints[jointIndex];
                 auto& bone = bones[jointIndex];
 
                 bone.globalGltfNodeIndex = globalGltfNodeIndex;
                 bone.inverseBindMatrix = inverseBindMatrices[jointIndex];
                 bone.name = model.nodes[globalGltfNodeIndex].name;
-                std::cout << "    Bone: " << bone.name << std::endl;
 
                 // set up node transform
                 auto& gltfNode = model.nodes[globalGltfNodeIndex];
@@ -911,22 +901,18 @@ void NtModel::Builder::loadGltfSkeleton(const tinygltf::Model &model) {
 
                 // set up the "global node" to "bone index" mapping
                 l_skeleton->nodeIndexToBoneIndex[globalGltfNodeIndex] = jointIndex;
-            std::cout << "    Bone " << jointIndex << ": " << bone.name << " loaded" << std::endl;
             }
 
-            std::cout << "  Loading bone hierarchy..." << std::endl;
             int rootJoint = skin.joints[0];
             loadGltfBone(model, rootJoint, -1);
-            std::cout << "  Bone hierarchy loaded" << std::endl;
         }
      }
 
     // Initialize the shader data vector
     l_skeleton->m_ShaderData.m_FinalJointsMatrices.resize(l_skeleton->bones.size(), glm::mat4(1.0f));
-    std::cout << "  Initialized shader data for " << l_skeleton->bones.size() << " bones" << std::endl;
 
 
-    std::cout << "  Bones: " << l_skeleton->bones.size() << " bones\n";
+    std::cout << "    Bones: " << l_skeleton->bones.size() << std::endl;
 }
 
 void NtModel::Builder::loadGltfBone(const tinygltf::Model &model, int globalGltfNodeIndex, int parentBone) {
@@ -936,13 +922,11 @@ void NtModel::Builder::loadGltfBone(const tinygltf::Model &model, int globalGltf
     bone.parentIndex = parentBone;
 
     size_t numChildren = model.nodes[globalGltfNodeIndex].children.size();
-    std::cout << "    - Bone " << bone.name << ": " << numChildren << std::endl;
     if (numChildren > 0) {
         bone.childrenIndices.resize(numChildren);
         for (size_t childIndex = 0; childIndex < numChildren; ++childIndex) {
             uint childGlobalIndex = model.nodes[globalGltfNodeIndex].children[childIndex];
             bone.childrenIndices[childIndex] = l_skeleton->nodeIndexToBoneIndex[childGlobalIndex];
-            std::cout << "    - childIndex " << childIndex << ": " << childGlobalIndex << std::endl;
             loadGltfBone(model, childGlobalIndex, currentBone);
         }
     }
