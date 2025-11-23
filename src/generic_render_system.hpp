@@ -17,8 +17,8 @@ namespace nt
 	{
 	public:
     GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout,
-        VkDescriptorSetLayout modelSetLayout/*,
-        VkDescriptorSetLayout boneSetLayout*/);
+        VkDescriptorSetLayout modelSetLayout,
+        VkDescriptorSetLayout boneSetLayout);
     ~GenericRenderSystem();
 
     GenericRenderSystem(const GenericRenderSystem&) = delete;
@@ -32,7 +32,7 @@ namespace nt
     void switchRenderMode(RenderMode newRenderMode);
 
 	private:
-    void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout/*, VkDescriptorSetLayout boneSetLayout*/);
+    void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout);
     void createPipeline(VkRenderPass renderPass);
 
     NtDevice &ntDevice;

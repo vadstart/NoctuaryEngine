@@ -78,16 +78,17 @@ AstralApp::AstralApp()
     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 500)
     .build();
 
-  // bonePool = NtDescriptorPool::Builder(ntDevice)
-  //   .setMaxSets(100)
-  //   .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 500)
-  //   .build();
+  bonePool = NtDescriptorPool::Builder(ntDevice)
+    .setMaxSets(100)
+    .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 500)
+    .build();
 }
 AstralApp::~AstralApp() {
 
 }
 
 void AstralApp::run() {
+
   std::vector<std::unique_ptr<NtBuffer>> uboBuffers(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
   for (int i = 0; i < uboBuffers.size(); i++) {
     uboBuffers[i] = std::make_unique<NtBuffer> (
@@ -112,9 +113,9 @@ void AstralApp::run() {
     // .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Emissive texture
     .build();
 
-  // boneSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
-  //   .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-  //   .build();
+  boneSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+    .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+    .build();
 
   std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
   for(int i = 0; i < globalDescriptorSets.size(); i++) {
@@ -128,7 +129,7 @@ void AstralApp::run() {
   GlobalUbo ubo{};
 
   GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout(),
-      modelSetLayout->getDescriptorSetLayout()/*boneSetLayout->getDescriptorSetLayout()*/);
+      modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
   NtCamera camera{};
 
   auto viewerObject = NtGameObject::createGameObject();
@@ -435,15 +436,34 @@ void AstralApp::run() {
       int lightIndex = 0;
       for (auto& kv : frameInfo.gameObjects) {
           auto& obj = kv.second;
+
+          // ANIMATION
           if (obj.animator) {
-                  // obj.animator->update(deltaTime);
+            obj.animator->update(deltaTime);
 
-                  // // Upload bone matrices to GPU
-                  // const auto& matrices = obj.animator->getBoneMatrices();
+            if (obj.model && obj.model->hasSkeleton() && obj.isCharacter) {
+                    obj.model->updateSkeleton();
 
-                  // obj.animationData->boneBuffer->writeToBuffer((void*)matrices.data());
-                  // obj.animationData->boneBuffer->flush();
-              }
+                    // Update bone visualizer positions
+                    const auto& skeleton = obj.model->getSkeleton();
+                    const auto& matrices = skeleton->m_ShaderData.m_FinalJointsMatrices;
+
+                    size_t boneIndex = 0;
+                    for (auto& kv2 : frameInfo.gameObjects) {
+                        auto& vizObj = kv2.second;
+                        if (vizObj.isDebugVisualization && boneIndex < matrices.size()) {
+                            // Extract bone position from matrix
+                            glm::vec3 boneLocalPos = glm::vec3(matrices[boneIndex][3]);
+
+                            // Transform to world space using model's transform
+                            glm::vec4 boneWorldPos = obj.transform.mat4() * glm::vec4(boneLocalPos, 1.0f);
+                            vizObj.transform.translation = glm::vec3(boneWorldPos);
+
+                            boneIndex++;
+                        }
+                    }
+                }
+          }
 
           // if (obj.pointLight == nullptr || lightIndex >= ubo.numLights) continue;
 
@@ -636,43 +656,46 @@ std::unique_ptr<NtModel> AstralApp::createBillboardQuadWithTexture(float size, s
 }
 
 void AstralApp::loadGameObjects() {
-  // auto go_Atrium = NtGameObject::createGameObject();
-  // go_Atrium.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Sponza/Sponza.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  // go_Atrium.transform.scale = {0.06f, 0.06f, 0.06f};
-  // gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
-
-  // auto go_MoonlitCafe = NtGameObject::createGameObject();
-  // go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  // gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
-
-  auto go_Cassandra = NtGameObject::createGameObject(true);
-  go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  go_Cassandra.transform.rotation = {0.0f, glm::radians(90.0f), 0.0f};
-  go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};
-
-  // if (go_Cassandra.model->hasSkeleton()) {
-  //     go_Cassandra.animator->play("Action", true);
-  // }
-
-  gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
+  auto go_MoonlitCafe = NtGameObject::createGameObject();
+  go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  go_MoonlitCafe.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
+  gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
 
   // Create light sprite texture
-  // std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
+  std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
+
+  auto go_Cassandra = NtGameObject::createGameObject(true);
+  go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"),
+      modelSetLayout->getDescriptorSetLayout(),
+      modelPool->getDescriptorPool(),
+      boneSetLayout->getDescriptorSetLayout(),
+      bonePool->getDescriptorPool());
+  go_Cassandra.transform.translation = {0.0f, -1.3f, 0.0f};
+  go_Cassandra.transform.rotation = {glm::radians(90.0f), glm::radians(90.0f), 0.0f};
+  go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};
+  if (go_Cassandra.model->hasSkeleton()) {
+      go_Cassandra.animator = std::make_unique<NtAnimator>(*go_Cassandra.model);
+
+      go_Cassandra.animator->play("Idle", true);
+  }
+  gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
+
+
 
   // auto PointLightCam = NtGameObject::makePointLight(20.0f, 0.0f);
   // PointLightCam.transform.translation = {0.0f, 0.0f, 0.0f};
   // PointLightCam.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   // gameObjects.emplace(PointLightCam.getId(), std::move(PointLightCam));
 
-  // auto PointLight1 = NtGameObject::makePointLight(10.0f, 0.0f, glm::vec3(1.0, 0.51, 0.17));
-  // PointLight1.transform.translation = {3.2f, -7.7f, -4.0f};
-  // PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  // gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
+  auto PointLight1 = NtGameObject::makePointLight(10.0f, 0.0f, glm::vec3(1.0, 0.51, 0.17));
+  PointLight1.transform.translation = {3.2f, -7.7f, -4.0f};
+  PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
 
-  // auto PointLight2 = NtGameObject::makePointLight(5.0f, 0.0f, glm::vec3(1.0, 0.43, 0.03));
-  // PointLight2.transform.translation = {13.2f, -6.2f, 9.9f};
-  // PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  // gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
+  auto PointLight2 = NtGameObject::makePointLight(5.0f, 0.0f, glm::vec3(1.0, 0.43, 0.03));
+  PointLight2.transform.translation = {13.2f, -6.2f, 9.9f};
+  PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
 
 }
 

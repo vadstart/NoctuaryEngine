@@ -88,6 +88,7 @@ void main() {
 
     // projection * view * model * position
     vec4 positionWorld = push.modelMatrix * animatedPosition;
+    // vec4 positionWorld = push.modelMatrix * vec4(position, 1.0f);
     gl_Position = ubo.projection * ubo.view * positionWorld;
     fragPosWorld = positionWorld.xyz;
 
@@ -96,6 +97,13 @@ void main() {
     // fragTangent = normalize(normalMatrix * normal);
 
     fragTexCoord = uv;
+
+    // Visualize bone indices as colors
+    fragColor = vec3(
+            float(boneWeights.x) / 35.0,
+            float(boneWeights.y) / 35.0,
+            float(boneWeights.z) / 35.0
+        );
 
     // DEBUG: Visualize bone indices
     // fragColor = vec3(float(boneIndices.x) / 19.0, float(boneIndices.y) / 19.0, float(boneIndices.z) / 19.0);

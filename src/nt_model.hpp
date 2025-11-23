@@ -60,6 +60,11 @@ class NtModel {
           std::string name{};
         };
 
+        struct ShaderData
+        {
+            std::vector<glm::mat4> m_FinalJointsMatrices;
+        };
+
         struct Bone {
             int globalGltfNodeIndex; // node index from the gltf nodes std::vector
             std::string name;
@@ -73,7 +78,7 @@ class NtModel {
             glm::quat animatedNodeRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f); // R
             glm::vec3 animatedNodeScale{1.0f};                                  // S
 
-            glm::mat4 getAnimatedBindMatrix() {
+            glm::mat4 getAnimatedBindMatrix() const {
                 return glm::translate(glm::mat4(1.0f), animatedNodeTranslation) * // T
                        glm::mat4(animatedNodeRotation) *                          // R
                        glm::scale(glm::mat4(1.0f), animatedNodeScale) *           // S
@@ -87,12 +92,16 @@ class NtModel {
 
         struct Skeleton {
             bool isRoot = false;
+            bool isAnimated = true;
             std::string name;
             std::vector<Bone> bones;
             std::unordered_map<int, int> nodeIndexToBoneIndex; // Map node index -> bone index
+            ShaderData m_ShaderData;
 
             void Traverse();
             void Traverse(Bone const& bone, uint indent = 0);
+            void Update();
+            void UpdateBone(int16_t boneIndex);
         };
 
         struct Builder {
@@ -131,7 +140,11 @@ class NtModel {
         NtModel(const NtModel &) = delete;
         NtModel& operator=(const NtModel &) = delete;
 
-        static std::unique_ptr<NtModel> createModelFromFile(NtDevice &device, const std::string &filepath, VkDescriptorSetLayout materialLayout, VkDescriptorPool materialPool);
+        static std::unique_ptr<NtModel> createModelFromFile(NtDevice &device, const std::string &filepath,
+            VkDescriptorSetLayout materialLayout,
+            VkDescriptorPool materialPool,
+            VkDescriptorSetLayout boneLayout = VK_NULL_HANDLE,
+            VkDescriptorPool bonePool = VK_NULL_HANDLE);
         uint32_t getMeshCount() const { return static_cast<uint32_t>(meshes.size()); }
         const std::vector<std::shared_ptr<NtMaterial>>& getMaterials() const { return materials; }
         uint32_t getMaterialIndex(uint32_t meshIndex) const;
@@ -139,19 +152,22 @@ class NtModel {
         uint32_t getBonesCount() const { return skeleton.has_value() ? static_cast<uint32_t>(skeleton->bones.size()) : 0; }
         const std::vector<NtAnimation>& getAnimations() const { return animations; }
 
+        const VkDescriptorSet& getBoneDescriptorSet() const { return boneDescriptorSet; }
+        bool hasBoneDescriptor() const { return boneDescriptorSet != VK_NULL_HANDLE; }
+        // void updateBoneMatrices(const std::vector<glm::mat4>& matrices);
+
         void bind (VkCommandBuffer commandBuffer, uint32_t meshIndex = 0);
         void draw (VkCommandBuffer commandBuffer, uint32_t meshIndex = 0);
         void drawAll (VkCommandBuffer commandBuffer);
+        void updateSkeleton();
 
         bool hasSkeleton() const { return skeleton.has_value(); }
     private:
         struct MeshBuffers {
           std::unique_ptr<NtBuffer> vertexBuffer;
           std::unique_ptr<NtBuffer> indexBuffer;
-          std::unique_ptr<NtBuffer> boneBuffer;
           uint32_t vertexCount;
           uint32_t indexCount;
-          uint32_t boneCount;
           bool hasIndexBuffer = false;
           uint32_t materialIndex = 0;
         };
@@ -159,14 +175,18 @@ class NtModel {
         void createMeshBuffers(const std::vector<Mesh> &meshes);
         void createVertexBuffer(const std::vector<Vertex> &vertices, MeshBuffers &meshBuffers);
         void createIndexBuffer(const std::vector<uint32_t> &indices, MeshBuffers &meshBuffers);
-        void createBoneBuffer(const std::vector<uint32_t> &bones, MeshBuffers &meshBuffers);
+        void createBoneBuffer();
+        void updateBoneBuffer(VkDescriptorSetLayout boneLayout, VkDescriptorPool bonePool);
+        void computeBindPoseMatrices(std::vector<glm::mat4>& matrices);
+
+        std::unique_ptr<NtBuffer> boneBuffer;
+        VkDescriptorSet boneDescriptorSet = VK_NULL_HANDLE;
 
         NtDevice &ntDevice;
         std::vector<MeshBuffers> meshes;
         std::vector<std::shared_ptr<NtMaterial>> materials;
         std::optional<Skeleton> skeleton;
         std::vector<NtAnimation> animations;
-
 };
 
 }

@@ -26,10 +26,10 @@ struct PointLightComponent {
   float lightIntensity = 1.0f;
 };
 
-struct AnimationComponent {
-    std::unique_ptr<NtBuffer> boneBuffer; // Storage bufer for bone matrices
-    VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-};
+// struct AnimationComponent {
+//     std::unique_ptr<NtBuffer> boneBuffer; // Storage bufer for bone matrices
+//     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
+// };
 
 class NtGameObject {
 public:
@@ -53,6 +53,7 @@ public:
   glm::vec3 color{};
   TransformComponent transform{};
   bool isCharacter = false;
+  bool isDebugVisualization = false;
 
   std::shared_ptr<NtModel> model{};
   VkDescriptorSet materialDescriptorSet = VK_NULL_HANDLE;
@@ -62,7 +63,6 @@ public:
   std::unique_ptr<PointLightComponent> pointLight = nullptr;
 
   std::unique_ptr<NtAnimator> animator;
-  std::unique_ptr<AnimationComponent> animationData = nullptr;
 
 private:
   NtGameObject(id_t objId, bool isObjCharacter) : id{objId}, isCharacter{isObjCharacter} {}

@@ -12,19 +12,6 @@
 
 namespace nt {
 
-// Helper: Get node's global matrix by walking up parent chain
-// static glm::mat4 getNodeMatrix(NtModel::Node* node) {
-//     if (!node) return glm::mat4(1.0f);
-
-//     glm::mat4 nodeMatrix = node->getLocalMatrix();
-//     NtModel::Node* currentParent = node->parent;
-//     while (currentParent) {
-//         nodeMatrix = currentParent->getLocalMatrix() * nodeMatrix;
-//         currentParent = currentParent->parent;
-//     }
-//     return nodeMatrix;
-// }
-
 NtAnimator::NtAnimator(NtModel& model) : model(model) {
     if (model.hasSkeleton()) {
         boneMatrices.resize(model.getBonesCount(), glm::mat4(1.0f));
@@ -44,7 +31,7 @@ void NtAnimator::play(const std::string& animationName, bool loop) {
 }
 
 void NtAnimator::update(float deltaTime) {
-    /*if (!currentAnimation || !model.hasSkeleton()) return;
+    if (!currentAnimation || !model.hasSkeleton()) return;
 
     currentTime += deltaTime;
     if (currentTime > currentAnimation->duration) {
@@ -55,78 +42,74 @@ void NtAnimator::update(float deltaTime) {
         }
     }
 
-    const std::optional<NtModel::Skeleton>& skeletonOpt = model.getSkeleton();
+    std::optional<NtModel::Skeleton>& skeletonOpt = const_cast<std::optional<NtModel::Skeleton>&>(model.getSkeleton());
     if (!skeletonOpt.has_value()) return;
-    const NtModel::Skeleton& skeleton = skeletonOpt.value();
+    NtModel::Skeleton& skeleton = skeletonOpt.value();
 
-    std::cout << "[ANIM] Updating animation, channels: " << currentAnimation->channels.size() << std::endl;
+    // std::cout << "[ANIM] Updating animation, channels: " << currentAnimation->channels.size() << std::endl;
 
     // Update node TRS from animation
     for (size_t chanIdx = 0; chanIdx < currentAnimation->channels.size(); ++chanIdx) {
         const auto& channel = currentAnimation->channels[chanIdx];
 
-        std::cout << "[ANIM] Channel " << chanIdx << ": samplerIdx=" << channel.samplerIndex
-                  << ", targetNode=" << channel.targetNode << std::endl;
+        // std::cout << "[ANIM] Channel " << chanIdx << ": samplerIdx=" << channel.samplerIndex
+        //           << ", targetNode=" << channel.targetNode << std::endl;
 
         if (channel.samplerIndex >= currentAnimation->samplers.size()) {
             std::cerr << "[ANIM ERROR] Invalid sampler index!" << std::endl;
             continue;
         }
 
-        if (channel.targetNode >= static_cast<int>(skeleton.joints.size())) {
+        if (channel.targetNode >= static_cast<int>(skeleton.bones.size())) {
             std::cerr << "[ANIM ERROR] Target node " << channel.targetNode
-                      << " out of range (joints size: " << skeleton.joints.size() << ")" << std::endl;
+                      << " out of range (joints size: " << skeleton.bones.size() << ")" << std::endl;
             continue;
         }
 
         const NtAnimationSampler& sampler = currentAnimation->samplers[channel.samplerIndex];
         glm::vec4 value = interpolateSampler(sampler, currentTime);
 
-        NtModel::Node* targetNode = skeleton.joints[channel.targetNode];
+        //&NtModel::Node* targetNode = skeleton.bones[channel.targetNode];
+        NtModel::Bone& targetBone = skeleton.bones[channel.targetNode];
 
-        if (!targetNode) {
-            std::cerr << "[ANIM ERROR] Target node is nullptr!" << std::endl;
-            continue;
-        }
-
-        std::cout << "[ANIM] Updating node: " << targetNode->name << std::endl;
+        // std::cout << "[ANIM] Updating node: " << targetBone.name << std::endl;
 
         switch (channel.path) {
             case NtAnimationChannel::TRANSLATION:
-                targetNode->translation = glm::vec3(value);
+                targetBone.animatedNodeTranslation = glm::vec3(value);
                 break;
             case NtAnimationChannel::ROTATION:
-                targetNode->rotation = glm::quat(value.w, value.x, value.y, value.z);
+                targetBone.animatedNodeRotation = glm::quat(value.w, value.x, value.y, value.z);
                 break;
             case NtAnimationChannel::SCALE:
-                targetNode->scale = glm::vec3(value);
+                targetBone.animatedNodeScale = glm::vec3(value);
                 break;
         }
     }
 
-    std::cout << "[ANIM] Computing joint matrices..." << std::endl;
+    // std::cout << "[ANIM] Computing joint matrices..." << std::endl;
 
-    // Compute joint matrices (Sascha's approach)
-    if (!skeleton.meshNode) {
-        std::cerr << "[ANIM ERROR] Mesh node is nullptr!" << std::endl;
-        return;
-    }
+    // // Compute joint matrices (Sascha's approach)
+    // if (!skeleton.meshNode) {
+    //     std::cerr << "[ANIM ERROR] Mesh node is nullptr!" << std::endl;
+    //     return;
+    // }
 
-    glm::mat4 inverseMeshTransform = glm::inverse(getNodeMatrix(skeleton.meshNode));
+    // glm::mat4 inverseMeshTransform = glm::inverse(getNodeMatrix(skeleton.meshNode));
 
-    boneMatrices.resize(skeleton.joints.size());
-    for (size_t i = 0; i < skeleton.joints.size(); ++i) {
-        if (!skeleton.joints[i]) {
-            std::cerr << "[ANIM ERROR] Joint " << i << " is nullptr!" << std::endl;
-            continue;
-        }
+    // boneMatrices.resize(skeleton.bones.size());
+    // for (size_t i = 0; i < skeleton.bones.size(); ++i) {
+    //     if (!skeleton.bones[i]) {
+    //         std::cerr << "[ANIM ERROR] Joint " << i << " is nullptr!" << std::endl;
+    //         continue;
+    //     }
 
-        glm::mat4 jointMatrix = getNodeMatrix(skeleton.joints[i]) *
-                                skeleton.bones[i].inverseBindMatrix;
-        boneMatrices[i] = inverseMeshTransform * jointMatrix;
-    }
+    //     glm::mat4 jointMatrix = getNodeMatrix(skeleton.bones[i]) *
+    //                             skeleton.bones[i].inverseBindMatrix;
+    //     boneMatrices[i] = inverseMeshTransform * jointMatrix;
+    // }
 
-    std::cout << "[ANIM] Update complete" << std::endl;*/
+    // std::cout << "[ANIM] Update complete" << std::endl;
 }
 
 glm::vec4 NtAnimator::interpolateSampler(const NtAnimationSampler& sampler, float time) {

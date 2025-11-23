@@ -1,6 +1,10 @@
 #include "nt_model.hpp"
+#include "imgui.h"
+#include "nt_descriptors.hpp"
 #include "nt_utils.hpp"
 #include <memory>
+#include <ostream>
+#include <stdexcept>
 
 #define TINYOBJLOADER_IMPLEMENTATION
 #include "tinyobjloader/tiny_obj_loader.h"
@@ -35,19 +39,27 @@ struct hash<nt::NtModel::Vertex> {
 namespace nt {
 
 NtModel::NtModel(NtDevice &device, NtModel::Builder &builder) : ntDevice{device},
-    materials{std::move(builder.l_materials)},
-    skeleton{std::move(builder.l_skeleton)},
-    animations{std::move(builder.l_animations)}
+        materials{std::move(builder.l_materials)},
+        skeleton{std::move(builder.l_skeleton)},
+        animations{std::move(builder.l_animations)}
 {
   createMeshBuffers(builder.l_meshes);
   builder.l_meshes.clear();
   builder.l_meshes.shrink_to_fit();
+
+  if (skeleton.has_value() && skeleton->bones.size() > 0) {
+      createBoneBuffer();
+  }
 }
 
 NtModel::~NtModel() {
 }
 
-std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const std::string &filepath, VkDescriptorSetLayout materialLayout, VkDescriptorPool materialPool) {
+std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const std::string &filepath,
+    VkDescriptorSetLayout materialLayout,
+    VkDescriptorPool materialPool,
+    VkDescriptorSetLayout boneLayout,
+    VkDescriptorPool bonePool) {
   Builder builder{device};
 
   // Determine file type by extension
@@ -67,7 +79,15 @@ std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const st
     material->updateDescriptorSet(materialLayout, materialPool);
   }
 
-  return std::make_unique<NtModel>(device, builder);
+  // Create the model first so we can call its member function
+  auto model = std::make_unique<NtModel>(device, builder);
+
+  // Initialize bone descriptor sets if skeleton exists
+  if (boneLayout != VK_NULL_HANDLE && bonePool != VK_NULL_HANDLE && model->boneBuffer) {
+    model->updateBoneBuffer(boneLayout, bonePool);
+  }
+
+  return model;
 }
 
 
@@ -79,11 +99,6 @@ void NtModel::createMeshBuffers(const std::vector<Mesh> &meshData) {
     createVertexBuffer(mesh.vertices, meshes[i]);
     createIndexBuffer(mesh.indices, meshes[i]);
     meshes[i].materialIndex = mesh.materialIndex;
-
-    // TODO:
-    // if (meshData.skeleton) {
-    //   createBoneBuffer(meshData.skeleton->bones, meshes[i]);
-    // }
   }
 }
 
@@ -148,35 +163,59 @@ void NtModel::createIndexBuffer(const std::vector<uint32_t> &indices, MeshBuffer
   ntDevice.copyBuffer(stagingBuffer.getBuffer(), meshBuffers.indexBuffer->getBuffer(), bufferSize);
 }
 
-void NtModel::createBoneBuffer(const std::vector<uint32_t> &bones, MeshBuffers &meshBuffers) {
-    // go_Cassandra.animationData->boneBuffer->map();
+void NtModel::createBoneBuffer() {
+    size_t boneCount = getBonesCount();
 
-    // // Allocate descriptor set using NtDescriptorWriter
-    // auto bufferInfo = go_Cassandra.animationData->boneBuffer->descriptorInfo();
-
-    // bool success = NtDescriptorWriter(*boneSetLayout, *bonePool)
-    //     .writeBuffer(0, &bufferInfo)
-    //     .build(go_Cassandra.animationData->descriptorSet);
-
-  VkDeviceSize bufferSize = meshBuffers.boneCount * sizeof(Bone);
-
-  meshBuffers.boneBuffer = std::make_unique<NtBuffer>(
-    ntDevice,
-    bufferSize,
-    meshBuffers.boneCount,
-    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+    // Buffer for bone matrices
+    boneBuffer = std::make_unique<NtBuffer>(
+        ntDevice,
+        sizeof(glm::mat4),
+        boneCount,
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
     );
+    boneBuffer->map();
 
-    meshBuffers.boneBuffer->map();
+    // Initialize with identity matrices
+    std::vector<glm::mat4> identityMatrices(boneCount, glm::mat4(1.0f));
 
-    // TODO:
-    // Allocate descriptor set using NtDescriptorWriter
-    // auto bufferInfo = meshBuffers.boneBuffer->descriptorInfo();
+    boneBuffer->writeToBuffer(identityMatrices.data());
+    boneBuffer->flush();
 
-    // bool success = NtDescriptorWriter(*boneSetLayout, *bonePool)
-    //     .writeBuffer(0, &bufferInfo)
-    //     .build(go_Cassandra.animationData->descriptorSet);
+    std::cout << "  Created bone buffer for " << boneCount << " bones" << std::endl;
+}
+
+void NtModel::updateBoneBuffer(VkDescriptorSetLayout boneLayout, VkDescriptorPool bonePool) {
+    if (!boneBuffer) {
+        std::cerr << "Cannot update bone buffer: buffer doesn't exist!" << std::endl;
+        return;
+    }
+
+    auto bufferInfo = boneBuffer->descriptorInfo();
+
+    // Use raw pool allocate method, not NtDescriptorWriter
+    VkDescriptorSetAllocateInfo allocInfo{};
+    allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    allocInfo.descriptorPool = bonePool;
+    allocInfo.descriptorSetCount = 1;
+    allocInfo.pSetLayouts = &boneLayout;
+
+    if (vkAllocateDescriptorSets(ntDevice.device(), &allocInfo, &boneDescriptorSet) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to allocate bone descriptor set!");
+    }
+
+    VkWriteDescriptorSet descriptorWrite{};
+    descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    descriptorWrite.dstSet = boneDescriptorSet;
+    descriptorWrite.dstBinding = 0;
+    descriptorWrite.dstArrayElement = 0;
+    descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    descriptorWrite.descriptorCount = 1;
+    descriptorWrite.pBufferInfo = &bufferInfo;
+
+    vkUpdateDescriptorSets(ntDevice.device(), 1, &descriptorWrite, 0, nullptr);
+
+    std::cout << "  Bone descriptor set allocated" << std::endl;
 }
 
 void NtModel::bind (VkCommandBuffer commandBuffer, uint32_t meshIndex) {
@@ -441,26 +480,6 @@ void NtModel::Builder::loadGltfModel(const std::string &filepath) {
   // Load animations
   for (const auto& anim : model.animations) {
       loadGltfAnimation(model, anim);
-  }
-
-  // Apply coordinate system transformation from glTF (Y-up) to engine coordinate system
-  // glTF uses Y-up, but when exported from Blender with Z-up, we need to rotate around X-axis
-  glm::mat4 transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
-  glm::mat3 normalTransform = glm::transpose(glm::inverse(glm::mat3(transform)));
-
-  for (auto& mesh : l_meshes) {
-    for (auto& vertex : mesh.vertices) {
-      // Transform position
-      glm::vec4 pos = transform * glm::vec4(vertex.position, 1.0f);
-      vertex.position = glm::vec3(pos);
-
-      // Transform normal
-      vertex.normal = normalTransform * vertex.normal;
-
-      // Transform tangent
-      glm::vec3 tangent = normalTransform * glm::vec3(vertex.tangent.x, vertex.tangent.y, vertex.tangent.z);
-      vertex.tangent = glm::vec4(tangent.x, tangent.y, tangent.z, vertex.tangent.w);
-    }
   }
 }
 
@@ -851,41 +870,13 @@ void NtModel::Builder::loadGltfSkeleton(const tinygltf::Model &model) {
             {
                 const void *jointsData = nullptr;
                 int inverseBindComponentType = 0;
-                // if (primitive.attributes.find("JOINTS_0") != primitive.attributes.end()) {
-                  const auto &inverseBindAccessor = model.accessors[skin.inverseBindMatrices];
-                  const auto &inverseBindBufferView = model.bufferViews[inverseBindAccessor.bufferView];
-                  const auto &inverseBindBuffer = model.buffers[inverseBindBufferView.buffer];
-                  // TODO: sounds sketchy:
-                  inverseBindMatrices = reinterpret_cast<const glm::mat4*>(&inverseBindBuffer.data[inverseBindBufferView.byteOffset + inverseBindAccessor.byteOffset]);
-                  inverseBindComponentType = inverseBindAccessor.componentType;
-                  std::cout << "Found INVERSEBINDMATRICES attribute, component type: " << inverseBindComponentType << std::endl;
-                // }
-
-                // uint count = 0;
-                // int type = 0;
-                // auto componentType = LoadAccessor<glm::mat4> (
-                //     model.accessors[skin.inverseBindMatrices],
-                //     inverseBindMatrices,
-                //     &count,
-                //     &type
-                // );
-            }
-
-            // int LoadAccessor(const tinygltf::Accessor& accessor, const T*& pointer, uint* count = nullptr, int* type = nullptr)
-            // {
-            //     const tinygltf::BufferView& view = m_GltfModel.bufferViews[accessor.bufferView];
-            //     pointer =
-            //         reinterpret_cast<const T*>(&(m_GltfModel.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
-            //     if (count)
-            //     {
-            //         *count = static_cast<uint>(accessor.count);
-            //     }
-            //     if (type)
-            //     {
-            //         *type = accessor.type;
-            //     }
-            //     return accessor.componentType;
-            // }
+                const auto &inverseBindAccessor = model.accessors[skin.inverseBindMatrices];
+                const auto &inverseBindBufferView = model.bufferViews[inverseBindAccessor.bufferView];
+                const auto &inverseBindBuffer = model.buffers[inverseBindBufferView.buffer];
+                // TODO: sounds sketchy:
+                inverseBindMatrices = reinterpret_cast<const glm::mat4*>(&inverseBindBuffer.data[inverseBindBufferView.byteOffset + inverseBindAccessor.byteOffset]);
+                inverseBindComponentType = inverseBindAccessor.componentType;
+                std::cout << "Found INVERSEBINDMATRICES attribute, component type: " << inverseBindComponentType << std::endl;
 
             // loop over all joints from gltf model and fill our skeleton with bones
             for (size_t jointIndex = 0; jointIndex < numBones; ++jointIndex) {
@@ -928,9 +919,12 @@ void NtModel::Builder::loadGltfSkeleton(const tinygltf::Model &model) {
             loadGltfBone(model, rootJoint, -1);
             std::cout << "  Bone hierarchy loaded" << std::endl;
         }
+     }
 
-        // TODO: Create a buffer for the shader
-    // }
+    // Initialize the shader data vector
+    l_skeleton->m_ShaderData.m_FinalJointsMatrices.resize(l_skeleton->bones.size(), glm::mat4(1.0f));
+    std::cout << "  Initialized shader data for " << l_skeleton->bones.size() << " bones" << std::endl;
+
 
     std::cout << "  Bones: " << l_skeleton->bones.size() << " bones\n";
 }
@@ -1039,9 +1033,131 @@ void NtModel::Builder::loadGltfAnimation(const tinygltf::Model &model, const tin
 
     l_animations.push_back(animation);
     std::cout << "  Animation: " << animation.name << " (" << animation.duration << "s)\n";
+}
 
-    // TODO: go_Cassandra.animator = std::make_unique<NtAnimator>(*go_Cassandra.model);
-    // TODO: go_Cassandra.animationData = std::make_unique<AnimationComponent>();
+void NtModel::Skeleton::Traverse()
+{
+    std::cout << "skeleton: " << name << std::endl;
+    uint indent = 0;
+    std::string indentStr(indent, ' ');
+    auto& joint = bones[0]; // root joint
+    Traverse(joint, indent + 1);
+}
+
+void NtModel::Skeleton::Traverse(Bone const& bone, uint indent)
+{
+    std::string indentStr(indent, ' ');
+    size_t numberOfChildren = bone.childrenIndices.size();
+    std::cout << indentStr <<" Name: " << bone.name << " Parent: " << bone.parentIndex << " Children: " << numberOfChildren << std::endl;
+
+    for (size_t childIndex = 0; childIndex < numberOfChildren; ++childIndex)
+    {
+        int jointIndex = bone.childrenIndices[childIndex];
+        std::cout << indentStr <<" Child: " << childIndex << " Index: " << jointIndex << std::endl;
+    }
+
+    for (size_t childIndex = 0; childIndex < numberOfChildren; ++childIndex)
+    {
+        int jointIndex = bone.childrenIndices[childIndex];
+        Traverse(bones[jointIndex], indent + 1);
+    }
+}
+
+void NtModel::Skeleton::Update()
+{
+    // update the final global transform of all joints
+    int16_t numberOfBones = static_cast<int16_t>(bones.size());
+
+    if (!isAnimated) // used for debugging to check if the model renders w/o deformation
+    {
+        for (int16_t boneIndex = 0; boneIndex < numberOfBones; ++boneIndex)
+        {
+            m_ShaderData.m_FinalJointsMatrices[boneIndex] = glm::mat4(1.0f);
+        }
+    }
+    else
+    {
+        // STEP 1: apply animation results
+        for (int16_t boneIndex = 0; boneIndex < numberOfBones; ++boneIndex)
+        {
+            m_ShaderData.m_FinalJointsMatrices[boneIndex] = bones[boneIndex].getAnimatedBindMatrix();
+        }
+
+        // STEP 2: recursively update final joint matrices
+        UpdateBone(0);
+
+        // STEP 3: bring back into model space
+        for (int16_t boneIndex = 0; boneIndex < numberOfBones; ++boneIndex)
+        {
+            m_ShaderData.m_FinalJointsMatrices[boneIndex] =
+                m_ShaderData.m_FinalJointsMatrices[boneIndex] * bones[boneIndex].inverseBindMatrix;
+        }
+    }
+}
+
+// Update the final joint matrices of all joints
+// traverses entire skeleton from top (a.k.a root a.k.a hip bone)
+// This way, it is guaranteed that the global parent transform is already updated
+void NtModel::Skeleton::UpdateBone(int16_t boneIndex)
+{
+    auto& currentBone = bones[boneIndex]; // just a reference for easier code
+
+    int16_t parentBone = currentBone.parentIndex;
+    if (parentBone != -1)
+    {
+        m_ShaderData.m_FinalJointsMatrices[boneIndex] =
+             m_ShaderData.m_FinalJointsMatrices[parentBone] * m_ShaderData.m_FinalJointsMatrices[boneIndex];
+    }
+
+    // update children
+    size_t numberOfChildren = currentBone.childrenIndices.size();
+    for (size_t childIndex = 0; childIndex < numberOfChildren; ++childIndex)
+    {
+        int childJoint = currentBone.childrenIndices[childIndex];
+        UpdateBone(childJoint);
+    }
+}
+
+void NtModel::updateSkeleton() {
+
+    if (!skeleton.has_value()) {
+        std::cout << "[DEBUG] No skeleton" << std::endl;
+        return;
+    }
+
+    if (!boneBuffer) {
+        std::cout << "[DEBUG] No bone buffer" << std::endl;
+        return;
+    }
+
+    skeleton->Update();
+
+    if (skeleton->m_ShaderData.m_FinalJointsMatrices.empty()) {
+        std::cout << "[DEBUG] Warning: m_FinalJointsMatrices is empty!" << std::endl;
+        return;
+    }
+
+    // VALIDATION: Check for invalid matrices
+    // for (size_t i = 0; i < 3 && i < skeleton->m_ShaderData.m_FinalJointsMatrices.size(); ++i) {
+    //     const auto& mat = skeleton->m_ShaderData.m_FinalJointsMatrices[i];
+    //     std::cout << "Bone " << i << " matrix:\n";
+    //     std::cout << "  [" << mat[0][0] << ", " << mat[1][0] << ", " << mat[2][0] << ", " << mat[3][0] << "]\n";
+    //     std::cout << "  [" << mat[0][1] << ", " << mat[1][1] << ", " << mat[2][1] << ", " << mat[3][1] << "]\n";
+    //     std::cout << "  [" << mat[0][2] << ", " << mat[1][2] << ", " << mat[2][2] << ", " << mat[3][2] << "]\n";
+    //     std::cout << "  [" << mat[0][3] << ", " << mat[1][3] << ", " << mat[2][3] << ", " << mat[3][3] << "]\n";
+
+    //     // Check for NaN or extreme values
+    //     for (int r = 0; r < 4; r++) {
+    //         for (int c = 0; c < 4; c++) {
+    //             if (std::isnan(mat[c][r]) || std::abs(mat[c][r]) > 1000.0f) {
+    //                 std::cerr << "WARNING: Bone " << i << " has invalid value at [" << r << "][" << c << "]: " << mat[c][r] << std::endl;
+    //             }
+    //         }
+    //     }
+    // }
+
+    boneBuffer->writeToBuffer((void*)skeleton->m_ShaderData.m_FinalJointsMatrices.data());
+    boneBuffer->flush();
 }
 
 uint32_t NtModel::getMaterialIndex(uint32_t meshIndex) const {
@@ -1051,6 +1167,13 @@ uint32_t NtModel::getMaterialIndex(uint32_t meshIndex) const {
 
   return meshes[meshIndex].materialIndex;
 }
+
+// void NtModel::updateBoneMatrices(const std::vector<glm::mat4>& matrices) {
+//     if (boneBuffer && matrices.size() == skeleton->bones.size()) {
+//         boneBuffer->writeToBuffer((void*)matrices.data());
+//         boneBuffer->flush();
+//     }
+// }
 
 void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
   // Calculate tangents using the method described in "Mathematics for 3D Game Programming and Computer Graphics"

@@ -54,15 +54,15 @@ struct NtPushConstantData {
 };
 
 GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout,
-    VkDescriptorSetLayout modelSetLayout/*, VkDescriptorSetLayout boneSetLayout*/) : ntDevice{device} {
-  createPipelineLayout(globalSetLayout, modelSetLayout/*, boneSetLayout*/);
+    VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout) : ntDevice{device} {
+  createPipelineLayout(globalSetLayout, modelSetLayout, boneSetLayout);
   createPipeline(renderPass);
 }
 GenericRenderSystem::~GenericRenderSystem() {
   vkDestroyPipelineLayout(ntDevice.device(), pipelineLayout, nullptr);
 }
 
-void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout/*, VkDescriptorSetLayout boneSetLayout*/) {
+void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout) {
 
   VkPushConstantRange pushConstantRange{};
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -71,8 +71,8 @@ void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLa
 
   std::vector<VkDescriptorSetLayout> descriptorSetLayouts{
     globalSetLayout,
-    modelSetLayout/*,
-    boneSetLayout*/
+    modelSetLayout,
+    boneSetLayout
   };
 
   VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -294,7 +294,7 @@ vkCmdBindDescriptorSets(
 
 for (auto& kv: frameInfo.gameObjects) {
     auto& obj = kv.second;
-    if (obj.model == nullptr || obj.pointLight != nullptr || !obj.isCharacter) continue;
+    if (obj.model == nullptr || obj.pointLight != nullptr || !obj.isCharacter || obj.isDebugVisualization) continue;
 
     // Render each mesh with its own material
     const auto& materials = obj.model->getMaterials();
@@ -314,21 +314,18 @@ for (auto& kv: frameInfo.gameObjects) {
         }
 
         // Bind bone matrices if animated (binding 2)
-        if (obj.animationData != nullptr) {
-
-            if (obj.animationData->descriptorSet != VK_NULL_HANDLE) {
+        if (obj.model->getSkeleton()->isAnimated) {
+            if (obj.model->getBoneDescriptorSet() != VK_NULL_HANDLE) {
                 vkCmdBindDescriptorSets(
                     frameInfo.commandBuffer,
                     VK_PIPELINE_BIND_POINT_GRAPHICS,
                     pipelineLayout,
                     2,  // Set 2
                     1,
-                    &obj.animationData->descriptorSet,
+                    &obj.model->getBoneDescriptorSet(),
                     0, nullptr);
             }
         }
-
-
 
         NtPushConstantData push{};
         push.modelMatrix = obj.transform.mat4();
@@ -352,6 +349,18 @@ for (auto& kv: frameInfo.gameObjects) {
             push.metallicFactor = 1.0f;
             push.roughnessFactor = 1.0f;
         }
+
+        // For each bone, draw a line from bone to parent
+        // for (const auto& bone : obj.model->getSkeleton()->bones) {
+        //     if (bone.parentIndex == -1) continue;
+
+        //     // Get bone positions from matrices
+        //     glm::vec3 bonePos = glm::vec3(obj.model->getSkeleton()->m_ShaderData.m_FinalJointsMatrices[i][3]);
+        //     glm::vec3 parentPos = glm::vec3(obj.model->getSkeleton()->m_ShaderData.m_FinalJointsMatrices[bone.parentIndex][3]);
+
+        //     // Draw line from parentPos to bonePos
+        //     drawLine(frameInfo.commandBuffer, parentPos, bonePos, glm::vec3(1, 0, 0));
+        // }
 
         vkCmdPushConstants(
         frameInfo.commandBuffer,
