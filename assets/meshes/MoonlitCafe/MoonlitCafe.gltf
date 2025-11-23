@@ -1,6 +1,6 @@
 {
 	"asset":{
-		"generator":"Khronos glTF Blender I/O v4.5.49",
+		"generator":"Khronos glTF Blender I/O v5.0.21",
 		"version":"2.0"
 	},
 	"extensionsUsed":[
@@ -74,21 +74,7 @@
 					"index":1
 				},
 				"metallicFactor":0,
-				"metallicRoughnessTexture":{
-					"extensions":{
-						"KHR_texture_transform":{
-							"offset":[
-								0,
-								-4.639000058174133
-							],
-							"scale":[
-								4.5,
-								4.5
-							]
-						}
-					},
-					"index":2
-				}
+				"roughnessFactor":0.5
 			}
 		},
 		{
@@ -116,7 +102,7 @@
 						]
 					}
 				},
-				"index":3
+				"index":2
 			},
 			"pbrMetallicRoughness":{
 				"baseColorTexture":{
@@ -132,7 +118,7 @@
 							]
 						}
 					},
-					"index":4
+					"index":3
 				},
 				"metallicFactor":0,
 				"metallicRoughnessTexture":{
@@ -148,7 +134,7 @@
 							]
 						}
 					},
-					"index":5
+					"index":4
 				}
 			}
 		},
@@ -176,7 +162,7 @@
 						]
 					}
 				},
-				"index":6
+				"index":5
 			},
 			"pbrMetallicRoughness":{
 				"baseColorTexture":{
@@ -192,24 +178,10 @@
 							]
 						}
 					},
-					"index":7
+					"index":6
 				},
 				"metallicFactor":0,
-				"metallicRoughnessTexture":{
-					"extensions":{
-						"KHR_texture_transform":{
-							"offset":[
-								0,
-								-4.639000058174133
-							],
-							"scale":[
-								4.5,
-								4.5
-							]
-						}
-					},
-					"index":8
-				}
+				"roughnessFactor":0.5527864098548889
 			}
 		}
 	],
@@ -288,61 +260,43 @@
 		{
 			"sampler":0,
 			"source":6
-		},
-		{
-			"sampler":0,
-			"source":7
-		},
-		{
-			"sampler":0,
-			"source":8
 		}
 	],
 	"images":[
 		{
 			"mimeType":"image/png",
-			"name":"Wall_INST_normal",
-			"uri":"Wall_INST_normal.png"
+			"name":"Wall_INST_normal_512",
+			"uri":"Wall_INST_normal_512.png"
 		},
 		{
 			"mimeType":"image/png",
-			"name":"Wall_INST_basecolor",
-			"uri":"Wall_INST_basecolor.png"
+			"name":"Wall_INST_basecolor_512",
+			"uri":"Wall_INST_basecolor_512.png"
 		},
 		{
 			"mimeType":"image/png",
-			"name":"Wall_INST_roughness",
-			"uri":"Wall_INST_roughness.png"
+			"name":"Floor_INST_normal_512",
+			"uri":"Floor_INST_normal_512.png"
 		},
 		{
 			"mimeType":"image/png",
-			"name":"Floor_INST_normal",
-			"uri":"Floor_INST_normal.png"
+			"name":"Floor_INST_basecolor_512",
+			"uri":"Floor_INST_basecolor_512.png"
 		},
 		{
 			"mimeType":"image/png",
-			"name":"Floor_INST_basecolor",
-			"uri":"Floor_INST_basecolor.png"
+			"name":"Floor_INST_roughness_512",
+			"uri":"Floor_INST_roughness_512.png"
 		},
 		{
 			"mimeType":"image/png",
-			"name":"Floor_INST_roughness",
-			"uri":"Floor_INST_roughness.png"
+			"name":"Ceiling_INST_normal_512",
+			"uri":"Ceiling_INST_normal_512.png"
 		},
 		{
 			"mimeType":"image/png",
-			"name":"Ceiling_INST_normal",
-			"uri":"Ceiling_INST_normal.png"
-		},
-		{
-			"mimeType":"image/png",
-			"name":"Ceiling_INST_basecolor",
-			"uri":"Ceiling_INST_basecolor.png"
-		},
-		{
-			"mimeType":"image/png",
-			"name":"Ceiling_INST_roughness",
-			"uri":"Ceiling_INST_roughness.png"
+			"name":"Ceiling_INST_basecolor_512",
+			"uri":"Ceiling_INST_basecolor_512.png"
 		}
 	],
 	"accessors":[
@@ -453,7 +407,7 @@
 		{
 			"bufferView":14,
 			"componentType":5126,
-			"count":48,
+			"count":36,
 			"max":[
 				25.594999313354492,
 				10.965505599975586,
@@ -469,25 +423,25 @@
 		{
 			"bufferView":15,
 			"componentType":5126,
-			"count":48,
+			"count":36,
 			"type":"VEC3"
 		},
 		{
 			"bufferView":16,
 			"componentType":5126,
-			"count":48,
+			"count":36,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":17,
 			"componentType":5126,
-			"count":48,
+			"count":36,
 			"type":"VEC2"
 		},
 		{
 			"bufferView":18,
 			"componentType":5126,
-			"count":48,
+			"count":36,
 			"type":"VEC4"
 		},
 		{
@@ -584,50 +538,50 @@
 		},
 		{
 			"buffer":0,
-			"byteLength":576,
+			"byteLength":432,
 			"byteOffset":39416,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":576,
-			"byteOffset":39992,
+			"byteLength":432,
+			"byteOffset":39848,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":384,
+			"byteLength":288,
+			"byteOffset":40280,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":288,
 			"byteOffset":40568,
 			"target":34962
 		},
 		{
 			"buffer":0,
-			"byteLength":384,
-			"byteOffset":40952,
-			"target":34962
-		},
-		{
-			"buffer":0,
-			"byteLength":768,
-			"byteOffset":41336,
+			"byteLength":576,
+			"byteOffset":40856,
 			"target":34962
 		},
 		{
 			"buffer":0,
 			"byteLength":300,
-			"byteOffset":42104,
+			"byteOffset":41432,
 			"target":34963
 		}
 	],
 	"samplers":[
 		{
-			"magFilter":9729,
-			"minFilter":9987
+			"magFilter":9728,
+			"minFilter":9984
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":42404,
+			"byteLength":41732,
 			"uri":"MoonlitCafe.bin"
 		}
 	]

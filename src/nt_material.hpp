@@ -39,12 +39,12 @@ public:
         float uvRotation{0.0f};
 
         std::shared_ptr<NtImage> normalTexture;
-        std::shared_ptr<NtImage> occlusionTexture;
-        std::shared_ptr<NtImage> emissiveTexture;
+        // std::shared_ptr<NtImage> occlusionTexture;
+        // std::shared_ptr<NtImage> emissiveTexture;
 
-        glm::vec3 emissiveFactor{0.0f, 0.0f, 0.0f};
+        // glm::vec3 emissiveFactor{0.0f, 0.0f, 0.0f};
         float normalScale{1.0f};
-        float occlusionStrength{1.0f};
+        // float occlusionStrength{1.0f};
 
         AlphaMode alphaMode{AlphaMode::Opaque};
         float alphaCutoff{0.5f};
@@ -52,8 +52,8 @@ public:
         bool doubleSided{false};
 
         int normalTexCoord{0};
-        int occlusionTexCoord{0};
-        int emissiveTexCoord{0};
+        // int occlusionTexCoord{0};
+        // int emissiveTexCoord{0};
     };
 
     NtMaterial(NtDevice &device, const MaterialData &materialData);
@@ -68,8 +68,8 @@ public:
     bool hasBaseColorTexture() const { return materialData.pbrMetallicRoughness.baseColorTexture != nullptr; }
     bool hasMetallicRoughnessTexture() const { return materialData.pbrMetallicRoughness.metallicRoughnessTexture != nullptr; }
     bool hasNormalTexture() const { return materialData.normalTexture != nullptr; }
-    bool hasOcclusionTexture() const { return materialData.occlusionTexture != nullptr; }
-    bool hasEmissiveTexture() const { return materialData.emissiveTexture != nullptr; }
+    // bool hasOcclusionTexture() const { return materialData.occlusionTexture != nullptr; }
+    // bool hasEmissiveTexture() const { return materialData.emissiveTexture != nullptr; }
 
     VkDescriptorSet getDescriptorSet() const { return descriptorSet; }
 

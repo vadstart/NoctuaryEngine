@@ -140,8 +140,6 @@ NtPipeline::~NtPipeline() {
    configInfo.rasterizationInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
    configInfo.rasterizationInfo.depthClampEnable = VK_FALSE;
    configInfo.rasterizationInfo.rasterizerDiscardEnable = VK_FALSE;
-   configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
-   configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
    configInfo.multisampleInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
    configInfo.multisampleInfo.sampleShadingEnable = VK_FALSE;
@@ -222,6 +220,10 @@ NtPipeline::~NtPipeline() {
        configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
        break;
 
+     case nt::RenderMode::Unlit:
+        configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
+     break;
+
      default:
        configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
        configInfo.rasterizationInfo.depthBiasEnable = VK_FALSE;
@@ -232,6 +234,8 @@ NtPipeline::~NtPipeline() {
        configInfo.colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
        configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
        configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+       configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
+       configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
        break;
    }
 

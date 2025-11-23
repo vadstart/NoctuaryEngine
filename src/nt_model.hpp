@@ -1,17 +1,21 @@
 #pragma once
 
+#include "nt_animation.hpp"
 #include "nt_device.hpp"
 #include "nt_buffer.hpp"
 #include "nt_material.hpp"
 
 #include "vulkan/vulkan_core.h"
 #include <algorithm>
+#include <optional>
 #include <string>
 #include <vector>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 
 #include <cstdint>
 #include <memory>
@@ -20,6 +24,9 @@
 // Forward declarations
 namespace tinygltf {
   class Model;
+  class Skin;
+  class Animation;
+  class Node;
 }
 
 namespace nt {
@@ -33,6 +40,9 @@ class NtModel {
           glm::vec3 normal{};
           glm::vec2 uv{};
           glm::vec4 tangent{};  // w component stores handedness
+
+          glm::ivec4 boneIndices; // Up to 4 bones per vertex
+          glm::vec4 boneWeights; // Must sum to 1.0
 
           static std::vector<VkVertexInputBindingDescription> getBindingDescriptions();
           static std::vector<VkVertexInputAttributeDescription> getAttributeDescriptions();
@@ -50,11 +60,51 @@ class NtModel {
           std::string name{};
         };
 
-        struct Data {
-          std::vector<Mesh> meshes{};
-          std::vector<std::shared_ptr<NtMaterial>> materials{};
+        struct Bone {
+            int globalGltfNodeIndex; // node index from the gltf nodes std::vector
+            std::string name;
 
-          explicit Data(NtDevice &device) : ntDevice{device} {}
+            // INITIAL
+            glm::mat4 initialNodeMatrix{1.0f}; // Transform for world coordinate system
+            glm::mat4 inverseBindMatrix; // Bones coordinate system
+
+            // ANIMATED
+            glm::vec3 animatedNodeTranslation{0.0f};                            // T
+            glm::quat animatedNodeRotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f); // R
+            glm::vec3 animatedNodeScale{1.0f};                                  // S
+
+            glm::mat4 getAnimatedBindMatrix() {
+                return glm::translate(glm::mat4(1.0f), animatedNodeTranslation) * // T
+                       glm::mat4(animatedNodeRotation) *                          // R
+                       glm::scale(glm::mat4(1.0f), animatedNodeScale) *           // S
+                       initialNodeMatrix;
+            }
+
+            // TREE HIERARCHY
+            int parentIndex; // -1 for root
+            std::vector<int> childrenIndices;
+        };
+
+        struct Skeleton {
+            bool isRoot = false;
+            std::string name;
+            std::vector<Bone> bones;
+            std::unordered_map<int, int> nodeIndexToBoneIndex; // Map node index -> bone index
+
+            void Traverse();
+            void Traverse(Bone const& bone, uint indent = 0);
+        };
+
+        struct Builder {
+          // CPU-side attributes, only needed for loading
+          std::vector<Mesh> l_meshes{};
+          std::vector<std::shared_ptr<NtMaterial>> l_materials{};
+          std::optional<Skeleton> l_skeleton{};
+          std::vector<NtAnimation> l_animations{};
+
+          explicit Builder(NtDevice &device) : ntDevice{device} {}
+
+          ~Builder() {}
 
           void loadObjModel(const std::string &filepath);
           void loadGltfModel(const std::string &filepath);
@@ -62,13 +112,20 @@ class NtModel {
         private:
           void loadGltfMaterials(const tinygltf::Model &model, const std::string &filepath);
           void loadGltfMeshes(const tinygltf::Model &model);
-          void calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+          void loadGltfSkeleton(const tinygltf::Model &model);
+          void loadGltfBone(const tinygltf::Model &model, int globalGltfNodeIndex, int parentBone);
+          void loadGltfAnimation(const tinygltf::Model &model, const tinygltf::Animation& anim);
+
+         void calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
+         // glm::mat4 getNodeTransform(const tinygltf::Node& node);
+         // glm::mat4 computeGlobalTransform(int nodeIndex, const tinygltf::Model& model);
+         // int findParentBone(const tinygltf::Model& model, int jointNodeIndex, const std::vector<int>& jointIndices);
 
           // Reference to device for material creation
           NtDevice &ntDevice;
         };
 
-        NtModel(NtDevice &device, NtModel::Data &data);
+        NtModel(NtDevice &device, NtModel::Builder &builder);
         ~NtModel();
 
         NtModel(const NtModel &) = delete;
@@ -78,16 +135,23 @@ class NtModel {
         uint32_t getMeshCount() const { return static_cast<uint32_t>(meshes.size()); }
         const std::vector<std::shared_ptr<NtMaterial>>& getMaterials() const { return materials; }
         uint32_t getMaterialIndex(uint32_t meshIndex) const;
+        const std::optional<Skeleton>& getSkeleton() const { return skeleton; }
+        uint32_t getBonesCount() const { return skeleton.has_value() ? static_cast<uint32_t>(skeleton->bones.size()) : 0; }
+        const std::vector<NtAnimation>& getAnimations() const { return animations; }
 
         void bind (VkCommandBuffer commandBuffer, uint32_t meshIndex = 0);
         void draw (VkCommandBuffer commandBuffer, uint32_t meshIndex = 0);
         void drawAll (VkCommandBuffer commandBuffer);
+
+        bool hasSkeleton() const { return skeleton.has_value(); }
     private:
         struct MeshBuffers {
           std::unique_ptr<NtBuffer> vertexBuffer;
           std::unique_ptr<NtBuffer> indexBuffer;
+          std::unique_ptr<NtBuffer> boneBuffer;
           uint32_t vertexCount;
           uint32_t indexCount;
+          uint32_t boneCount;
           bool hasIndexBuffer = false;
           uint32_t materialIndex = 0;
         };
@@ -95,10 +159,14 @@ class NtModel {
         void createMeshBuffers(const std::vector<Mesh> &meshes);
         void createVertexBuffer(const std::vector<Vertex> &vertices, MeshBuffers &meshBuffers);
         void createIndexBuffer(const std::vector<uint32_t> &indices, MeshBuffers &meshBuffers);
+        void createBoneBuffer(const std::vector<uint32_t> &bones, MeshBuffers &meshBuffers);
 
         NtDevice &ntDevice;
         std::vector<MeshBuffers> meshes;
         std::vector<std::shared_ptr<NtMaterial>> materials;
+        std::optional<Skeleton> skeleton;
+        std::vector<NtAnimation> animations;
+
 };
 
 }

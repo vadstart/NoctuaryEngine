@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdint>
 #include <glm/fwd.hpp>
+#include <iostream>
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_glfw.h"
@@ -76,6 +77,11 @@ AstralApp::AstralApp()
     .setMaxSets(100)
     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 500)
     .build();
+
+  // bonePool = NtDescriptorPool::Builder(ntDevice)
+  //   .setMaxSets(100)
+  //   .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 500)
+  //   .build();
 }
 AstralApp::~AstralApp() {
 
@@ -102,9 +108,13 @@ void AstralApp::run() {
     .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Base color texture
     .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Normal texture
     .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Metallic-roughness texture
-    .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Occlusion texture
-    .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Emissive texture
+    // .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Occlusion texture
+    // .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Emissive texture
     .build();
+
+  // boneSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+  //   .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
+  //   .build();
 
   std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
   for(int i = 0; i < globalDescriptorSets.size(); i++) {
@@ -117,7 +127,8 @@ void AstralApp::run() {
 
   GlobalUbo ubo{};
 
-  GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout(), modelSetLayout->getDescriptorSetLayout());
+  GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout(),
+      modelSetLayout->getDescriptorSetLayout()/*boneSetLayout->getDescriptorSetLayout()*/);
   NtCamera camera{};
 
   auto viewerObject = NtGameObject::createGameObject();
@@ -354,8 +365,25 @@ void AstralApp::run() {
 
           ImGui::TreePop();
         }
-
         ImGui::End();
+
+        if (ImGui::Begin("Animation Debug")) {
+            for (const auto& kv : gameObjects) {
+              auto &gobject = kv.second;
+              if (gobject.animator) {
+                ImGui::Text("Playing: %s", gobject.animator->getCurrentAnimationName().c_str());
+                ImGui::Text("Time: %.2f / %.2f",
+                            gobject.animator->getCurrentTime(),
+                            gobject.animator->getDuration());
+
+                if (ImGui::Button("Reset")) {
+                    gobject.animator->play("Idle", true);
+                }
+              }
+            }
+        }
+        ImGui::End();
+
         }
 
     float aspect = ntRenderer.getAspectRatio();
@@ -407,13 +435,23 @@ void AstralApp::run() {
       int lightIndex = 0;
       for (auto& kv : frameInfo.gameObjects) {
           auto& obj = kv.second;
-          if (obj.pointLight == nullptr || lightIndex >= ubo.numLights) continue;
+          if (obj.animator) {
+                  // obj.animator->update(deltaTime);
 
-          float angleOffset = glm::two_pi<float>() * lightIndex / ubo.numLights;
-          float t = time * speed8 + angleOffset;
-          float t2 = time * speedVert + angleOffset;
+                  // // Upload bone matrices to GPU
+                  // const auto& matrices = obj.animator->getBoneMatrices();
 
-          glm::vec3 newPos;
+                  // obj.animationData->boneBuffer->writeToBuffer((void*)matrices.data());
+                  // obj.animationData->boneBuffer->flush();
+              }
+
+          // if (obj.pointLight == nullptr || lightIndex >= ubo.numLights) continue;
+
+          // float angleOffset = glm::two_pi<float>() * lightIndex / ubo.numLights;
+          // float t = time * speed8 + angleOffset;
+          // float t2 = time * speedVert + angleOffset;
+
+          // glm::vec3 newPos;
 
           // Camera light
           // if (lightIndex == 5) {
@@ -427,17 +465,17 @@ void AstralApp::run() {
           //     newPos = glm::vec3(x, y, z);
           // } else {
               // Other lights — bounce vertically
-              float x = obj.transform.translation.x;  // keep current X
-              float z = obj.transform.translation.z;  // keep current Z
-              float y = -3.0f + glm::sin(t2 * 2.0f) * 2.0f;
-              newPos = glm::vec3(x, y, z);
-              // }
+          //     float x = obj.transform.translation.x;  // keep current X
+          //     float z = obj.transform.translation.z;  // keep current Z
+          //     float y = -3.0f + glm::sin(t2 * 2.0f) * 2.0f;
+          //     newPos = glm::vec3(x, y, z);
+          //     // }
 
-          // Update UBO and object transform
-          ubo.pointLights[lightIndex].position = glm::vec4(newPos, 1.0f);
-          obj.transform.translation = newPos;
+          // // Update UBO and object transform
+          // ubo.pointLights[lightIndex].position = glm::vec4(newPos, 1.0f);
+          // obj.transform.translation = newPos;
 
-          lightIndex++;
+          // lightIndex++;
           }
 
 
@@ -467,28 +505,28 @@ void AstralApp::run() {
 }
 
 std::unique_ptr<NtModel> AstralApp::createGOPlane(float size) {
-  NtModel::Data modelData{ntDevice};
-  modelData.meshes.resize(1);
+  NtModel::Builder modelData{ntDevice};
+  modelData.l_meshes.resize(1);
 
   // Quad vertices (using a plane in the XZ plane)
-  modelData.meshes[0].vertices = {
+  modelData.l_meshes[0].vertices = {
     {{-size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
     {{ size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
     {{ size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
     {{-size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}
   };
 
-  modelData.meshes[0].indices = {0, 1, 2, 2, 3, 0};
+  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
 
   return std::make_unique<NtModel>(ntDevice, modelData);
 }
 
 std::unique_ptr<NtModel> AstralApp::createGOCube(float size) {
-  NtModel::Data modelData{ntDevice};
-  modelData.meshes.resize(1);
+  NtModel::Builder modelData{ntDevice};
+  modelData.l_meshes.resize(1);
 
   // Cube vertices
-  modelData.meshes[0].vertices = {
+  modelData.l_meshes[0].vertices = {
     // Front face
     {{-size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
     {{ size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
@@ -526,7 +564,7 @@ std::unique_ptr<NtModel> AstralApp::createGOCube(float size) {
     {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}}
   };
 
-  modelData.meshes[0].indices = {
+  modelData.l_meshes[0].indices = {
     // Front face
     0, 1, 2, 2, 3, 0,
     // Back face
@@ -542,57 +580,57 @@ std::unique_ptr<NtModel> AstralApp::createGOCube(float size) {
   };
 
   return std::make_unique<NtModel>(ntDevice, modelData);
-}
+  }
 
 std::unique_ptr<NtModel> AstralApp::createBillboardQuad(float size) {
-  NtModel::Data modelData{ntDevice};
-  modelData.meshes.resize(1);
+  NtModel::Builder modelData{ntDevice};
+  modelData.l_meshes.resize(1);
 
   // Billboard quad vertices (facing forward, centered at origin)
-  modelData.meshes[0].vertices = {
+  modelData.l_meshes[0].vertices = {
     {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
     {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
     {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
     {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
   };
 
-  modelData.meshes[0].indices = {0, 1, 2, 2, 3, 0};
+  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
 
-  modelData.materials.resize(1);
+  modelData.l_materials.resize(1);
   NtMaterial::MaterialData materialData;
   materialData.name = "BillboardMaterial";
   materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-  modelData.materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
+  modelData.l_materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
 
   // Update the material with descriptor set
-  modelData.materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  modelData.l_materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
 
   return std::make_unique<NtModel>(ntDevice, modelData);
 }
 
 std::unique_ptr<NtModel> AstralApp::createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture) {
-  NtModel::Data modelData{ntDevice};
-  modelData.meshes.resize(1);
+  NtModel::Builder modelData{ntDevice};
+  modelData.l_meshes.resize(1);
 
   // Billboard quad vertices (facing forward, centered at origin)
-  modelData.meshes[0].vertices = {
+  modelData.l_meshes[0].vertices = {
     {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
     {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
     {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
     {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
   };
 
-  modelData.meshes[0].indices = {0, 1, 2, 2, 3, 0};
+  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
 
-  modelData.materials.resize(1);
+  modelData.l_materials.resize(1);
   NtMaterial::MaterialData materialData;
   materialData.name = "BillboardMaterial";
   materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
   materialData.pbrMetallicRoughness.baseColorTexture = texture;
-  modelData.materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
+  modelData.l_materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
 
   // Update the material with descriptor set
-  modelData.materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  modelData.l_materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
 
   return std::make_unique<NtModel>(ntDevice, modelData);
 }
@@ -603,33 +641,38 @@ void AstralApp::loadGameObjects() {
   // go_Atrium.transform.scale = {0.06f, 0.06f, 0.06f};
   // gameObjects.emplace(go_Atrium.getId(), std::move(go_Atrium));
 
-  auto go_MoonlitCafe = NtGameObject::createGameObject();
-  go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-  gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
+  // auto go_MoonlitCafe = NtGameObject::createGameObject();
+  // go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  // gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
 
   auto go_Cassandra = NtGameObject::createGameObject(true);
   go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
   go_Cassandra.transform.rotation = {0.0f, glm::radians(90.0f), 0.0f};
   go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};
+
+  // if (go_Cassandra.model->hasSkeleton()) {
+  //     go_Cassandra.animator->play("Action", true);
+  // }
+
   gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
 
   // Create light sprite texture
-  std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
+  // std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
 
   // auto PointLightCam = NtGameObject::makePointLight(20.0f, 0.0f);
   // PointLightCam.transform.translation = {0.0f, 0.0f, 0.0f};
   // PointLightCam.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   // gameObjects.emplace(PointLightCam.getId(), std::move(PointLightCam));
 
-  auto PointLight1 = NtGameObject::makePointLight(10.0f, 0.0f, glm::vec3(1.0, 0.51, 0.17));
-  PointLight1.transform.translation = {3.2f, -7.7f, -4.0f};
-  PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
+  // auto PointLight1 = NtGameObject::makePointLight(10.0f, 0.0f, glm::vec3(1.0, 0.51, 0.17));
+  // PointLight1.transform.translation = {3.2f, -7.7f, -4.0f};
+  // PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  // gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
 
-  auto PointLight2 = NtGameObject::makePointLight(5.0f, 0.0f, glm::vec3(1.0, 0.43, 0.03));
-  PointLight2.transform.translation = {13.2f, -6.2f, 9.9f};
-  PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
+  // auto PointLight2 = NtGameObject::makePointLight(5.0f, 0.0f, glm::vec3(1.0, 0.43, 0.03));
+  // PointLight2.transform.translation = {13.2f, -6.2f, 9.9f};
+  // PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  // gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
 
 }
 

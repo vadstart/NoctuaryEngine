@@ -9,6 +9,7 @@
 #include "tinygltf/tiny_gltf.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/hash.hpp>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <cassert>
 #include <cstddef>
@@ -33,34 +34,40 @@ struct hash<nt::NtModel::Vertex> {
 
 namespace nt {
 
-NtModel::NtModel(NtDevice &device, NtModel::Data &data) : ntDevice{device} {
-  createMeshBuffers(data.meshes);
-  materials = data.materials;
+NtModel::NtModel(NtDevice &device, NtModel::Builder &builder) : ntDevice{device},
+    materials{std::move(builder.l_materials)},
+    skeleton{std::move(builder.l_skeleton)},
+    animations{std::move(builder.l_animations)}
+{
+  createMeshBuffers(builder.l_meshes);
+  builder.l_meshes.clear();
+  builder.l_meshes.shrink_to_fit();
 }
 
-NtModel::~NtModel() {}
+NtModel::~NtModel() {
+}
 
 std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const std::string &filepath, VkDescriptorSetLayout materialLayout, VkDescriptorPool materialPool) {
-  Data data{device};
+  Builder builder{device};
 
   // Determine file type by extension
   std::string extension = filepath.substr(filepath.find_last_of('.') + 1);
   std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
 
   if (extension == "gltf" || extension == "glb") {
-    data.loadGltfModel(filepath);
+    builder.loadGltfModel(filepath);
   } else if (extension == "obj") {
-    data.loadObjModel(filepath);
+    builder.loadObjModel(filepath);
   } else {
     throw std::runtime_error("Unsupported file format: " + extension + ". Supported formats are: .obj, .gltf, .glb");
   }
 
   // Initialize material descriptor sets for all loaded materials
-  for (const auto& material : data.materials) {
+  for (const auto& material : builder.l_materials) {
     material->updateDescriptorSet(materialLayout, materialPool);
   }
 
-  return std::make_unique<NtModel>(device, data);
+  return std::make_unique<NtModel>(device, builder);
 }
 
 
@@ -72,6 +79,11 @@ void NtModel::createMeshBuffers(const std::vector<Mesh> &meshData) {
     createVertexBuffer(mesh.vertices, meshes[i]);
     createIndexBuffer(mesh.indices, meshes[i]);
     meshes[i].materialIndex = mesh.materialIndex;
+
+    // TODO:
+    // if (meshData.skeleton) {
+    //   createBoneBuffer(meshData.skeleton->bones, meshes[i]);
+    // }
   }
 }
 
@@ -136,6 +148,36 @@ void NtModel::createIndexBuffer(const std::vector<uint32_t> &indices, MeshBuffer
   ntDevice.copyBuffer(stagingBuffer.getBuffer(), meshBuffers.indexBuffer->getBuffer(), bufferSize);
 }
 
+void NtModel::createBoneBuffer(const std::vector<uint32_t> &bones, MeshBuffers &meshBuffers) {
+    // go_Cassandra.animationData->boneBuffer->map();
+
+    // // Allocate descriptor set using NtDescriptorWriter
+    // auto bufferInfo = go_Cassandra.animationData->boneBuffer->descriptorInfo();
+
+    // bool success = NtDescriptorWriter(*boneSetLayout, *bonePool)
+    //     .writeBuffer(0, &bufferInfo)
+    //     .build(go_Cassandra.animationData->descriptorSet);
+
+  VkDeviceSize bufferSize = meshBuffers.boneCount * sizeof(Bone);
+
+  meshBuffers.boneBuffer = std::make_unique<NtBuffer>(
+    ntDevice,
+    bufferSize,
+    meshBuffers.boneCount,
+    VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+    );
+
+    meshBuffers.boneBuffer->map();
+
+    // TODO:
+    // Allocate descriptor set using NtDescriptorWriter
+    // auto bufferInfo = meshBuffers.boneBuffer->descriptorInfo();
+
+    // bool success = NtDescriptorWriter(*boneSetLayout, *bonePool)
+    //     .writeBuffer(0, &bufferInfo)
+    //     .build(go_Cassandra.animationData->descriptorSet);
+}
 
 void NtModel::bind (VkCommandBuffer commandBuffer, uint32_t meshIndex) {
   assert(meshIndex < meshes.size() && "Mesh index out of range");
@@ -186,11 +228,13 @@ std::vector<VkVertexInputAttributeDescription> NtModel::Vertex::getAttributeDesc
   attributeDescriptions.push_back({2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)});
   attributeDescriptions.push_back({3, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)});
   attributeDescriptions.push_back({4, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, tangent)});
+  attributeDescriptions.push_back({5, 0, VK_FORMAT_R32G32B32A32_SINT, offsetof(Vertex, boneIndices)});
+  attributeDescriptions.push_back({6, 0, VK_FORMAT_R32G32B32A32_SFLOAT, offsetof(Vertex, boneWeights)});
 
   return attributeDescriptions;
 }
 
-void NtModel::Data::loadObjModel(const std::string &filepath) {
+void NtModel::Builder::loadObjModel(const std::string &filepath) {
   tinyobj::attrib_t attrib;
   std::vector<tinyobj::shape_t> shapes;
   std::vector<tinyobj::material_t> materials;
@@ -203,8 +247,7 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
     throw std::runtime_error(warn + err);
   }
 
-  meshes.clear();
-  this->materials.clear();
+  l_meshes.clear();
 
   // Convert tinyobj materials to NtMaterials
   std::cout << "  Loading " << materials.size() << " materials from OBJ" << std::endl;
@@ -258,16 +301,16 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
       }
     }
 
-    this->materials.push_back(std::make_shared<NtMaterial>(ntDevice, materialData));
+    l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, materialData));
   }
 
   // If no materials found, create a default material
-  if (this->materials.empty()) {
+  if (l_materials.empty()) {
     std::cout << "    No materials found, creating default material" << std::endl;
     NtMaterial::MaterialData defaultMaterial;
     defaultMaterial.name = "DefaultMaterial";
     defaultMaterial.pbrMetallicRoughness.baseColorFactor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
-    this->materials.push_back(std::make_shared<NtMaterial>(ntDevice, defaultMaterial));
+    l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, defaultMaterial));
   }
 
   // Create meshes per shape/material combination
@@ -293,7 +336,7 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
       if (materialGroups.size() > 1) {
         mesh.name += "_Mat" + std::to_string(materialId);
       }
-      mesh.materialIndex = std::min(static_cast<uint32_t>(materialId), static_cast<uint32_t>(this->materials.size() - 1));
+      mesh.materialIndex = std::min(static_cast<uint32_t>(materialId), static_cast<uint32_t>(l_materials.size() - 1));
 
       std::unordered_map<Vertex, uint32_t> uniqueVertices{};
       for (const auto &index : indices) {
@@ -343,14 +386,14 @@ void NtModel::Data::loadObjModel(const std::string &filepath) {
         calculateTangents(mesh.vertices, mesh.indices);
       }
 
-      meshes.push_back(mesh);
+      l_meshes.push_back(mesh);
     }
   }
 
-  std::cout << "  Loaded " << meshes.size()-1 << " mesh(es) with " << this->materials.size() << " material(s)" << std::endl;
+  std::cout << "  Loaded " << l_meshes.size()-1 << " mesh(es) with " << l_materials.size() << " material(s)" << std::endl;
 }
 
-void NtModel::Data::loadGltfModel(const std::string &filepath) {
+void NtModel::Builder::loadGltfModel(const std::string &filepath) {
   tinygltf::Model model;
   tinygltf::TinyGLTF loader;
   std::string err;
@@ -379,9 +422,10 @@ void NtModel::Data::loadGltfModel(const std::string &filepath) {
   }
 
   std::cout << "Successfully loaded glTF file: " << filepath << std::endl;
-  std::cout << "  Materials: " << model.materials.size() << std::endl;
   std::cout << "  Meshes: " << model.meshes.size() << std::endl;
+  std::cout << "  Materials: " << model.materials.size() << std::endl;
   std::cout << "  Textures: " << model.textures.size() << std::endl;
+  std::cout << "  Skeletons: " << model.skins.size() << std::endl;
 
   // Load materials first
   loadGltfMaterials(model, filepath);
@@ -389,12 +433,22 @@ void NtModel::Data::loadGltfModel(const std::string &filepath) {
   // Load meshes
   loadGltfMeshes(model);
 
+  // Load skeleton
+  if (!model.skins.empty()) {
+      loadGltfSkeleton(model);
+  }
+
+  // Load animations
+  for (const auto& anim : model.animations) {
+      loadGltfAnimation(model, anim);
+  }
+
   // Apply coordinate system transformation from glTF (Y-up) to engine coordinate system
   // glTF uses Y-up, but when exported from Blender with Z-up, we need to rotate around X-axis
   glm::mat4 transform = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
   glm::mat3 normalTransform = glm::transpose(glm::inverse(glm::mat3(transform)));
 
-  for (auto& mesh : meshes) {
+  for (auto& mesh : l_meshes) {
     for (auto& vertex : mesh.vertices) {
       // Transform position
       glm::vec4 pos = transform * glm::vec4(vertex.position, 1.0f);
@@ -408,18 +462,16 @@ void NtModel::Data::loadGltfModel(const std::string &filepath) {
       vertex.tangent = glm::vec4(tangent.x, tangent.y, tangent.z, vertex.tangent.w);
     }
   }
-
-  std::cout << "  Loaded " << meshes.size()-1 << " mesh(es) with " << materials.size() << " material(s)" << std::endl;
 }
 
-void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::string &filepath) {
+void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std::string &filepath) {
   std::string baseDir = filepath.substr(0, filepath.find_last_of('/') + 1);
 
   for (const auto &material : model.materials) {
     NtMaterial::MaterialData materialData;
     materialData.name = material.name;
 
-    // std::cout << "  Loading material: " << (material.name.empty() ? "<unnamed>" : material.name) << std::endl;
+    std::cout << "  Loading material: " << (material.name.empty() ? "<unnamed>" : material.name) << std::endl;
 
     // PBR Metallic Roughness
     const auto &pbr = material.pbrMetallicRoughness;
@@ -541,55 +593,55 @@ void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::s
     }
 
     // Load occlusion texture
-    if (material.occlusionTexture.index >= 0) {
-      const auto &texture = model.textures[material.occlusionTexture.index];
-      const auto &image = model.images[texture.source];
+    // if (material.occlusionTexture.index >= 0) {
+    //   const auto &texture = model.textures[material.occlusionTexture.index];
+    //   const auto &image = model.images[texture.source];
 
-      if (!image.uri.empty()) {
-        std::string texturePath = baseDir + image.uri;
-        std::cout << "    Loading occlusion texture: " << texturePath << std::endl;
-        try {
-          materialData.occlusionTexture = NtImage::createTextureFromFile(ntDevice, texturePath);
-          materialData.occlusionStrength = material.occlusionTexture.strength;
-          materialData.occlusionTexCoord = material.occlusionTexture.texCoord;
-        } catch (const std::exception& e) {
-          std::cerr << "    Failed to load occlusion texture: " << e.what() << std::endl;
-        }
-      } else if (!image.image.empty()) {
-        // Embedded texture - so let's create texture from memory
-        materialData.occlusionTexture =
-            NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
-        materialData.occlusionStrength = material.occlusionTexture.strength;
-        materialData.occlusionTexCoord = pbr.baseColorTexture.texCoord;
-    }
-    }
+    //   if (!image.uri.empty()) {
+    //     std::string texturePath = baseDir + image.uri;
+    //     std::cout << "    Loading occlusion texture: " << texturePath << std::endl;
+    //     try {
+    //       materialData.occlusionTexture = NtImage::createTextureFromFile(ntDevice, texturePath);
+    //       materialData.occlusionStrength = material.occlusionTexture.strength;
+    //       materialData.occlusionTexCoord = material.occlusionTexture.texCoord;
+    //     } catch (const std::exception& e) {
+    //       std::cerr << "    Failed to load occlusion texture: " << e.what() << std::endl;
+    //     }
+    //   } else if (!image.image.empty()) {
+    //     // Embedded texture - so let's create texture from memory
+    //     materialData.occlusionTexture =
+    //         NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
+    //     materialData.occlusionStrength = material.occlusionTexture.strength;
+    //     materialData.occlusionTexCoord = pbr.baseColorTexture.texCoord;
+    // }
+    // }
 
     // Load emissive texture
-    if (material.emissiveTexture.index >= 0) {
-      const auto &texture = model.textures[material.emissiveTexture.index];
-      const auto &image = model.images[texture.source];
+    // if (material.emissiveTexture.index >= 0) {
+    //   const auto &texture = model.textures[material.emissiveTexture.index];
+    //   const auto &image = model.images[texture.source];
 
-      if (!image.uri.empty()) {
-        std::string texturePath = baseDir + image.uri;
-        std::cout << "    Loading emissive texture: " << texturePath << std::endl;
-        try {
-          materialData.emissiveTexture = NtImage::createTextureFromFile(ntDevice, texturePath);
-          materialData.emissiveTexCoord = material.emissiveTexture.texCoord;
-        } catch (const std::exception& e) {
-          std::cerr << "    Failed to load emissive texture: " << e.what() << std::endl;
-        }
-      } else if (!image.image.empty()) {
-            // Embedded texture - so let's create texture from memory
-            materialData.emissiveTexture =
-                NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
-            materialData.emissiveTexCoord = material.emissiveTexture.texCoord;
-        }
-    }
+    //   if (!image.uri.empty()) {
+    //     std::string texturePath = baseDir + image.uri;
+    //     std::cout << "    Loading emissive texture: " << texturePath << std::endl;
+    //     try {
+    //       materialData.emissiveTexture = NtImage::createTextureFromFile(ntDevice, texturePath);
+    //       materialData.emissiveTexCoord = material.emissiveTexture.texCoord;
+    //     } catch (const std::exception& e) {
+    //       std::cerr << "    Failed to load emissive texture: " << e.what() << std::endl;
+    //     }
+    //   } else if (!image.image.empty()) {
+    //         // Embedded texture - so let's create texture from memory
+    //         materialData.emissiveTexture =
+    //             NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
+    //         materialData.emissiveTexCoord = material.emissiveTexture.texCoord;
+    //     }
+    // }
 
-    // Emissive factor
-    materialData.emissiveFactor = glm::vec3(
-      material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]
-    );
+    // // Emissive factor
+    // materialData.emissiveFactor = glm::vec3(
+    //   material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]
+    // );
 
     // Alpha mode
     if (material.alphaMode == "OPAQUE") {
@@ -603,36 +655,24 @@ void NtModel::Data::loadGltfMaterials(const tinygltf::Model &model, const std::s
     materialData.alphaCutoff = material.alphaCutoff;
     materialData.doubleSided = material.doubleSided;
 
-    materials.push_back(std::make_shared<NtMaterial>(ntDevice, materialData));
+    l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, materialData));
   }
 
   // Create a default material if none exist
-  if (materials.empty()) {
+  if (l_materials.empty()) {
+    std::cout << "    No materials found, creating default material" << std::endl;
     NtMaterial::MaterialData defaultMaterial;
     defaultMaterial.name = "Default";
-    materials.push_back(std::make_shared<NtMaterial>(ntDevice, defaultMaterial));
+    l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, defaultMaterial));
   }
 }
 
-void NtModel::Data::loadGltfMeshes(const tinygltf::Model &model) {
+void NtModel::Builder::loadGltfMeshes(const tinygltf::Model &model) {
   for (const auto &gltfMesh : model.meshes) {
     for (const auto &primitive : gltfMesh.primitives) {
       Mesh mesh;
       mesh.name = gltfMesh.name;
       mesh.materialIndex = primitive.material >= 0 ? primitive.material : 0;
-
-      // std::cout << "  Loading mesh: " << (gltfMesh.name.empty() ? "<unnamed>" : gltfMesh.name)
-      //           << " with material index: " << mesh.materialIndex << std::endl;
-
-      // Debug vertex attributes - can be enabled for troubleshooting
-      // if (primitive.attributes.find("TEXCOORD_0") != primitive.attributes.end()) {
-      //   std::cout << "    Has TEXCOORD_0" << std::endl;
-      // }
-      // if (primitive.attributes.find("TANGENT") != primitive.attributes.end()) {
-      //   std::cout << "    Has TANGENT attribute" << std::endl;
-      // } else {
-      //   std::cout << "    No TANGENT attribute found" << std::endl;
-      // }
 
       // Get vertex attributes
       const auto &posAccessor = model.accessors[primitive.attributes.at("POSITION")];
@@ -662,6 +702,28 @@ void NtModel::Data::loadGltfMeshes(const tinygltf::Model &model) {
         tangentData = reinterpret_cast<const float*>(&tangentBuffer.data[tangentBufferView.byteOffset + tangentAccessor.byteOffset]);
       }
 
+      // Bone joints (indices)
+      const void *jointsData = nullptr;
+      int jointsComponentType = 0;
+      if (primitive.attributes.find("JOINTS_0") != primitive.attributes.end()) {
+        const auto &jointsAccessor = model.accessors[primitive.attributes.at("JOINTS_0")];
+        const auto &jointsBufferView = model.bufferViews[jointsAccessor.bufferView];
+        const auto &jointsBuffer = model.buffers[jointsBufferView.buffer];
+        jointsData = &jointsBuffer.data[jointsBufferView.byteOffset + jointsAccessor.byteOffset];
+        jointsComponentType = jointsAccessor.componentType;
+        std::cout << "Found JOINTS_0 attribute, component type: " << jointsComponentType << std::endl;
+      }
+
+      // Bone weights
+      const float *weightsData = nullptr;
+      if (primitive.attributes.find("WEIGHTS_0") != primitive.attributes.end()) {
+        const auto &weightsAccessor = model.accessors[primitive.attributes.at("WEIGHTS_0")];
+        const auto &weightsBufferView = model.bufferViews[weightsAccessor.bufferView];
+        const auto &weightsBuffer = model.buffers[weightsBufferView.buffer];
+        weightsData = reinterpret_cast<const float*>(&weightsBuffer.data[weightsBufferView.byteOffset + weightsAccessor.byteOffset]);
+        std::cout << "Found WEIGHTS_0 attribute" << std::endl;
+      }
+
       // Extract vertex data
       const float *posData = reinterpret_cast<const float*>(&posBuffer.data[posBufferView.byteOffset + posAccessor.byteOffset]);
       const float *normalData = reinterpret_cast<const float*>(&normalBuffer.data[normalBufferView.byteOffset + normalAccessor.byteOffset]);
@@ -679,10 +741,6 @@ void NtModel::Data::loadGltfMeshes(const tinygltf::Model &model) {
         // UV
         if (uvData) {
           vertex.uv = glm::vec2(uvData[i * 2], uvData[i * 2 + 1]);
-          // Debug first few UV coordinates
-          // if (i < 5) {
-          //   std::cout << "    Vertex " << i << " UV: (" << vertex.uv.x << ", " << vertex.uv.y << ")" << std::endl;
-          // }
         } else {
           vertex.uv = glm::vec2(0.0f, 0.0f);
         }
@@ -691,16 +749,34 @@ void NtModel::Data::loadGltfMeshes(const tinygltf::Model &model) {
         if (tangentData) {
           vertex.tangent = glm::vec4(tangentData[i * 4], tangentData[i * 4 + 1],
                                     tangentData[i * 4 + 2], tangentData[i * 4 + 3]);
-          // Debug first few tangent vectors - can be enabled for troubleshooting
-          // if (i < 3) {
-          //   std::cout << "    Vertex " << i << " Tangent: (" << vertex.tangent.x << ", " << vertex.tangent.y << ", " << vertex.tangent.z << ", " << vertex.tangent.w << ")" << std::endl;
-          // }
         } else {
           vertex.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-          // Debug default tangent - can be enabled for troubleshooting
-          // if (i < 3) {
-          //   std::cout << "    Vertex " << i << " Tangent: DEFAULT (no tangent data)" << std::endl;
-          // }
+        }
+
+        // Bone indices
+        if (jointsData) {
+        if (jointsComponentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_SHORT) {
+            const uint16_t *joints = reinterpret_cast<const uint16_t*>(jointsData);
+            vertex.boneIndices = glm::ivec4(joints[i * 4], joints[i * 4 + 1],
+                                            joints[i * 4 + 2], joints[i * 4 + 3]);
+        } else if (jointsComponentType == TINYGLTF_COMPONENT_TYPE_UNSIGNED_BYTE) {
+            const uint8_t *joints = reinterpret_cast<const uint8_t*>(jointsData);
+            vertex.boneIndices = glm::ivec4(joints[i * 4], joints[i * 4 + 1],
+                                            joints[i * 4 + 2], joints[i * 4 + 3]);
+        }
+        }
+
+        // Bone weights
+        if (weightsData) {
+        vertex.boneWeights = glm::vec4(weightsData[i * 4], weightsData[i * 4 + 1],
+                                        weightsData[i * 4 + 2], weightsData[i * 4 + 3]);
+
+        // Normalize weights to sum to 1.0
+        float sum = vertex.boneWeights.x + vertex.boneWeights.y +
+                    vertex.boneWeights.z + vertex.boneWeights.w;
+        if (sum > 0.0001f) {
+            vertex.boneWeights /= sum;
+        }
         }
 
         // Default color (glTF doesn't typically have per-vertex colors)
@@ -739,9 +815,233 @@ void NtModel::Data::loadGltfMeshes(const tinygltf::Model &model) {
     }
 
       // std::cout << "    Vertices: " << mesh.vertices.size() << ", Indices: " << mesh.indices.size() << std::endl;
-      meshes.push_back(mesh);
+      l_meshes.push_back(mesh);
     }
   }
+}
+
+void NtModel::Builder::loadGltfSkeleton(const tinygltf::Model &model) {
+    size_t numSkeletons = model.skins.size();
+    if (!numSkeletons)
+        return;
+
+    if (numSkeletons > 1)
+        std::cout << "A model should only have a single skin/armature/skeleton. Using skin 0.";
+
+    l_skeleton = Skeleton();
+
+    // Use skeleton 0 from GLTF model to fill the skeleton
+    // {
+        const tinygltf::Skin& skin = model.skins[0];
+
+        // Does it have information about bones?
+        if (skin.inverseBindMatrices != -1) {
+            auto& bones = l_skeleton->bones;
+
+            size_t numBones = skin.joints.size();
+            bones.resize(numBones);
+            // TODO: resize shaderdata_finalbonematrices
+
+            l_skeleton->name = skin.name;
+            std::cout << "  Loading skeleton: " << l_skeleton->name << std::endl;
+
+            // Get array of inverse bind matrices for all bones
+            // First retrieve raw data
+            const glm::mat4* inverseBindMatrices;
+            {
+                const void *jointsData = nullptr;
+                int inverseBindComponentType = 0;
+                // if (primitive.attributes.find("JOINTS_0") != primitive.attributes.end()) {
+                  const auto &inverseBindAccessor = model.accessors[skin.inverseBindMatrices];
+                  const auto &inverseBindBufferView = model.bufferViews[inverseBindAccessor.bufferView];
+                  const auto &inverseBindBuffer = model.buffers[inverseBindBufferView.buffer];
+                  // TODO: sounds sketchy:
+                  inverseBindMatrices = reinterpret_cast<const glm::mat4*>(&inverseBindBuffer.data[inverseBindBufferView.byteOffset + inverseBindAccessor.byteOffset]);
+                  inverseBindComponentType = inverseBindAccessor.componentType;
+                  std::cout << "Found INVERSEBINDMATRICES attribute, component type: " << inverseBindComponentType << std::endl;
+                // }
+
+                // uint count = 0;
+                // int type = 0;
+                // auto componentType = LoadAccessor<glm::mat4> (
+                //     model.accessors[skin.inverseBindMatrices],
+                //     inverseBindMatrices,
+                //     &count,
+                //     &type
+                // );
+            }
+
+            // int LoadAccessor(const tinygltf::Accessor& accessor, const T*& pointer, uint* count = nullptr, int* type = nullptr)
+            // {
+            //     const tinygltf::BufferView& view = m_GltfModel.bufferViews[accessor.bufferView];
+            //     pointer =
+            //         reinterpret_cast<const T*>(&(m_GltfModel.buffers[view.buffer].data[accessor.byteOffset + view.byteOffset]));
+            //     if (count)
+            //     {
+            //         *count = static_cast<uint>(accessor.count);
+            //     }
+            //     if (type)
+            //     {
+            //         *type = accessor.type;
+            //     }
+            //     return accessor.componentType;
+            // }
+
+            // loop over all joints from gltf model and fill our skeleton with bones
+            for (size_t jointIndex = 0; jointIndex < numBones; ++jointIndex) {
+                std::cout << "    Loop: " << jointIndex << std::endl;
+                int globalGltfNodeIndex = skin.joints[jointIndex];
+                auto& bone = bones[jointIndex];
+
+                bone.globalGltfNodeIndex = globalGltfNodeIndex;
+                bone.inverseBindMatrix = inverseBindMatrices[jointIndex];
+                bone.name = model.nodes[globalGltfNodeIndex].name;
+                std::cout << "    Bone: " << bone.name << std::endl;
+
+                // set up node transform
+                auto& gltfNode = model.nodes[globalGltfNodeIndex];
+
+                if (gltfNode.translation.size() == 3) {
+                    bone.animatedNodeTranslation = glm::make_vec3(gltfNode.translation.data());
+                }
+                if (gltfNode.rotation.size() == 4) {
+                    glm::quat q = glm::make_quat(gltfNode.rotation.data());
+                    bone.animatedNodeRotation = q;
+                }
+                if (gltfNode.scale.size() == 3) {
+                    bone.animatedNodeScale = glm::make_vec3(gltfNode.scale.data());
+                }
+                if (gltfNode.matrix.size() == 16) {
+                    bone.initialNodeMatrix = glm::make_mat4x4(gltfNode.matrix.data());
+                }
+                else {
+                    bone.initialNodeMatrix = glm::mat4(1.0f);
+                }
+
+                // set up the "global node" to "bone index" mapping
+                l_skeleton->nodeIndexToBoneIndex[globalGltfNodeIndex] = jointIndex;
+            std::cout << "    Bone " << jointIndex << ": " << bone.name << " loaded" << std::endl;
+            }
+
+            std::cout << "  Loading bone hierarchy..." << std::endl;
+            int rootJoint = skin.joints[0];
+            loadGltfBone(model, rootJoint, -1);
+            std::cout << "  Bone hierarchy loaded" << std::endl;
+        }
+
+        // TODO: Create a buffer for the shader
+    // }
+
+    std::cout << "  Bones: " << l_skeleton->bones.size() << " bones\n";
+}
+
+void NtModel::Builder::loadGltfBone(const tinygltf::Model &model, int globalGltfNodeIndex, int parentBone) {
+    int currentBone = l_skeleton->nodeIndexToBoneIndex[globalGltfNodeIndex];
+    auto& bone = l_skeleton->bones[currentBone];
+
+    bone.parentIndex = parentBone;
+
+    size_t numChildren = model.nodes[globalGltfNodeIndex].children.size();
+    std::cout << "    - Bone " << bone.name << ": " << numChildren << std::endl;
+    if (numChildren > 0) {
+        bone.childrenIndices.resize(numChildren);
+        for (size_t childIndex = 0; childIndex < numChildren; ++childIndex) {
+            uint childGlobalIndex = model.nodes[globalGltfNodeIndex].children[childIndex];
+            bone.childrenIndices[childIndex] = l_skeleton->nodeIndexToBoneIndex[childGlobalIndex];
+            std::cout << "    - childIndex " << childIndex << ": " << childGlobalIndex << std::endl;
+            loadGltfBone(model, childGlobalIndex, currentBone);
+        }
+    }
+}
+
+void NtModel::Builder::loadGltfAnimation(const tinygltf::Model &model, const tinygltf::Animation& anim) {
+    NtAnimation animation;
+    animation.name = anim.name.empty() ? "Unnamed" : anim.name;
+    animation.duration = 0.0f;
+
+    // Load samplers (keyframe data)
+    for (const auto& sampler : anim.samplers) {
+        NtAnimationSampler animSampler;
+
+        // Input = time values
+        {
+            const tinygltf::Accessor& accessor = model.accessors[sampler.input];
+            const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+            const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+            const float* times = reinterpret_cast<const float*>(
+                &buffer.data[bufferView.byteOffset + accessor.byteOffset]
+            );
+
+            animSampler.inputTimestamps.resize(accessor.count);
+            std::memcpy(animSampler.inputTimestamps.data(), times, accessor.count * sizeof(float));
+
+            // Track longest animation
+            animation.duration = std::max(animation.duration, times[accessor.count - 1]);
+        }
+
+        // Output = transform values (vec3 for translation/scale, vec4 for rotation)
+        {
+            const tinygltf::Accessor& accessor = model.accessors[sampler.output];
+            const tinygltf::BufferView& bufferView = model.bufferViews[accessor.bufferView];
+            const tinygltf::Buffer& buffer = model.buffers[bufferView.buffer];
+            const void* dataPtr = &buffer.data[bufferView.byteOffset + accessor.byteOffset];
+
+            animSampler.outputValues.resize(accessor.count);
+
+            if (accessor.type == TINYGLTF_TYPE_VEC3) {
+                const glm::vec3* data = reinterpret_cast<const glm::vec3*>(dataPtr);
+                for (size_t i = 0; i < accessor.count; ++i) {
+                    animSampler.outputValues[i] = glm::vec4(data[i], 0.0f);
+                }
+            } else if (accessor.type == TINYGLTF_TYPE_VEC4) {
+                std::memcpy(animSampler.outputValues.data(), dataPtr, accessor.count * sizeof(glm::vec4));
+            }
+        }
+
+        // Interpolation
+        if (sampler.interpolation == "LINEAR") {
+            animSampler.interpolation = NtAnimationSampler::LINEAR;
+        } else if (sampler.interpolation == "STEP") {
+            animSampler.interpolation = NtAnimationSampler::STEP;
+        } else {
+            animSampler.interpolation = NtAnimationSampler::CUBICSPLINE;
+        }
+
+        animation.samplers.push_back(animSampler);
+    }
+
+    // Load channels (which bone each sampler affects)
+    for (const auto& channel : anim.channels) {
+        NtAnimationChannel animChannel;
+        animChannel.samplerIndex = channel.sampler;
+
+        // Map GLTF node to bone index
+        int nodeIndex = channel.target_node;
+
+        // Find which bone this node corresponds to
+        if (l_skeleton.has_value() && l_skeleton->nodeIndexToBoneIndex.count(nodeIndex) > 0) {
+            animChannel.targetNode = l_skeleton->nodeIndexToBoneIndex[nodeIndex];
+        } else {
+            // Skip channels that don't target bones in the skeleton
+            continue;
+        }
+
+        if (channel.target_path == "translation") {
+            animChannel.path = NtAnimationChannel::TRANSLATION;
+        } else if (channel.target_path == "rotation") {
+            animChannel.path = NtAnimationChannel::ROTATION;
+        } else if (channel.target_path == "scale") {
+            animChannel.path = NtAnimationChannel::SCALE;
+        }
+
+        animation.channels.push_back(animChannel);
+    }
+
+    l_animations.push_back(animation);
+    std::cout << "  Animation: " << animation.name << " (" << animation.duration << "s)\n";
+
+    // TODO: go_Cassandra.animator = std::make_unique<NtAnimator>(*go_Cassandra.model);
+    // TODO: go_Cassandra.animationData = std::make_unique<AnimationComponent>();
 }
 
 uint32_t NtModel::getMaterialIndex(uint32_t meshIndex) const {
@@ -752,7 +1052,7 @@ uint32_t NtModel::getMaterialIndex(uint32_t meshIndex) const {
   return meshes[meshIndex].materialIndex;
 }
 
-void NtModel::Data::calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
+void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
   // Calculate tangents using the method described in "Mathematics for 3D Game Programming and Computer Graphics"
   for (size_t i = 0; i < indices.size(); i += 3) {
     uint32_t i0 = indices[i];

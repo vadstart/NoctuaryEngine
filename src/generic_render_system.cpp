@@ -53,15 +53,16 @@ struct NtPushConstantData {
   alignas(4) float billboardSize{1.0f};
 };
 
-GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout) : ntDevice{device} {
-  createPipelineLayout(globalSetLayout, modelSetLayout);
+GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout,
+    VkDescriptorSetLayout modelSetLayout/*, VkDescriptorSetLayout boneSetLayout*/) : ntDevice{device} {
+  createPipelineLayout(globalSetLayout, modelSetLayout/*, boneSetLayout*/);
   createPipeline(renderPass);
 }
 GenericRenderSystem::~GenericRenderSystem() {
   vkDestroyPipelineLayout(ntDevice.device(), pipelineLayout, nullptr);
 }
 
-void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout) {
+void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout/*, VkDescriptorSetLayout boneSetLayout*/) {
 
   VkPushConstantRange pushConstantRange{};
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -70,7 +71,8 @@ void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLa
 
   std::vector<VkDescriptorSetLayout> descriptorSetLayouts{
     globalSetLayout,
-    modelSetLayout
+    modelSetLayout/*,
+    boneSetLayout*/
   };
 
   VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
@@ -289,6 +291,7 @@ vkCmdBindDescriptorSets(
     &frameInfo.globalDescriptorSet,
     0, nullptr);
 
+
 for (auto& kv: frameInfo.gameObjects) {
     auto& obj = kv.second;
     if (obj.model == nullptr || obj.pointLight != nullptr || !obj.isCharacter) continue;
@@ -300,15 +303,32 @@ for (auto& kv: frameInfo.gameObjects) {
         // Bind the material descriptor set for this specific mesh
         uint32_t materialIndex = obj.model->getMaterialIndex(meshIndex);
         if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
-        VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
-        vkCmdBindDescriptorSets(
-            frameInfo.commandBuffer,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            pipelineLayout,
-            1, 1,
-            &materialDescriptorSet,
-            0, nullptr);
+            VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
+            vkCmdBindDescriptorSets(
+                frameInfo.commandBuffer,
+                VK_PIPELINE_BIND_POINT_GRAPHICS,
+                pipelineLayout,
+                1, 1,
+                &materialDescriptorSet,
+                0, nullptr);
         }
+
+        // Bind bone matrices if animated (binding 2)
+        if (obj.animationData != nullptr) {
+
+            if (obj.animationData->descriptorSet != VK_NULL_HANDLE) {
+                vkCmdBindDescriptorSets(
+                    frameInfo.commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipelineLayout,
+                    2,  // Set 2
+                    1,
+                    &obj.animationData->descriptorSet,
+                    0, nullptr);
+            }
+        }
+
+
 
         NtPushConstantData push{};
         push.modelMatrix = obj.transform.mat4();

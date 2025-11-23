@@ -31,7 +31,8 @@ void NtMaterial::createDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorP
     std::vector<VkDescriptorImageInfo> imageInfos;
 
     // Reserve space for potential descriptors
-    imageInfos.reserve(5); // Base color, metallic-roughness, normal, occlusion, emissive
+    // TODO: Reserve only the needed amount after hasTexture() checks and not always 5?
+    imageInfos.reserve(3); // Base color, metallic-roughness, normal. (occlusion, emissive)
 
     // Base color texture (binding 0)
     if (hasBaseColorTexture()) {
@@ -91,42 +92,42 @@ void NtMaterial::createDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorP
     }
 
     // Occlusion texture (binding 3)
-    if (hasOcclusionTexture()) {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = materialData.occlusionTexture->getImageView();
-        imageInfo.sampler = materialData.occlusionTexture->getSampler();
-        imageInfos.push_back(imageInfo);
+    // if (hasOcclusionTexture()) {
+    //     VkDescriptorImageInfo imageInfo{};
+    //     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    //     imageInfo.imageView = materialData.occlusionTexture->getImageView();
+    //     imageInfo.sampler = materialData.occlusionTexture->getSampler();
+    //     imageInfos.push_back(imageInfo);
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = descriptorSet;
-        descriptorWrite.dstBinding = 3;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pImageInfo = &imageInfos.back();
-        descriptorWrites.push_back(descriptorWrite);
-    }
+    //     VkWriteDescriptorSet descriptorWrite{};
+    //     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    //     descriptorWrite.dstSet = descriptorSet;
+    //     descriptorWrite.dstBinding = 3;
+    //     descriptorWrite.dstArrayElement = 0;
+    //     descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    //     descriptorWrite.descriptorCount = 1;
+    //     descriptorWrite.pImageInfo = &imageInfos.back();
+    //     descriptorWrites.push_back(descriptorWrite);
+    // }
 
     // Emissive texture (binding 4)
-    if (hasEmissiveTexture()) {
-        VkDescriptorImageInfo imageInfo{};
-        imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-        imageInfo.imageView = materialData.emissiveTexture->getImageView();
-        imageInfo.sampler = materialData.emissiveTexture->getSampler();
-        imageInfos.push_back(imageInfo);
+    // if (hasEmissiveTexture()) {
+    //     VkDescriptorImageInfo imageInfo{};
+    //     imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    //     imageInfo.imageView = materialData.emissiveTexture->getImageView();
+    //     imageInfo.sampler = materialData.emissiveTexture->getSampler();
+    //     imageInfos.push_back(imageInfo);
 
-        VkWriteDescriptorSet descriptorWrite{};
-        descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptorWrite.dstSet = descriptorSet;
-        descriptorWrite.dstBinding = 4;
-        descriptorWrite.dstArrayElement = 0;
-        descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        descriptorWrite.descriptorCount = 1;
-        descriptorWrite.pImageInfo = &imageInfos.back();
-        descriptorWrites.push_back(descriptorWrite);
-    }
+    //     VkWriteDescriptorSet descriptorWrite{};
+    //     descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    //     descriptorWrite.dstSet = descriptorSet;
+    //     descriptorWrite.dstBinding = 4;
+    //     descriptorWrite.dstArrayElement = 0;
+    //     descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    //     descriptorWrite.descriptorCount = 1;
+    //     descriptorWrite.pImageInfo = &imageInfos.back();
+    //     descriptorWrites.push_back(descriptorWrite);
+    // }
 
     if (!descriptorWrites.empty()) {
         vkUpdateDescriptorSets(ntDevice.device(), static_cast<uint32_t>(descriptorWrites.size()),
