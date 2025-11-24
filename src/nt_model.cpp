@@ -925,7 +925,7 @@ void NtModel::Builder::loadGltfBone(const tinygltf::Model &model, int globalGltf
     if (numChildren > 0) {
         bone.childrenIndices.resize(numChildren);
         for (size_t childIndex = 0; childIndex < numChildren; ++childIndex) {
-            uint childGlobalIndex = model.nodes[globalGltfNodeIndex].children[childIndex];
+            uint32_t childGlobalIndex = model.nodes[globalGltfNodeIndex].children[childIndex];
             bone.childrenIndices[childIndex] = l_skeleton->nodeIndexToBoneIndex[childGlobalIndex];
             loadGltfBone(model, childGlobalIndex, currentBone);
         }
@@ -1022,13 +1022,13 @@ void NtModel::Builder::loadGltfAnimation(const tinygltf::Model &model, const tin
 void NtModel::Skeleton::Traverse()
 {
     std::cout << "skeleton: " << name << std::endl;
-    uint indent = 0;
+    uint32_t indent = 0;
     std::string indentStr(indent, ' ');
     auto& joint = bones[0]; // root joint
     Traverse(joint, indent + 1);
 }
 
-void NtModel::Skeleton::Traverse(Bone const& bone, uint indent)
+void NtModel::Skeleton::Traverse(Bone const& bone, uint32_t indent)
 {
     std::string indentStr(indent, ' ');
     size_t numberOfChildren = bone.childrenIndices.size();

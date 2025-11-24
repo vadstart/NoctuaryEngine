@@ -10,6 +10,9 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <cstdint>
+#include <memory>
+#include <unordered_map>
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -17,9 +20,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-#include <cstdint>
-#include <memory>
-#include <vector>
+
 
 // Forward declarations
 namespace tinygltf {
@@ -99,7 +100,7 @@ class NtModel {
             ShaderData m_ShaderData;
 
             void Traverse();
-            void Traverse(Bone const& bone, uint indent = 0);
+            void Traverse(Bone const& bone, uint32_t indent = 0);
             void Update();
             void UpdateBone(int16_t boneIndex);
         };

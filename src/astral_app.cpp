@@ -670,7 +670,7 @@ void AstralApp::loadGameObjects() {
       modelPool->getDescriptorPool(),
       boneSetLayout->getDescriptorSetLayout(),
       bonePool->getDescriptorPool());
-  go_Cassandra.transform.translation = {0.0f, -1.3f, 0.0f};
+  go_Cassandra.transform.translation = {0.0f, -1.5f, 0.0f};
   go_Cassandra.transform.rotation = {glm::radians(90.0f), glm::radians(90.0f), 0.0f};
   // go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};
   if (go_Cassandra.model->hasSkeleton()) {
