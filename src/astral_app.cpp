@@ -371,7 +371,7 @@ void AstralApp::run() {
         if (ImGui::Begin("Animation Debug")) {
             for (const auto& kv : gameObjects) {
               auto &gobject = kv.second;
-              if (gobject.animator) {
+              if (gobject.animator && gobject.animator->isPlaying()) {
                 ImGui::Text("Playing: %s", gobject.animator->getCurrentAnimationName().c_str());
                 ImGui::Text("Time: %.2f / %.2f",
                             gobject.animator->getCurrentTime(),
@@ -438,31 +438,9 @@ void AstralApp::run() {
           auto& obj = kv.second;
 
           // ANIMATION
-          if (obj.animator) {
+          if (obj.animator && obj.model && obj.model->hasSkeleton()) {
             obj.animator->update(deltaTime);
-
-            if (obj.model && obj.model->hasSkeleton() && obj.isCharacter) {
-                    obj.model->updateSkeleton();
-
-                    // Update bone visualizer positions
-                    const auto& skeleton = obj.model->getSkeleton();
-                    const auto& matrices = skeleton->m_ShaderData.m_FinalJointsMatrices;
-
-                    size_t boneIndex = 0;
-                    for (auto& kv2 : frameInfo.gameObjects) {
-                        auto& vizObj = kv2.second;
-                        if (vizObj.isDebugVisualization && boneIndex < matrices.size()) {
-                            // Extract bone position from matrix
-                            glm::vec3 boneLocalPos = glm::vec3(matrices[boneIndex][3]);
-
-                            // Transform to world space using model's transform
-                            glm::vec4 boneWorldPos = obj.transform.mat4() * glm::vec4(boneLocalPos, 1.0f);
-                            vizObj.transform.translation = glm::vec3(boneWorldPos);
-
-                            boneIndex++;
-                        }
-                    }
-                }
+            obj.model->updateSkeleton();
           }
 
           // if (obj.pointLight == nullptr || lightIndex >= ubo.numLights) continue;
@@ -676,7 +654,7 @@ void AstralApp::loadGameObjects() {
   if (go_Cassandra.model->hasSkeleton()) {
       go_Cassandra.animator = std::make_unique<NtAnimator>(*go_Cassandra.model);
 
-      go_Cassandra.animator->play("Idle", true);
+      go_Cassandra.animator->play("derp", true);
   }
   gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
 
@@ -696,7 +674,6 @@ void AstralApp::loadGameObjects() {
   PointLight2.transform.translation = {13.2f, -6.2f, 9.9f};
   PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
-
 }
 
 }

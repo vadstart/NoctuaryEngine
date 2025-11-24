@@ -8,6 +8,7 @@
 
 #include <memory>
 #include <unordered_map>
+#include <iostream>
 
 namespace nt {
 
@@ -25,11 +26,6 @@ struct TransformComponent {
 struct PointLightComponent {
   float lightIntensity = 1.0f;
 };
-
-// struct AnimationComponent {
-//     std::unique_ptr<NtBuffer> boneBuffer; // Storage bufer for bone matrices
-//     VkDescriptorSet descriptorSet = VK_NULL_HANDLE;
-// };
 
 class NtGameObject {
 public:
@@ -62,10 +58,11 @@ public:
   std::shared_ptr<NtImage> roughnessTexture{};
   std::unique_ptr<PointLightComponent> pointLight = nullptr;
 
-  std::unique_ptr<NtAnimator> animator;
+  std::unique_ptr<NtAnimator> animator{nullptr};
 
 private:
-  NtGameObject(id_t objId, bool isObjCharacter) : id{objId}, isCharacter{isObjCharacter} {}
+  NtGameObject(id_t objId, bool isObjCharacter) : id{objId}, isCharacter{isObjCharacter} {
+  }
 
   id_t id;
 };

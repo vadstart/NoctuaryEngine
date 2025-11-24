@@ -1103,7 +1103,6 @@ void NtModel::Skeleton::UpdateBone(int16_t boneIndex)
 }
 
 void NtModel::updateSkeleton() {
-
     if (!skeleton.has_value()) {
         std::cout << "[DEBUG] No skeleton" << std::endl;
         return;
@@ -1121,25 +1120,6 @@ void NtModel::updateSkeleton() {
         return;
     }
 
-    // VALIDATION: Check for invalid matrices
-    // for (size_t i = 0; i < 3 && i < skeleton->m_ShaderData.m_FinalJointsMatrices.size(); ++i) {
-    //     const auto& mat = skeleton->m_ShaderData.m_FinalJointsMatrices[i];
-    //     std::cout << "Bone " << i << " matrix:\n";
-    //     std::cout << "  [" << mat[0][0] << ", " << mat[1][0] << ", " << mat[2][0] << ", " << mat[3][0] << "]\n";
-    //     std::cout << "  [" << mat[0][1] << ", " << mat[1][1] << ", " << mat[2][1] << ", " << mat[3][1] << "]\n";
-    //     std::cout << "  [" << mat[0][2] << ", " << mat[1][2] << ", " << mat[2][2] << ", " << mat[3][2] << "]\n";
-    //     std::cout << "  [" << mat[0][3] << ", " << mat[1][3] << ", " << mat[2][3] << ", " << mat[3][3] << "]\n";
-
-    //     // Check for NaN or extreme values
-    //     for (int r = 0; r < 4; r++) {
-    //         for (int c = 0; c < 4; c++) {
-    //             if (std::isnan(mat[c][r]) || std::abs(mat[c][r]) > 1000.0f) {
-    //                 std::cerr << "WARNING: Bone " << i << " has invalid value at [" << r << "][" << c << "]: " << mat[c][r] << std::endl;
-    //             }
-    //         }
-    //     }
-    // }
-
     boneBuffer->writeToBuffer((void*)skeleton->m_ShaderData.m_FinalJointsMatrices.data());
     boneBuffer->flush();
 }
@@ -1151,13 +1131,6 @@ uint32_t NtModel::getMaterialIndex(uint32_t meshIndex) const {
 
   return meshes[meshIndex].materialIndex;
 }
-
-// void NtModel::updateBoneMatrices(const std::vector<glm::mat4>& matrices) {
-//     if (boneBuffer && matrices.size() == skeleton->bones.size()) {
-//         boneBuffer->writeToBuffer((void*)matrices.data());
-//         boneBuffer->flush();
-//     }
-// }
 
 void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
   // Calculate tangents using the method described in "Mathematics for 3D Game Programming and Computer Graphics"
