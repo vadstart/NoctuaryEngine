@@ -5,6 +5,7 @@
 #include <iostream>
 #include <set>
 #include <unordered_set>
+#include <vulkan/vulkan_core.h>
 
 namespace nt {
 
@@ -89,7 +90,7 @@ void NtDevice::createInstance() {
     extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
   #endif
-  
+
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
   createInfo.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
@@ -127,6 +128,8 @@ void NtDevice::pickPhysicalDevice() {
   for (const auto &device : devices) {
     if (isDeviceSuitable(device)) {
       physicalDevice_ = device;
+      msaaSamples = getMaxUsableSampleCount();
+      std::cout << "Max MSAA samples: " << msaaSamples << std::endl;
       break;
     }
   }
@@ -535,4 +538,20 @@ void NtDevice::createImageWithInfo(
   }
 }
 
-}  // namespace lve
+VkSampleCountFlagBits NtDevice::getMaxUsableSampleCount() {
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(physicalDevice_, &physicalDeviceProperties);
+
+    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+
+    if (counts & VK_SAMPLE_COUNT_64_BIT) { return VK_SAMPLE_COUNT_64_BIT; }
+    if (counts & VK_SAMPLE_COUNT_32_BIT) { return VK_SAMPLE_COUNT_32_BIT; }
+    if (counts & VK_SAMPLE_COUNT_16_BIT) { return VK_SAMPLE_COUNT_16_BIT; }
+    if (counts & VK_SAMPLE_COUNT_8_BIT) { return VK_SAMPLE_COUNT_8_BIT; }
+    if (counts & VK_SAMPLE_COUNT_4_BIT) { return VK_SAMPLE_COUNT_4_BIT; }
+    if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
+
+    return VK_SAMPLE_COUNT_1_BIT;
+}
+
+}  // namespace nt

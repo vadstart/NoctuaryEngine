@@ -88,7 +88,6 @@ void main() {
 
     // projection * view * model * position
     vec4 positionWorld = push.modelMatrix * animatedPosition;
-    // vec4 positionWorld = push.modelMatrix * vec4(position, 1.0f);
     gl_Position = ubo.projection * ubo.view * positionWorld;
     fragPosWorld = positionWorld.xyz;
 
@@ -110,23 +109,4 @@ void main() {
 
     // DEBUG: Visualize bone weights
     // fragColor = vec3(boneWeights.x, boneWeights.y, boneWeights.z);
-
-    //Skinning: blend bone transforms
-    // mat4 skinMatrix = boneWeights.x * boneData.bones[boneIndices.x] +
-    //         boneWeights.y * boneData.bones[boneIndices.y] +
-    //         boneWeights.z * boneData.bones[boneIndices.z] +
-    //         boneWeights.w * boneData.bones[boneIndices.w];
-
-    // // Apply skinning to position
-    // vec4 skinnedPosition = skinMatrix * vec4(position, 1.0);
-    // vec4 positionWorld = push.modelMatrix * skinnedPosition;
-    // // vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
-
-    // gl_Position = ubo.projection * ubo.view * positionWorld;
-
-    // fragColor = vec3(1.0f, 1.0f, 1.0f);
-    // fragTexCoord = transformUV(uv, push.uvScale, push.uvOffset, push.uvRotation);
-    // fragPosWorld = positionWorld.xyz;
-    // mat3 skinMatrix3 = mat3(skinMatrix);
-    // fragNormalWorld = normalize(mat3(push.normalMatrix) * skinMatrix3 * normal);
 }

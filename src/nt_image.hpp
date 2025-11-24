@@ -26,8 +26,11 @@ private:
   void createTextureImageView(VkFormat format);
   void createTextureSampler();
 
+  void generateMipMaps(int32_t texWidth, int32_t texHeight);
+
   NtDevice &ntDevice;
 
+  uint32_t mipLevels;
   VkImage textureImage;
   VkDeviceMemory textureImageMemory;
 

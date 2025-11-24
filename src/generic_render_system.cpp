@@ -91,7 +91,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
     assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
     PipelineConfigInfo debGridPipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(debGridPipelineConfig, nt::RenderMode::DebugGrid);
+    NtPipeline::defaultPipelineConfigInfo(debGridPipelineConfig, nt::RenderMode::DebugGrid, ntDevice);
     debGridPipelineConfig.renderPass = renderPass;
     debGridPipelineConfig.pipelineLayout = pipelineLayout;
 
@@ -102,7 +102,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/debug_grid.frag.spv");
 
     PipelineConfigInfo litConfig{};
-    NtPipeline::defaultPipelineConfigInfo(litConfig, nt::RenderMode::Lit);
+    NtPipeline::defaultPipelineConfigInfo(litConfig, nt::RenderMode::Lit, ntDevice);
     litConfig.renderPass = renderPass;
     litConfig.pipelineLayout = pipelineLayout;
 
@@ -113,18 +113,18 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/texture_lit_shader.frag.spv");
 
     PipelineConfigInfo unlitConfig{};
-    NtPipeline::defaultPipelineConfigInfo(unlitConfig, nt::RenderMode::Unlit);
+    NtPipeline::defaultPipelineConfigInfo(unlitConfig, nt::RenderMode::Unlit, ntDevice);
     unlitConfig.renderPass = renderPass;
     unlitConfig.pipelineLayout = pipelineLayout;
 
     unlitPipeline = std::make_unique<NtPipeline>(
-    ntDevice,
-    unlitConfig,
-    "shaders/unlit_shader.vert.spv",
-    "shaders/texture_unlit_shader.frag.spv");
+        ntDevice,
+        unlitConfig,
+        "shaders/unlit_shader.vert.spv",
+        "shaders/texture_unlit_shader.frag.spv");
 
     PipelineConfigInfo wirePipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(wirePipelineConfig, nt::RenderMode::Wireframe);
+    NtPipeline::defaultPipelineConfigInfo(wirePipelineConfig, nt::RenderMode::Wireframe, ntDevice);
     wirePipelineConfig.renderPass = renderPass;
     wirePipelineConfig.pipelineLayout = pipelineLayout;
 
@@ -135,7 +135,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/color_shader.frag.spv");
 
     PipelineConfigInfo normalsPipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(normalsPipelineConfig, nt::RenderMode::Normals);
+    NtPipeline::defaultPipelineConfigInfo(normalsPipelineConfig, nt::RenderMode::Normals, ntDevice);
     normalsPipelineConfig.renderPass = renderPass;
     normalsPipelineConfig.pipelineLayout = pipelineLayout;
 
@@ -146,7 +146,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/color_shader.frag.spv");
 
     PipelineConfigInfo depthPipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(depthPipelineConfig, nt::RenderMode::Depth);
+    NtPipeline::defaultPipelineConfigInfo(depthPipelineConfig, nt::RenderMode::Depth, ntDevice);
     depthPipelineConfig.renderPass = renderPass;
     depthPipelineConfig.pipelineLayout = pipelineLayout;
 
@@ -157,7 +157,7 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/depth_shader.frag.spv");
 
     PipelineConfigInfo billboardPipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(billboardPipelineConfig, nt::RenderMode::Billboard);
+    NtPipeline::defaultPipelineConfigInfo(billboardPipelineConfig, nt::RenderMode::Billboard, ntDevice);
     billboardPipelineConfig.renderPass = renderPass;
     billboardPipelineConfig.pipelineLayout = pipelineLayout;
 

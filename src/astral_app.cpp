@@ -64,7 +64,7 @@ AstralApp::AstralApp()
   init_info.Subpass = 0;
   init_info.MinImageCount = 2;
   init_info.ImageCount = ntRenderer.getSwapChainImageCount();
-  init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+  init_info.MSAASamples = ntDevice.getMsaaSamples();
   init_info.Allocator = nullptr;
   ImGui_ImplVulkan_Init(&init_info);
 
@@ -654,7 +654,7 @@ void AstralApp::loadGameObjects() {
   if (go_Cassandra.model->hasSkeleton()) {
       go_Cassandra.animator = std::make_unique<NtAnimator>(*go_Cassandra.model);
 
-      go_Cassandra.animator->play("derp", true);
+      go_Cassandra.animator->play("Idle", true);
   }
   gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
 

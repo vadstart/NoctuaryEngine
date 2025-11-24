@@ -11,7 +11,7 @@ using std::string, std::vector;
 
 namespace nt {
 
-  struct PipelineConfigInfo { 
+  struct PipelineConfigInfo {
     PipelineConfigInfo() = default;
     PipelineConfigInfo(const PipelineConfigInfo&) = delete;
     PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
@@ -34,8 +34,8 @@ namespace nt {
     public:
       NtPipeline(
           NtDevice& device,
-          const PipelineConfigInfo& configInfo, 
-          const string& vertFilepath, 
+          const PipelineConfigInfo& configInfo,
+          const string& vertFilepath,
           const string& fragFilepath);
       ~NtPipeline();
 
@@ -44,14 +44,14 @@ namespace nt {
 
       void bind(VkCommandBuffer commandBuffer);
 
-      static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, RenderMode pipeRenderMode);
+      static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, RenderMode pipeRenderMode, NtDevice& device);
 
     private:
       static vector<char> readFile(const string& filepath);
 
       void createGraphicalPipeline(
-          const PipelineConfigInfo& configInfo, 
-          const string& vertFilepath, 
+          const PipelineConfigInfo& configInfo,
+          const string& vertFilepath,
           const string& fragFilepath);
 
       void createShaderModule(const vector<char>& code, VkShaderModule* shaderModule);
@@ -62,4 +62,3 @@ namespace nt {
       VkShaderModule fragShaderModule;
   };
 }
-

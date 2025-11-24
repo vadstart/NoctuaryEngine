@@ -5,6 +5,7 @@
 // std lib headers
 #include <string>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace nt {
 
@@ -46,6 +47,7 @@ class NtDevice {
   VkSurfaceKHR surface() { return surface_; }
   VkQueue graphicsQueue() { return graphicsQueue_; }
   VkQueue presentQueue() { return presentQueue_; }
+  VkSampleCountFlagBits getMsaaSamples() { return msaaSamples; }
 
   SwapChainSupportDetails getSwapChainSupport() { return querySwapChainSupport(physicalDevice_); }
   uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -91,6 +93,7 @@ class NtDevice {
   void hasGflwRequiredInstanceExtensions();
   bool checkDeviceExtensionSupport(VkPhysicalDevice device);
   SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
+  VkSampleCountFlagBits getMaxUsableSampleCount();
 
   VkInstance instance_;
   VkDebugUtilsMessengerEXT debugMessenger;
@@ -102,6 +105,8 @@ class NtDevice {
   VkSurfaceKHR surface_;
   VkQueue graphicsQueue_;
   VkQueue presentQueue_;
+
+  VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
   const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
   const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};

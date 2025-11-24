@@ -49,6 +49,7 @@ class NtSwapChain {
   void init();
   void createSwapChain();
   void createImageViews();
+  void createColorResources();
   void createDepthResources();
   void createRenderPass();
   void createFramebuffers();
@@ -67,6 +68,10 @@ class NtSwapChain {
 
   std::vector<VkFramebuffer> swapChainFramebuffers;
   VkRenderPass renderPass;
+
+  VkImage colorImage;
+  VkDeviceMemory colorImageMemory;
+  VkImageView colorImageView;
 
   std::vector<VkImage> depthImages;
   std::vector<VkDeviceMemory> depthImageMemorys;
