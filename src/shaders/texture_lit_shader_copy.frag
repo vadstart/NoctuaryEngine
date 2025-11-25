@@ -45,7 +45,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 } ubo;
 
 void main() {
-    vec3 diffuseLight = vec3(0.0);
+    vec3 diffuseLight = ubo.ambientLightColor.xyz * ubo.ambientLightColor.w;
     vec3 specularLight = vec3(0.0);
 
     // Start with vertex normal
@@ -108,73 +108,50 @@ void main() {
         metallic *= metallicRoughnessSample.b; // Blue channel = metallic * factor
     }
 
-    // Clamp to prevent artifacts
-    roughness = clamp(roughness, 0.04, 1.0);
-
     vec3 camWorldPos = ubo.inverseView[3].xyz;
     vec3 viewDirection = normalize(camWorldPos - fragPosWorld);
 
     // Sample base color texture
     vec4 texColor = texture(diffuseTexSampler, fragTexCoord);
 
-    // Base reflictivity (F0) for dielectrics and metals
-    vec3 F0 = mix(vec3(0.04), texColor.rgb, metallic);
-
-    // LIGHTING
     for (int i = 0; i < ubo.numLights; i++) {
         PointLight light = ubo.pointLights[i];
 
-        vec3 directionToLight = light.position - fragPosWorld;
-        float distance = length(directionToLight);
-        float attenuation = 1.0 / (distance * distance); // distance squared
+        vec3 directionToLight = light.position - fragPosWorld.xyz;
+        float attenuation = 1.0 / dot(directionToLight, directionToLight); // distance squared
         directionToLight = normalize(directionToLight);
 
-        vec3 halfVector = normalize(directionToLight + viewDirection);
+        float cosAngIncidence = max(dot(surfaceNormal, directionToLight), 0);
+        vec3 intensity = light.color.xyz * light.color.w * attenuation;
 
-        // Dot products
-        float NdotL = max(dot(surfaceNormal, directionToLight), 0.0);
-        float NdotV = max(dot(surfaceNormal, viewDirection), 0.0);
-        float NdotH = max(dot(surfaceNormal, halfVector), 0.0);
-        float VdotH = max(dot(viewDirection, halfVector), 0.0);
+        diffuseLight += intensity * cosAngIncidence;
 
-        vec3 radiance = light.color.xyz * light.color.w * attenuation;
+        // PBR Specular calculation
+        vec3 halfAngle = normalize(directionToLight + viewDirection);
+        float NdotH = max(dot(surfaceNormal, halfAngle), 0.0);
 
-        // SPECULAR
-        // 1. Normal Distribution Function (GGX/Trowbridge-Reitz)
-        float alpha = roughness * roughness;
-        float alphaSquared = alpha * alpha;
-        float denom = NdotH * NdotH * (alphaSquared - 1.0) + 1.0;
-        float D = alphaSquared / (3.14159265359 * denom * denom);
+        // Convert roughness to shininess (roughness 0 = very shiny, roughness 1 = very rough)
+        // float shininess = mix(1024.0, 1.0, roughness);
+        // float shininess = 32.0 / (roughness * roughness + 0.01); // cheap & effective
+        roughness = clamp(roughness, 0.04, 1.0); // Prevent extreme diffusion
+        float shininess = pow(2.0 / (roughness * roughness) - 2.0, 0.25); // Approximate conversion
 
-        // 2. Simplified Fresnel (Schlick approximation)
-        vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
+        float blinnTerm = pow(NdotH, shininess);
 
-        // 3. Geometry function (Smith's Schlick-GGX)
-        float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-        float G_V = NdotV / (NdotV * (1.0 - k) + k);
-        float G_L = NdotL / (NdotL * (1.0 - k) + k);
-        float G = G_V * G_L;
+        // Metallic materials have different specular behavior
+        vec3 F0 = mix(vec3(0.04), texColor.rgb, metallic); // Fresnel reflectance
+        F0 = clamp(F0 * 1.2, 0.0, 1.0);
+        // boost specular light for metallic
+        float roughFactor = mix(1.0, 0.1, roughness); // Don’t let roughness kill it
+        vec3 specular = F0 * blinnTerm * roughFactor * 2.5f;
+        // vec3 specular = F0 * blinnTerm * (1.0 - roughness);
 
-        // 4. Cook-Torrance BRDF
-        vec3 specular = (D * F * G) / max(4.0 * NdotV * NdotL, 0.001);
-
-        // 5. Energy conservation (kD + kS = 1)
-        vec3 kS = F; // Specular contribution
-        vec3 kD = (1.0 - kS) * (1.0 - metallic); // Diffuse contribution (metals = no diffuse)
-
-        // 6. Lambertian diffuse
-        vec3 diffuse = kD * texColor.rgb / 3.14159265359;
-
-        // Combine diffuse and specular
-        vec3 BRDF = diffuse + specular;
-
-        // Add to accumulator
-        diffuseLight += BRDF * radiance * NdotL;
+        specularLight += intensity * specular;
+        // specularLight += F0 * 0.1; // ambient spec
     }
 
-    // Add ambient lighting
-    vec3 ambient = ubo.ambientLightColor.xyz * ubo.ambientLightColor.w * texColor.rgb;
-    vec3 finalColor = ambient + diffuseLight;
+    // For metallic materials, reduce diffuse contribution
+    vec3 diffuse = mix(texColor.rgb * diffuseLight, vec3(0.0), metallic);
 
-    outColor = vec4(finalColor * fragColor, texColor.a);
+    outColor = vec4((diffuse + specularLight) * fragColor, texColor.a);
 }

@@ -665,14 +665,14 @@ void AstralApp::loadGameObjects() {
   // PointLightCam.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   // gameObjects.emplace(PointLightCam.getId(), std::move(PointLightCam));
 
-  auto PointLight1 = NtGameObject::makePointLight(10.0f, 0.0f, glm::vec3(1.0, 0.51, 0.17));
-  PointLight1.transform.translation = {3.2f, -7.7f, -4.0f};
-  PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  auto PointLight1 = NtGameObject::makePointLight(100.0f, 0.0f, glm::vec3(1.0, 0.65, 0.33));
+  PointLight1.transform.translation = {2.2f, -5.5f, -4.0f};
+  // PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
 
-  auto PointLight2 = NtGameObject::makePointLight(5.0f, 0.0f, glm::vec3(1.0, 0.43, 0.03));
-  PointLight2.transform.translation = {13.2f, -6.2f, 9.9f};
-  PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  auto PointLight2 = NtGameObject::makePointLight(75.0f, 0.0f, glm::vec3(1.0, 0.3, 0.03));
+  PointLight2.transform.translation = {13.0f, -4.2f, 9.9f};
+  // PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
 }
 
