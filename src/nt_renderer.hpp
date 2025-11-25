@@ -42,6 +42,9 @@ namespace nt
     void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
     void endSwapChainRenderPass(VkCommandBuffer commandBuffer);
 
+    void beginDynamicRendering(VkCommandBuffer commandBuffer);
+    void endDynamicRendering(VkCommandBuffer commandBuffer);
+
 	private:
     void createCommandBuffers();
     void freeCommandBuffers();

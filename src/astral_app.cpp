@@ -481,7 +481,8 @@ void AstralApp::run() {
       uboBuffers[frameIndex]->flush();
 
       // render
-      ntRenderer.beginSwapChainRenderPass(commandBuffer);
+      // ntRenderer.beginSwapChainRenderPass(commandBuffer);
+      ntRenderer.beginDynamicRendering(commandBuffer);
       // genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
       genericRenderSystem.renderGameObjects(frameInfo);
       genericRenderSystem.renderLightBillboards(frameInfo);
@@ -489,7 +490,8 @@ void AstralApp::run() {
       ImGui::Render();
       ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
 
-      ntRenderer.endSwapChainRenderPass(commandBuffer);
+      //ntRenderer.endSwapChainRenderPass(commandBuffer);
+      ntRenderer.endDynamicRendering(commandBuffer);
       ntRenderer.endFrame();
     }
   }
