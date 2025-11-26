@@ -51,8 +51,8 @@ class NtDevice {
   VkSampleCountFlagBits getMsaaSamples() { return msaaSamples; }
 
   // Dynamic rendering function pointers
-  PFN_vkCmdBeginRenderingKHR vkCmdBeginRenderingKHR = nullptr;
-  PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR = nullptr;
+  PFN_vkCmdBeginRenderingKHR vkCmdBeginRendering = nullptr;
+  PFN_vkCmdEndRenderingKHR vkCmdEndRendering = nullptr;
 
   SwapChainSupportDetails getSwapChainSupport() { return querySwapChainSupport(physicalDevice_); }
   uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
@@ -98,6 +98,7 @@ class NtDevice {
   void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT &createInfo);
   void hasGflwRequiredInstanceExtensions();
   bool checkDeviceExtensionSupport(VkPhysicalDevice device);
+  bool isExtensionSupported (const char* targetExtension);
   SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device);
   VkSampleCountFlagBits getMaxUsableSampleCount();
 
@@ -119,9 +120,10 @@ class NtDevice {
       int Minor = 0;
       int Patch = 0;
   } instanceVersion;
+  bool isDyReExtensionNeeded = false;
 
   const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-  const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+  std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 };
 
 }

@@ -1,4 +1,5 @@
 #include "nt_device.hpp"
+#include "glm/gtc/constants.hpp"
 
 // std headers
 #include <cstring>
@@ -92,6 +93,7 @@ void NtDevice::createInstance() {
     extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
     extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
+    isDyReExtensionNeeded = true;
   #endif
 
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -161,45 +163,16 @@ void NtDevice::createLogicalDevice() {
     queueCreateInfos.push_back(queueCreateInfo);
   }
 
-  // Build device extensions list (copy from const deviceExtensions)
-  std::vector<const char*> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
-
   // Check for the Dynamic Rendering support
-
   bool isInstance_1_3_plus = (instanceVersion.Major > 1) || (instanceVersion.Minor >= 3);
-
-  if (!isInstance_1_3_plus) {
-        uint32_t extensionCount;
-        vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, nullptr);
-        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-        vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, availableExtensions.data());
-
-        for (const auto &extension : availableExtensions) {
-            if (strcmp(extension.extensionName, "VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME") == 0) {
-                requiredExtensions.push_back("VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME");
-                std::cout << "Enabling VK_KHR_dynamic_rendering for dynamic rendering support" << std::endl;
-                break;
-            }
-        }
+  if (!isInstance_1_3_plus || isDyReExtensionNeeded) {
+    if (isExtensionSupported(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)) {
+        deviceExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
+        std::cout << "Enabling VK_KHR_dynamic_rendering for dynamic rendering support" << std::endl;
+    } else {
         std::cerr << "[ERROR] The system does not support dynamic rendering" << std::endl;
     }
-
-  #ifdef __APPLE__
-    // Check if VK_KHR_portability_subset is supported and add it if so (required by MoltenVK)
-    uint32_t extensionCount;
-    vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, nullptr);
-    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
-    vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, availableExtensions.data());
-
-    // "VK_KHR_portability_subset"
-    for (const auto &extension : availableExtensions) {
-      if (strcmp(extension.extensionName, "VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME") == 0) {
-        requiredExtensions.push_back("VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME");
-        std::cout << "Enabling VK_KHR_portability_subset for MoltenVK compatibility" << std::endl;
-        break;
-      }
-    }
-    #endif
+  }
 
   // Enable dynamic rendering feature
   VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature{};
@@ -217,7 +190,7 @@ void NtDevice::createLogicalDevice() {
   createInfo.pEnabledFeatures = &deviceFeatures;
   createInfo.pNext = &dynamicRenderingFeature;
   createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-  createInfo.ppEnabledExtensionNames = requiredExtensions.data();
+  createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 
   // might not really be necessary anymore because device specific validation layers have been deprecated
   if (enableValidationLayers) {
@@ -235,21 +208,20 @@ void NtDevice::createLogicalDevice() {
   vkGetDeviceQueue(device_, indices.presentFamily, 0, &presentQueue_);
 
   // Load dynamic rendering function pointers
-    vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
+    vkCmdBeginRendering = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
         vkGetDeviceProcAddr(device_, "vkCmdBeginRendering"));
-    vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
+    vkCmdEndRendering = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
         vkGetDeviceProcAddr(device_, "vkCmdEndRendering"));
 
     // Fallback to KHR versions for MoltenVK
-    if (vkCmdBeginRenderingKHR == nullptr || vkCmdEndRenderingKHR == nullptr) {
-      vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
+    if (vkCmdBeginRendering == nullptr || vkCmdEndRendering == nullptr) {
+      vkCmdBeginRendering = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
           vkGetDeviceProcAddr(device_, "vkCmdBeginRenderingKHR"));
-      vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
+      vkCmdEndRendering = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
           vkGetDeviceProcAddr(device_, "vkCmdEndRenderingKHR"));
-      std::cout << "Using VK_KHR_dynamic_rendering extension functions" << std::endl;
     }
 
-    if (vkCmdBeginRenderingKHR == nullptr || vkCmdEndRenderingKHR == nullptr) {
+    if (vkCmdBeginRendering == nullptr || vkCmdEndRendering == nullptr) {
       throw std::runtime_error("Failed to load dynamic rendering functions!");
     }
 }
@@ -388,6 +360,24 @@ bool NtDevice::checkDeviceExtensionSupport(VkPhysicalDevice device) {
   }
 
   return requiredExtensions.empty();
+}
+
+bool NtDevice::isExtensionSupported (const char* targetExtension) {
+  uint32_t extensionCount;
+  vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, nullptr);
+  std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+  vkEnumerateDeviceExtensionProperties(
+      physicalDevice_,
+      nullptr,
+      &extensionCount,
+      availableExtensions.data());
+
+  for (const auto &extension : availableExtensions) {
+      if (strcmp(extension.extensionName, targetExtension))
+          return true;
+  }
+
+  return false;
 }
 
 QueueFamilyIndices NtDevice::findQueueFamilies(VkPhysicalDevice device) {
@@ -635,4 +625,4 @@ void NtDevice::getInstanceVersion() {
     printf("Vulkan Instance Version: %d.%d.%d\n", instanceVersion.Major, instanceVersion.Minor, instanceVersion.Patch);
 }
 
-}  // namespace nt
+}

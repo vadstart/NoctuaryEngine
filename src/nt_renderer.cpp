@@ -249,7 +249,7 @@ void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
     renderingInfo.pColorAttachments = &colorAttachment;
     renderingInfo.pDepthAttachment = &depthAttachment;
 
-    ntDevice.vkCmdBeginRenderingKHR(commandBuffer, &renderingInfo);
+    ntDevice.vkCmdBeginRendering(commandBuffer, &renderingInfo);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -266,7 +266,7 @@ void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
 }
 
 void NtRenderer::endDynamicRendering(VkCommandBuffer commandBuffer) {
-  ntDevice.vkCmdEndRenderingKHR(commandBuffer);
+  ntDevice.vkCmdEndRendering(commandBuffer);
 
   // Transition swap chain image from COLOR_ATTACHMENT_OPTIMAL to PRESENT_SRC_KHR
       VkImageMemoryBarrier presentBarrier{};
