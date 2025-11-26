@@ -29,7 +29,9 @@ class NtSwapChain {
   VkImageView getImageView(int index) { return swapChainImageViews[index]; }
   VkImage getImage(int index) { return swapChainImages[index]; }
   VkImageView getColorImageView() { return colorImageView; }
+  VkImage getColorImage() { return colorImage; }
   VkImageView getDepthImageView() { return depthImageView; }
+  VkImage getDepthImage() { return depthImage; }
   size_t imageCount() { return swapChainImages.size(); }
   VkFormat getSwapChainImageFormat() { return swapChainImageFormat; }
   VkFormat getSwapChainDepthFormat() { return swapChainDepthFormat; }
@@ -98,4 +100,4 @@ class NtSwapChain {
   size_t currentFrame = 0;
 };
 
-}  // namespace lve
+}

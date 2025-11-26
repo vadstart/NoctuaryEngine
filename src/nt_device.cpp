@@ -74,13 +74,15 @@ void NtDevice::createInstance() {
     throw std::runtime_error("validation layers requested, but not available!");
   }
 
+  getInstanceVersion();
+
   VkApplicationInfo appInfo = {};
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-  appInfo.pApplicationName = "LittleVulkanEngine App";
+  appInfo.pApplicationName = "NoctuaryRL";
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.pEngineName = "No Engine";
+  appInfo.pEngineName = "Noctuary Engine";
   appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.apiVersion = VK_API_VERSION_1_4;
+  appInfo.apiVersion = VK_MAKE_API_VERSION(0, instanceVersion.Major, instanceVersion.Minor, instanceVersion.Patch);
 
   auto extensions = getRequiredExtensions();
   VkInstanceCreateInfo createInfo = {};
@@ -88,6 +90,7 @@ void NtDevice::createInstance() {
   #ifdef __APPLE__
     // Enabling VK_KHR_portability_enumeration extension on MacOS
     extensions.push_back(VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME);
+    extensions.push_back(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME);
     createInfo.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
   #endif
 
@@ -158,6 +161,26 @@ void NtDevice::createLogicalDevice() {
     queueCreateInfos.push_back(queueCreateInfo);
   }
 
+  // Build device extensions list (copy from const deviceExtensions)
+  std::vector<const char*> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+  #ifdef __APPLE__
+    // Check if VK_KHR_portability_subset is supported and add it if so (required by MoltenVK)
+    uint32_t extensionCount;
+    vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, nullptr);
+    std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+    vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, availableExtensions.data());
+
+    // "VK_KHR_portability_subset"
+    for (const auto &extension : availableExtensions) {
+      if (strcmp(extension.extensionName, "VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME") == 0) {
+        requiredExtensions.push_back("VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME");
+        std::cout << "Enabling VK_KHR_portability_subset for MoltenVK compatibility" << std::endl;
+        break;
+      }
+    }
+    #endif
+
   // Enable dynamic rendering feature
   VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature{};
   dynamicRenderingFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
@@ -174,10 +197,9 @@ void NtDevice::createLogicalDevice() {
   createInfo.pEnabledFeatures = &deviceFeatures;
   createInfo.pNext = &dynamicRenderingFeature;
   createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
-  createInfo.ppEnabledExtensionNames = deviceExtensions.data();
+  createInfo.ppEnabledExtensionNames = requiredExtensions.data();
 
-  // might not really be necessary anymore because device specific validation layers
-  // have been deprecated
+  // might not really be necessary anymore because device specific validation layers have been deprecated
   if (enableValidationLayers) {
     createInfo.enabledLayerCount = static_cast<uint32_t>(validationLayers.size());
     createInfo.ppEnabledLayerNames = validationLayers.data();
@@ -191,6 +213,25 @@ void NtDevice::createLogicalDevice() {
 
   vkGetDeviceQueue(device_, indices.graphicsFamily, 0, &graphicsQueue_);
   vkGetDeviceQueue(device_, indices.presentFamily, 0, &presentQueue_);
+
+  // Load dynamic rendering function pointers
+    vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
+        vkGetDeviceProcAddr(device_, "vkCmdBeginRendering"));
+    vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
+        vkGetDeviceProcAddr(device_, "vkCmdEndRendering"));
+
+    // Fallback to KHR versions for MoltenVK
+    if (vkCmdBeginRenderingKHR == nullptr || vkCmdEndRenderingKHR == nullptr) {
+      vkCmdBeginRenderingKHR = reinterpret_cast<PFN_vkCmdBeginRenderingKHR>(
+          vkGetDeviceProcAddr(device_, "vkCmdBeginRenderingKHR"));
+      vkCmdEndRenderingKHR = reinterpret_cast<PFN_vkCmdEndRenderingKHR>(
+          vkGetDeviceProcAddr(device_, "vkCmdEndRenderingKHR"));
+      std::cout << "Using VK_KHR_dynamic_rendering extension functions" << std::endl;
+    }
+
+    if (vkCmdBeginRenderingKHR == nullptr || vkCmdEndRenderingKHR == nullptr) {
+      throw std::runtime_error("Failed to load dynamic rendering functions!");
+    }
 }
 
 void NtDevice::createCommandPool() {
@@ -557,6 +598,21 @@ VkSampleCountFlagBits NtDevice::getMaxUsableSampleCount() {
     if (counts & VK_SAMPLE_COUNT_2_BIT) { return VK_SAMPLE_COUNT_2_BIT; }
 
     return VK_SAMPLE_COUNT_1_BIT;
+}
+
+void NtDevice::getInstanceVersion() {
+    uint32_t apiVersion;
+
+    VkResult res = vkEnumerateInstanceVersion(&apiVersion);
+    if (res != VK_SUCCESS) {
+        throw std::runtime_error("failed to get instance version!");
+    }
+
+    instanceVersion.Major = VK_VERSION_MAJOR(apiVersion);
+    instanceVersion.Minor = VK_VERSION_MINOR(apiVersion);
+    instanceVersion.Patch = VK_VERSION_PATCH(apiVersion);
+
+    printf("Vulkan Instance Version: %d.%d.%d\n", instanceVersion.Major, instanceVersion.Minor, instanceVersion.Patch);
 }
 
 }  // namespace nt

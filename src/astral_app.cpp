@@ -239,7 +239,7 @@ void AstralApp::run() {
         snprintf(overlay, sizeof(overlay), "avg %.2f ms", avgFrameTime);
 
         ImGui::PushStyleColor(ImGuiCol_PlotLines, color);
-        ImGui::PlotLines("", frameTimes, IM_ARRAYSIZE(frameTimes), frameTimeOffset,
+        ImGui::PlotLines("##", frameTimes, IM_ARRAYSIZE(frameTimes), frameTimeOffset,
                          overlay, 0.0f, maxFrameTime, ImVec2(0, 40.0f));
         ImGui::PopStyleColor();
 
@@ -670,8 +670,6 @@ void AstralApp::loadGameObjects() {
       go_Cassandra.animator->play("Idle", true);
   }
   gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
-
-
 
   // auto PointLightCam = NtGameObject::makePointLight(20.0f, 0.0f);
   // PointLightCam.transform.translation = {0.0f, 0.0f, 0.0f};

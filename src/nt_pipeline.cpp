@@ -55,7 +55,7 @@ NtPipeline::~NtPipeline() {
        assert (configInfo.renderPass != VK_NULL_HANDLE &&
            "Cannot create graphics pipeline: no renderPass provided and useDynamicRendering is false");
    } else {
-       assert (configInfo.colorAttachmentFormat != VK_NULL_HANDLE &&
+       assert (configInfo.colorAttachmentFormat != VK_FORMAT_UNDEFINED &&
            "Cannot create graphics pipeline: colorAttachmentFormat must be set for dynamic rendering");
    }
 
@@ -203,11 +203,11 @@ NtPipeline::~NtPipeline() {
    configInfo.depthStencilInfo.stencilTestEnable = VK_FALSE;
    configInfo.depthStencilInfo.front = {}; // Optional
    configInfo.depthStencilInfo.back = {}; // Optional
+   configInfo.rasterizationInfo.lineWidth = 1.0f;
 
    switch (pipeRenderMode) {
      case nt::RenderMode::Wireframe:
        configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_LINE;
-       configInfo.rasterizationInfo.lineWidth = 1.0f;
        configInfo.depthStencilInfo.depthWriteEnable = VK_FALSE;
        configInfo.rasterizationInfo.depthBiasEnable = VK_TRUE;
        configInfo.rasterizationInfo.depthBiasConstantFactor = 1.0f;

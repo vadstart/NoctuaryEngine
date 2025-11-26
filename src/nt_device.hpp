@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan_beta.h>
 
 namespace nt {
 
@@ -49,6 +50,10 @@ class NtDevice {
   VkQueue presentQueue() { return presentQueue_; }
   VkSampleCountFlagBits getMsaaSamples() { return msaaSamples; }
 
+  // Dynamic rendering function pointers
+  PFN_vkCmdBeginRenderingKHR vkCmdBeginRenderingKHR = nullptr;
+  PFN_vkCmdEndRenderingKHR vkCmdEndRenderingKHR = nullptr;
+
   SwapChainSupportDetails getSwapChainSupport() { return querySwapChainSupport(physicalDevice_); }
   uint32_t findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags properties);
   QueueFamilyIndices findPhysicalQueueFamilies() { return findQueueFamilies(physicalDevice_); }
@@ -85,6 +90,7 @@ class NtDevice {
   void createCommandPool();
 
   // helper functions
+  void getInstanceVersion();
   bool isDeviceSuitable(VkPhysicalDevice device);
   std::vector<const char *> getRequiredExtensions();
   bool checkValidationLayerSupport();
@@ -108,8 +114,14 @@ class NtDevice {
 
   VkSampleCountFlagBits msaaSamples = VK_SAMPLE_COUNT_1_BIT;
 
+  struct {
+      int Major = 0;
+      int Minor = 0;
+      int Patch = 0;
+  } instanceVersion;
+
   const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-  const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+  const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME};
 };
 
 }

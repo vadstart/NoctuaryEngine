@@ -153,21 +153,68 @@ void NtRenderer::endSwapChainRenderPass(VkCommandBuffer commandBuffer) {
 }
 
 void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
-    // Transition swap chain image from UNDEFINED/PRESENT_SRC to COLOR_ATTACHMENT_OPTIMAL
-    VkImageMemoryBarrier swapChainBarrier{};
-    swapChainBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-    swapChainBarrier.srcAccessMask = 0;  // No prior access
-    swapChainBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    swapChainBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;  // We don't care about previous contents
-    swapChainBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    swapChainBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    swapChainBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    swapChainBarrier.image = ntSwapChain->getImage(currentImageIndex);
-    swapChainBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-    swapChainBarrier.subresourceRange.baseMipLevel = 0;
-    swapChainBarrier.subresourceRange.levelCount = 1;
-    swapChainBarrier.subresourceRange.baseArrayLayer = 0;
-    swapChainBarrier.subresourceRange.layerCount = 1;
+    // Prepare barriers for all images that need layout transitions
+    // We transition from UNDEFINED every frame since we're clearing/resolving and don't need previous contents
+    std::array<VkImageMemoryBarrier, 3> barriers{};
+
+    // Barrier 0: Transition swap chain resolve target from UNDEFINED to COLOR_ATTACHMENT_OPTIMAL
+    // Using UNDEFINED is correct here since we're resolving into it (don't care about previous contents)
+    barriers[0].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barriers[0].srcAccessMask = 0;
+    barriers[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barriers[0].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barriers[0].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barriers[0].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[0].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[0].image = ntSwapChain->getImage(currentImageIndex);
+    barriers[0].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barriers[0].subresourceRange.baseMipLevel = 0;
+    barriers[0].subresourceRange.levelCount = 1;
+    barriers[0].subresourceRange.baseArrayLayer = 0;
+    barriers[0].subresourceRange.layerCount = 1;
+
+    // Barrier 1: Transition MSAA color image from UNDEFINED to COLOR_ATTACHMENT_OPTIMAL
+    // Using UNDEFINED is correct since we're clearing it with loadOp = CLEAR
+    barriers[1].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barriers[1].srcAccessMask = 0;
+    barriers[1].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    barriers[1].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barriers[1].newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    barriers[1].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[1].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[1].image = ntSwapChain->getColorImage();
+    barriers[1].subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barriers[1].subresourceRange.baseMipLevel = 0;
+    barriers[1].subresourceRange.levelCount = 1;
+    barriers[1].subresourceRange.baseArrayLayer = 0;
+    barriers[1].subresourceRange.layerCount = 1;
+
+    // Barrier 2: Transition depth image from UNDEFINED to DEPTH_ATTACHMENT_OPTIMAL
+    // Using UNDEFINED is correct since we're clearing it with loadOp = CLEAR
+    barriers[2].sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barriers[2].srcAccessMask = 0;
+    barriers[2].dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    barriers[2].oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    barriers[2].newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+    barriers[2].srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[2].dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barriers[2].image = ntSwapChain->getDepthImage();
+    barriers[2].subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+    barriers[2].subresourceRange.baseMipLevel = 0;
+    barriers[2].subresourceRange.levelCount = 1;
+    barriers[2].subresourceRange.baseArrayLayer = 0;
+    barriers[2].subresourceRange.layerCount = 1;
+
+    // Execute all layout transitions before rendering begins
+    vkCmdPipelineBarrier(
+        commandBuffer,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+        0,
+        0, nullptr,
+        0, nullptr,
+        static_cast<uint32_t>(barriers.size()), barriers.data()
+    );
 
     // MSAA Color Attachment -> MSAA Image
     VkRenderingAttachmentInfo colorAttachment{};
@@ -179,7 +226,9 @@ void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
     colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    colorAttachment.clearValue.color = {{0.01f, 0.01f, 0.01f, 1.0f}};
+    colorAttachment.clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
+
+
 
     // MSAA Depth Attachment
     VkRenderingAttachmentInfo depthAttachment{};
@@ -190,6 +239,8 @@ void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.clearValue.depthStencil = {1.0f, 0};
 
+
+
     VkRenderingInfo renderingInfo{};
     renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderingInfo.renderArea = {{0, 0}, ntSwapChain->getSwapChainExtent()};
@@ -198,7 +249,7 @@ void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
     renderingInfo.pColorAttachments = &colorAttachment;
     renderingInfo.pDepthAttachment = &depthAttachment;
 
-    vkCmdBeginRendering(commandBuffer, &renderingInfo);
+    ntDevice.vkCmdBeginRenderingKHR(commandBuffer, &renderingInfo);
 
     VkViewport viewport{};
     viewport.x = 0.0f;
@@ -210,10 +261,12 @@ void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
     VkRect2D scissor{{0, 0}, ntSwapChain->getSwapChainExtent()};
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+
 }
 
 void NtRenderer::endDynamicRendering(VkCommandBuffer commandBuffer) {
-  vkCmdEndRendering(commandBuffer);
+  ntDevice.vkCmdEndRenderingKHR(commandBuffer);
 
   // Transition swap chain image from COLOR_ATTACHMENT_OPTIMAL to PRESENT_SRC_KHR
       VkImageMemoryBarrier presentBarrier{};
