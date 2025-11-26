@@ -82,7 +82,7 @@ void NtDevice::createInstance() {
   appInfo.applicationVersion = VK_MAKE_VERSION(1, 0, 0);
   appInfo.pEngineName = "Noctuary Engine";
   appInfo.engineVersion = VK_MAKE_VERSION(1, 0, 0);
-  appInfo.apiVersion = VK_MAKE_API_VERSION(0, instanceVersion.Major, instanceVersion.Minor, instanceVersion.Patch);
+  appInfo.apiVersion = VK_MAKE_API_VERSION(0, instanceVersion.Major, instanceVersion.Minor, 0);
 
   auto extensions = getRequiredExtensions();
   VkInstanceCreateInfo createInfo = {};
@@ -163,6 +163,26 @@ void NtDevice::createLogicalDevice() {
 
   // Build device extensions list (copy from const deviceExtensions)
   std::vector<const char*> requiredExtensions(deviceExtensions.begin(), deviceExtensions.end());
+
+  // Check for the Dynamic Rendering support
+
+  bool isInstance_1_3_plus = (instanceVersion.Major > 1) || (instanceVersion.Minor >= 3);
+
+  if (!isInstance_1_3_plus) {
+        uint32_t extensionCount;
+        vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, nullptr);
+        std::vector<VkExtensionProperties> availableExtensions(extensionCount);
+        vkEnumerateDeviceExtensionProperties(physicalDevice_, nullptr, &extensionCount, availableExtensions.data());
+
+        for (const auto &extension : availableExtensions) {
+            if (strcmp(extension.extensionName, "VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME") == 0) {
+                requiredExtensions.push_back("VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME");
+                std::cout << "Enabling VK_KHR_dynamic_rendering for dynamic rendering support" << std::endl;
+                break;
+            }
+        }
+        std::cerr << "[ERROR] The system does not support dynamic rendering" << std::endl;
+    }
 
   #ifdef __APPLE__
     // Check if VK_KHR_portability_subset is supported and add it if so (required by MoltenVK)
