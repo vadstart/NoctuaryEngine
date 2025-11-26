@@ -153,18 +153,38 @@ void NtRenderer::endSwapChainRenderPass(VkCommandBuffer commandBuffer) {
 }
 
 void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
-    // Begin rendering with inline description
+    // Transition swap chain image from UNDEFINED/PRESENT_SRC to COLOR_ATTACHMENT_OPTIMAL
+    VkImageMemoryBarrier swapChainBarrier{};
+    swapChainBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    swapChainBarrier.srcAccessMask = 0;  // No prior access
+    swapChainBarrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    swapChainBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;  // We don't care about previous contents
+    swapChainBarrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    swapChainBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    swapChainBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    swapChainBarrier.image = ntSwapChain->getImage(currentImageIndex);
+    swapChainBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    swapChainBarrier.subresourceRange.baseMipLevel = 0;
+    swapChainBarrier.subresourceRange.levelCount = 1;
+    swapChainBarrier.subresourceRange.baseArrayLayer = 0;
+    swapChainBarrier.subresourceRange.layerCount = 1;
+
+    // MSAA Color Attachment -> MSAA Image
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    colorAttachment.imageView = ntSwapChain->getImageView(currentImageIndex);
+    colorAttachment.imageView = ntSwapChain->getColorImageView();
     colorAttachment.imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    colorAttachment.resolveMode = VK_RESOLVE_MODE_AVERAGE_BIT;
+    colorAttachment.resolveImageView = ntSwapChain->getImageView(currentImageIndex);
+    colorAttachment.resolveImageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.clearValue.color = {{0.01f, 0.01f, 0.01f, 1.0f}};
 
+    // MSAA Depth Attachment
     VkRenderingAttachmentInfo depthAttachment{};
     depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-    depthAttachment.imageView = getDepthImageView();
+    depthAttachment.imageView = ntSwapChain->getDepthImageView();
     depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -194,6 +214,32 @@ void NtRenderer::beginDynamicRendering(VkCommandBuffer commandBuffer) {
 
 void NtRenderer::endDynamicRendering(VkCommandBuffer commandBuffer) {
   vkCmdEndRendering(commandBuffer);
+
+  // Transition swap chain image from COLOR_ATTACHMENT_OPTIMAL to PRESENT_SRC_KHR
+      VkImageMemoryBarrier presentBarrier{};
+      presentBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+      presentBarrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+      presentBarrier.dstAccessMask = 0;  // No subsequent access in this command buffer
+      presentBarrier.oldLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+      presentBarrier.newLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+      presentBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      presentBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+      presentBarrier.image = ntSwapChain->getImage(currentImageIndex);
+      presentBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      presentBarrier.subresourceRange.baseMipLevel = 0;
+      presentBarrier.subresourceRange.levelCount = 1;
+      presentBarrier.subresourceRange.baseArrayLayer = 0;
+      presentBarrier.subresourceRange.layerCount = 1;
+
+      vkCmdPipelineBarrier(
+          commandBuffer,
+          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,  // Wait for color writes to finish
+          VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,  // Don't block anything
+          0,
+          0, nullptr,
+          0, nullptr,
+          1, &presentBarrier
+      );
 }
 
 

@@ -57,11 +57,22 @@ AstralApp::AstralApp()
   init_info.QueueFamily = g_QueueFamily;
   init_info.Queue = ntDevice.graphicsQueue();
   init_info.PipelineCache = VK_NULL_HANDLE;
-  // init_info.DescriptorPoolSize = IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE;
   init_info.DescriptorPoolSize = 1000;
-  // init_info.DescriptorPool = g_DescriptorPool;
-  init_info.RenderPass = ntRenderer.getSwapChainRenderPass();
-  init_info.Subpass = 0;
+
+  // Dynamic Rendering
+  init_info.UseDynamicRendering = true;
+  init_info.PipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+  init_info.PipelineRenderingCreateInfo.pNext = nullptr;
+  VkFormat colorFormat = ntRenderer.getSwapChain()->getSwapChainImageFormat();
+  init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+  init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
+  VkFormat depthFormat = ntRenderer.getSwapChain()->getSwapChainDepthFormat();
+  init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = depthFormat;
+
+  // Traditional renderpass rendering
+  // init_info.RenderPass = ntRenderer.getSwapChainRenderPass();
+  // init_info.Subpass = 0;
+
   init_info.MinImageCount = 2;
   init_info.ImageCount = ntRenderer.getSwapChainImageCount();
   init_info.MSAASamples = ntDevice.getMsaaSamples();
@@ -128,8 +139,8 @@ void AstralApp::run() {
 
   GlobalUbo ubo{};
 
-  GenericRenderSystem genericRenderSystem(ntDevice, ntRenderer.getSwapChainRenderPass(), globalSetLayout->getDescriptorSetLayout(),
-      modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
+  GenericRenderSystem genericRenderSystem(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
+      modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout(), true);
   NtCamera camera{};
 
   auto viewerObject = NtGameObject::createGameObject();

@@ -22,6 +22,7 @@ namespace nt
 		NtRenderer& operator=(const NtRenderer&) = delete;
 
     VkRenderPass getSwapChainRenderPass() const { return ntSwapChain->getRenderPass(); }
+    NtSwapChain* getSwapChain() const { return ntSwapChain.get(); }
     size_t getSwapChainImageCount() { return ntSwapChain->imageCount(); }
     float getAspectRatio() const { return ntSwapChain->extentAspectRatio(); }
     bool isFrameInProgress() const { return isFrameStarted; }

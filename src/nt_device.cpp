@@ -162,20 +162,17 @@ void NtDevice::createLogicalDevice() {
   VkPhysicalDeviceDynamicRenderingFeatures dynamicRenderingFeature{};
   dynamicRenderingFeature.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES;
   dynamicRenderingFeature.dynamicRendering = VK_TRUE;
+  dynamicRenderingFeature.pNext = nullptr;
 
   VkPhysicalDeviceFeatures deviceFeatures = {};
   deviceFeatures.samplerAnisotropy = VK_TRUE;
-
-  VkPhysicalDeviceFeatures2 deviceFeatures2{};
-  deviceFeatures2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-  deviceFeatures2.pNext = &dynamicRenderingFeature;
-  deviceFeatures2.features = deviceFeatures;
 
   VkDeviceCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   createInfo.queueCreateInfoCount = static_cast<uint32_t>(queueCreateInfos.size());
   createInfo.pQueueCreateInfos = queueCreateInfos.data();
-  createInfo.pEnabledFeatures = &deviceFeatures2;
+  createInfo.pEnabledFeatures = &deviceFeatures;
+  createInfo.pNext = &dynamicRenderingFeature;
   createInfo.enabledExtensionCount = static_cast<uint32_t>(deviceExtensions.size());
   createInfo.ppEnabledExtensionNames = deviceExtensions.data();
 

@@ -3,6 +3,7 @@
 #include "nt_device.hpp"
 #include "nt_frame_info.hpp"
 #include "nt_pipeline.hpp"
+#include "nt_swap_chain.hpp"
 #include "nt_types.hpp"
 #include "vulkan/vulkan_core.h"
 #include <cstdint>
@@ -53,10 +54,10 @@ struct NtPushConstantData {
   alignas(4) float billboardSize{1.0f};
 };
 
-GenericRenderSystem::GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout,
-    VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout) : ntDevice{device} {
+GenericRenderSystem::GenericRenderSystem(NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
+    VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout, bool useDynamicRendering) : ntDevice{device} {
   createPipelineLayout(globalSetLayout, modelSetLayout, boneSetLayout);
-  createPipeline(renderPass);
+  createPipeline(swapChain, useDynamicRendering);
 }
 GenericRenderSystem::~GenericRenderSystem() {
   vkDestroyPipelineLayout(ntDevice.device(), pipelineLayout, nullptr);
@@ -87,13 +88,21 @@ void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLa
   }
 }
 
-void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
+void GenericRenderSystem::createPipeline(NtSwapChain &swapChain, bool useDynamicRendering) {
     assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
     PipelineConfigInfo debGridPipelineConfig{};
     NtPipeline::defaultPipelineConfigInfo(debGridPipelineConfig, nt::RenderMode::DebugGrid, ntDevice);
-    debGridPipelineConfig.renderPass = renderPass;
     debGridPipelineConfig.pipelineLayout = pipelineLayout;
+
+    // DEBUG GRID
+    if (useDynamicRendering) {
+        debGridPipelineConfig.useDynamicRendering = true;
+        debGridPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+        debGridPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    } else {
+        debGridPipelineConfig.renderPass = swapChain.getRenderPass();
+    }
 
     debugGridPipeline = std::make_unique<NtPipeline>(
         ntDevice,
@@ -101,10 +110,18 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/debug_grid.vert.spv",
         "shaders/debug_grid.frag.spv");
 
+    // LIT
     PipelineConfigInfo litConfig{};
     NtPipeline::defaultPipelineConfigInfo(litConfig, nt::RenderMode::Lit, ntDevice);
-    litConfig.renderPass = renderPass;
     litConfig.pipelineLayout = pipelineLayout;
+
+    if (useDynamicRendering) {
+        litConfig.useDynamicRendering = true;
+        litConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+        litConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    } else {
+        litConfig.renderPass = swapChain.getRenderPass();
+    }
 
     litPipeline = std::make_unique<NtPipeline>(
         ntDevice,
@@ -112,10 +129,18 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/lit_shader.vert.spv",
         "shaders/texture_lit_shader.frag.spv");
 
+    // UNLIT
     PipelineConfigInfo unlitConfig{};
     NtPipeline::defaultPipelineConfigInfo(unlitConfig, nt::RenderMode::Unlit, ntDevice);
-    unlitConfig.renderPass = renderPass;
     unlitConfig.pipelineLayout = pipelineLayout;
+
+    if (useDynamicRendering) {
+        unlitConfig.useDynamicRendering = true;
+        unlitConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+        unlitConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    } else {
+        unlitConfig.renderPass = swapChain.getRenderPass();
+    }
 
     unlitPipeline = std::make_unique<NtPipeline>(
         ntDevice,
@@ -123,10 +148,18 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/unlit_shader.vert.spv",
         "shaders/texture_unlit_shader.frag.spv");
 
+    // WIREFRAME
     PipelineConfigInfo wirePipelineConfig{};
     NtPipeline::defaultPipelineConfigInfo(wirePipelineConfig, nt::RenderMode::Wireframe, ntDevice);
-    wirePipelineConfig.renderPass = renderPass;
     wirePipelineConfig.pipelineLayout = pipelineLayout;
+
+    if (useDynamicRendering) {
+        wirePipelineConfig.useDynamicRendering = true;
+        wirePipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+        wirePipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    } else {
+        wirePipelineConfig.renderPass = swapChain.getRenderPass();
+    }
 
     wireframePipeline = std::make_unique<NtPipeline>(
         ntDevice,
@@ -134,10 +167,18 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/line_shader.vert.spv",
         "shaders/color_shader.frag.spv");
 
+    // NORMALS
     PipelineConfigInfo normalsPipelineConfig{};
     NtPipeline::defaultPipelineConfigInfo(normalsPipelineConfig, nt::RenderMode::Normals, ntDevice);
-    normalsPipelineConfig.renderPass = renderPass;
     normalsPipelineConfig.pipelineLayout = pipelineLayout;
+
+    if (useDynamicRendering) {
+        normalsPipelineConfig.useDynamicRendering = true;
+        normalsPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+        normalsPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    } else {
+        normalsPipelineConfig.renderPass = swapChain.getRenderPass();
+    }
 
     normalsPipeline = std::make_unique<NtPipeline>(
         ntDevice,
@@ -145,10 +186,18 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/normals_shader.vert.spv",
         "shaders/color_shader.frag.spv");
 
+    // DEPTH
     PipelineConfigInfo depthPipelineConfig{};
     NtPipeline::defaultPipelineConfigInfo(depthPipelineConfig, nt::RenderMode::Depth, ntDevice);
-    depthPipelineConfig.renderPass = renderPass;
     depthPipelineConfig.pipelineLayout = pipelineLayout;
+
+    if (useDynamicRendering) {
+        depthPipelineConfig.useDynamicRendering = true;
+        depthPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+        depthPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    } else {
+        depthPipelineConfig.renderPass = swapChain.getRenderPass();
+    }
 
     depthPipeline = std::make_unique<NtPipeline>(
         ntDevice,
@@ -156,10 +205,18 @@ void GenericRenderSystem::createPipeline(VkRenderPass renderPass) {
         "shaders/depth_shader.vert.spv",
         "shaders/depth_shader.frag.spv");
 
+    // BILLBOARDS
     PipelineConfigInfo billboardPipelineConfig{};
     NtPipeline::defaultPipelineConfigInfo(billboardPipelineConfig, nt::RenderMode::Billboard, ntDevice);
-    billboardPipelineConfig.renderPass = renderPass;
     billboardPipelineConfig.pipelineLayout = pipelineLayout;
+
+    if (useDynamicRendering) {
+        billboardPipelineConfig.useDynamicRendering = true;
+        billboardPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+        billboardPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    } else {
+        billboardPipelineConfig.renderPass = swapChain.getRenderPass();
+    }
 
     billboardPipeline = std::make_unique<NtPipeline>(
         ntDevice,

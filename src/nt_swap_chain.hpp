@@ -9,6 +9,7 @@
 // std lib headers
 #include <string>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace nt {
 
@@ -26,8 +27,12 @@ class NtSwapChain {
   VkFramebuffer getFrameBuffer(int index) { return swapChainFramebuffers[index]; }
   VkRenderPass getRenderPass() { return renderPass; }
   VkImageView getImageView(int index) { return swapChainImageViews[index]; }
+  VkImage getImage(int index) { return swapChainImages[index]; }
+  VkImageView getColorImageView() { return colorImageView; }
+  VkImageView getDepthImageView() { return depthImageView; }
   size_t imageCount() { return swapChainImages.size(); }
   VkFormat getSwapChainImageFormat() { return swapChainImageFormat; }
+  VkFormat getSwapChainDepthFormat() { return swapChainDepthFormat; }
   VkExtent2D getSwapChainExtent() { return swapChainExtent; }
   uint32_t width() { return swapChainExtent.width; }
   uint32_t height() { return swapChainExtent.height; }
@@ -73,9 +78,10 @@ class NtSwapChain {
   VkDeviceMemory colorImageMemory;
   VkImageView colorImageView;
 
-  std::vector<VkImage> depthImages;
-  std::vector<VkDeviceMemory> depthImageMemorys;
-  std::vector<VkImageView> depthImageViews;
+  VkImage depthImage;
+  VkDeviceMemory depthImageMemory;
+  VkImageView depthImageView;
+
   std::vector<VkImage> swapChainImages;
   std::vector<VkImageView> swapChainImageViews;
 
@@ -92,4 +98,4 @@ class NtSwapChain {
   size_t currentFrame = 0;
 };
 
-}
+}  // namespace lve

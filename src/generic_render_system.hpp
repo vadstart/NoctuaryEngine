@@ -4,6 +4,7 @@
 #include "nt_pipeline.hpp"
 #include "nt_device.hpp"
 #include "nt_camera.hpp"
+#include "nt_swap_chain.hpp"
 #include "nt_types.hpp"
 #include "nt_frame_info.hpp"
 #include "vulkan/vulkan_core.h"
@@ -16,9 +17,10 @@ namespace nt
 	class GenericRenderSystem
 	{
 	public:
-    GenericRenderSystem(NtDevice &device, VkRenderPass renderPass, VkDescriptorSetLayout globalSetLayout,
+	GenericRenderSystem(NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
         VkDescriptorSetLayout modelSetLayout,
-        VkDescriptorSetLayout boneSetLayout);
+        VkDescriptorSetLayout boneSetLayout,
+        bool useDynamicRendering);
     ~GenericRenderSystem();
 
     GenericRenderSystem(const GenericRenderSystem&) = delete;
@@ -33,7 +35,7 @@ namespace nt
 
 	private:
     void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout);
-    void createPipeline(VkRenderPass renderPass);
+    void createPipeline(NtSwapChain &swapChain, bool useDynamicRendering);
 
     NtDevice &ntDevice;
 

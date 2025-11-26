@@ -50,8 +50,14 @@ NtPipeline::~NtPipeline() {
 
    assert (configInfo.pipelineLayout != VK_NULL_HANDLE &&
        "Cannot create graphics pipeline: no pipelineLayout provided in configInfo");
-   assert (configInfo.renderPass != VK_NULL_HANDLE &&
-       "Cannot create graphics pipeline: no renderPass provided in configInfo");
+
+   if (!configInfo.useDynamicRendering) {
+       assert (configInfo.renderPass != VK_NULL_HANDLE &&
+           "Cannot create graphics pipeline: no renderPass provided and useDynamicRendering is false");
+   } else {
+       assert (configInfo.colorAttachmentFormat != VK_NULL_HANDLE &&
+           "Cannot create graphics pipeline: colorAttachmentFormat must be set for dynamic rendering");
+   }
 
    auto vertCode = readFile(vertFilepath);
    auto fragCode = readFile(fragFilepath);
@@ -84,6 +90,16 @@ NtPipeline::~NtPipeline() {
    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
    vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
+   VkPipelineRenderingCreateInfo pipelineRenderingInfo{};
+   if (configInfo.useDynamicRendering)
+   {
+      pipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+      pipelineRenderingInfo.colorAttachmentCount = 1;
+      pipelineRenderingInfo.pColorAttachmentFormats = &configInfo.colorAttachmentFormat;
+      pipelineRenderingInfo.depthAttachmentFormat = configInfo.depthAttachmentFormat;
+      pipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+   }
+
    VkGraphicsPipelineCreateInfo pipelineInfo{};
    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
    pipelineInfo.stageCount = 2;
@@ -96,10 +112,17 @@ NtPipeline::~NtPipeline() {
    pipelineInfo.pColorBlendState = &configInfo.colorBlendInfo;
    pipelineInfo.pDepthStencilState = &configInfo.depthStencilInfo;
    pipelineInfo.pDynamicState = &configInfo.dynamicStateInfo;
-
    pipelineInfo.layout = configInfo.pipelineLayout;
-   pipelineInfo.renderPass = configInfo.renderPass;
-   pipelineInfo.subpass = configInfo.subpass;
+
+   // Dynamic / Traditional rendering
+   if (configInfo.useDynamicRendering) {
+       pipelineInfo.pNext = &pipelineRenderingInfo;
+       pipelineInfo.renderPass = VK_NULL_HANDLE;
+       pipelineInfo.subpass = 0;
+   } else {
+       pipelineInfo.renderPass = configInfo.renderPass;
+       pipelineInfo.subpass = configInfo.subpass;
+   }
 
    pipelineInfo.basePipelineIndex = -1;
    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;

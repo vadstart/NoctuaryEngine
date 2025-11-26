@@ -47,11 +47,9 @@ NtSwapChain::~NtSwapChain() {
   vkDestroyImage(device.device(), colorImage, nullptr);
   vkFreeMemory(device.device(), colorImageMemory, nullptr);
 
-  for (int i = 0; i < depthImages.size(); i++) {
-    vkDestroyImageView(device.device(), depthImageViews[i], nullptr);
-    vkDestroyImage(device.device(), depthImages[i], nullptr);
-    vkFreeMemory(device.device(), depthImageMemorys[i], nullptr);
-  }
+    vkDestroyImageView(device.device(), depthImageView, nullptr);
+    vkDestroyImage(device.device(), depthImage, nullptr);
+    vkFreeMemory(device.device(), depthImageMemory, nullptr);
 
   for (auto framebuffer : swapChainFramebuffers) {
     vkDestroyFramebuffer(device.device(), framebuffer, nullptr);
@@ -287,7 +285,7 @@ void NtSwapChain::createRenderPass() {
 void NtSwapChain::createFramebuffers() {
   swapChainFramebuffers.resize(imageCount());
   for (size_t i = 0; i < imageCount(); i++) {
-    std::array<VkImageView, 3> attachments = {colorImageView, depthImageViews[i], swapChainImageViews[i]};
+    std::array<VkImageView, 3> attachments = {colorImageView, depthImageView, swapChainImageViews[i]};
 
     VkExtent2D swapChainExtent = getSwapChainExtent();
     VkFramebufferCreateInfo framebufferInfo = {};
@@ -355,11 +353,6 @@ void NtSwapChain::createDepthResources() {
   swapChainDepthFormat = depthFormat;
   VkExtent2D swapChainExtent = getSwapChainExtent();
 
-  depthImages.resize(imageCount());
-  depthImageMemorys.resize(imageCount());
-  depthImageViews.resize(imageCount());
-
-  for (int i = 0; i < depthImages.size(); i++) {
     VkImageCreateInfo imageInfo{};
     imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
     imageInfo.imageType = VK_IMAGE_TYPE_2D;
@@ -379,11 +372,11 @@ void NtSwapChain::createDepthResources() {
     device.createImageWithInfo(
         imageInfo,
         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
-        depthImages[i],
-        depthImageMemorys[i]);
+        depthImage,
+        depthImageMemory);
     VkImageViewCreateInfo viewInfo{};
     viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-    viewInfo.image = depthImages[i];
+    viewInfo.image = depthImage;
     viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
     viewInfo.format = depthFormat;
     viewInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
@@ -392,10 +385,9 @@ void NtSwapChain::createDepthResources() {
     viewInfo.subresourceRange.baseArrayLayer = 0;
     viewInfo.subresourceRange.layerCount = 1;
 
-    if (vkCreateImageView(device.device(), &viewInfo, nullptr, &depthImageViews[i]) != VK_SUCCESS) {
+    if (vkCreateImageView(device.device(), &viewInfo, nullptr, &depthImageView) != VK_SUCCESS) {
       throw std::runtime_error("failed to create texture image view!");
     }
-  }
 }
 
 void NtSwapChain::createSyncObjects() {
