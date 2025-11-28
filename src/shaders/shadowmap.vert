@@ -27,10 +27,7 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     mat4 inverseView;
     vec4 ambientLightColor;
     mat4 lightSpaceMatrix;
-    mat4 lightSpaceCubeMatrices[6]; // 6 view matrices for cubemap faces
-
     vec4 shadowLightDirection;
-    vec4 shadowLightPosition; // xyz = position, w = far plane
 
     PointLight pointLights[10];
     int numLights;
@@ -48,14 +45,12 @@ layout(push_constant) uniform Push {
     float uvRotation;
     int hasNormalTexture;
     int hasMetallicRoughnessTexture;
-    int debugMode;
     float metallicFactor;
     float roughnessFactor;
     vec3 lightColor;
     float lightIntensity;
     float billboardSize;
     int isAnimated;
-    int cubeFaceIndex;
 } push;
 
 void main() {
@@ -89,12 +84,5 @@ void main() {
         worldPosition = push.modelMatrix * animatedPosition;
     }
 
-    // Select appropriate matrix based on cube face index
-    if (push.cubeFaceIndex >= 0 && push.cubeFaceIndex < 6) {
-        // Rendering to cube face
-        gl_Position = ubo.lightSpaceCubeMatrices[push.cubeFaceIndex] * worldPosition;
-    } else {
-        // Regular 2D shadow map
-        gl_Position = ubo.lightSpaceMatrix * worldPosition;
-    }
+    gl_Position = ubo.lightSpaceMatrix * worldPosition;
 }

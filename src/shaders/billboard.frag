@@ -15,7 +15,6 @@ layout(push_constant) uniform Push {
     float uvRotation;
     int hasNormalTexture;
     int hasMetallicRoughnessTexture;
-    int debugMode;
     float metallicFactor;
     float roughnessFactor;
     vec3 lightColor;

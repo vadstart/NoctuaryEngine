@@ -40,7 +40,6 @@ AstralApp::AstralApp()
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO(); (void)io;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-  //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
   ImGui::StyleColorsDark();
 
@@ -77,9 +76,9 @@ AstralApp::AstralApp()
   ImGui_ImplVulkan_Init(&init_info);
 
   globalPool = NtDescriptorPool::Builder(ntDevice)
-    .setMaxSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT * 2)
+    .setMaxSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT)
     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, NtSwapChain::MAX_FRAMES_IN_FLIGHT)
-    .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, NtSwapChain::MAX_FRAMES_IN_FLIGHT * 4)
+    .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, NtSwapChain::MAX_FRAMES_IN_FLIGHT * 2)
     .build();
 
   modelPool = NtDescriptorPool::Builder(ntDevice)
@@ -114,8 +113,6 @@ void AstralApp::run() {
   globalSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
     .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
     .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Shadow map
-    .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Shadow map (debug)
-    .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Shadow cube map
     .build();
 
   modelSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
@@ -137,30 +134,12 @@ void AstralApp::run() {
   shadowMapImageInfo.imageView = shadowMap.getShadowImageView();
   shadowMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
-  VkDescriptorImageInfo shadowMapDebugImageInfo{};
-  shadowMapDebugImageInfo.sampler = shadowMap.getShadowDebugSampler();
-  shadowMapDebugImageInfo.imageView = shadowMap.getShadowImageView();
-  shadowMapDebugImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-  // Shadow cube map descriptor
-   VkDescriptorImageInfo shadowCubeMapImageInfo{};
-   shadowCubeMapImageInfo.sampler = shadowCubeMap.getShadowCubeSampler();
-   shadowCubeMapImageInfo.imageView = shadowCubeMap.getShadowCubeImageView();
-   shadowCubeMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
-
-   std::cout << "Shadow cube map info:" << std::endl;
-     std::cout << "  Sampler: " << shadowCubeMapImageInfo.sampler << std::endl;
-     std::cout << "  ImageView: " << shadowCubeMapImageInfo.imageView << std::endl;
-     std::cout << "  Size: " << shadowCubeMap.getSize() << std::endl;
-
   for(int i = 0; i < globalDescriptorSets.size(); i++) {
     auto bufferInfo = uboBuffers[i]->descriptorInfo();
 
     NtDescriptorWriter(*globalSetLayout, *globalPool)
       .writeBuffer(0, &bufferInfo)
       .writeImage(1, &shadowMapImageInfo)
-      .writeImage(2, &shadowMapDebugImageInfo)
-      .writeImage(3, &shadowCubeMapImageInfo)
       .build(globalDescriptorSets[i]);
   }
 
@@ -169,36 +148,10 @@ void AstralApp::run() {
       shadowMap.getShadowDebugSampler(),
       shadowMap.getShadowImageView(),
       VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-  static glm::vec3 OrthoDir = glm::vec3(-0.55, -0.8f, 0.55f);
+  static glm::vec3 OrthoDir = glm::vec3(0.68, -0.8f, -0.46f);
   static float OrthoScale = 31.0f;
   static float OrthoNear = -30.0f;
   static float OrthoFar = 44.0f;
-
-  // Register each cubemap face with ImGui for debugging
-    for (uint32_t face = 0; face < 6; ++face) {
-        cubemapFaceDescriptorSets[face] = ImGui_ImplVulkan_AddTexture(
-            shadowCubeMap.getShadowCubeDebugSampler(),
-            shadowCubeMap.getFaceImageView(face), // Individual face view
-            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-    }
-
-  // Create descriptor set layout for debug quad (just needs the shadow map texture)
-  debugQuadSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
-    .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
-    .build();
-
-  // Create debug quad descriptor sets
-  debugQuadDescriptorSets.resize(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
-  for(int i = 0; i < debugQuadDescriptorSets.size(); i++) {
-    NtDescriptorWriter(*debugQuadSetLayout, *globalPool)
-      .writeImage(0, &shadowMapDebugImageInfo)
-      .build(debugQuadDescriptorSets[i]);
-  }
-
-  // Create debug quad system
-  debugQuadSystem = std::make_unique<DebugQuadSystem>(
-    ntDevice,
-    debugQuadSetLayout->getDescriptorSetLayout());
 
   GlobalUbo ubo{};
 
@@ -550,91 +503,13 @@ void AstralApp::run() {
       // RENDERING
       // ---
       // PASS 1: Render shadow map
-      // TODO: Check if shadow caster is point light
-        bool renderCubeShadows = false; // Set this based on shadow caster type
+      ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
 
         genericRenderSystem.switchRenderMode(RenderMode::ShadowMap);
-        if (renderCubeShadows) {
-            // PASS 1: Render shadow cube map (6 faces)
-            std::cout << "Rendering cubemap shadows..." << std::endl;
+        vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
+        genericRenderSystem.renderGameObjects(frameInfo);
 
-                        // Transition ALL cube faces to depth attachment ONCE before rendering
-                        VkImageMemoryBarrier initialBarrier{};
-                        initialBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                        initialBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-                        initialBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-                        initialBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                        initialBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                        initialBarrier.image = shadowCubeMap.getShadowCubeImage();
-                        initialBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-                        initialBarrier.subresourceRange.baseMipLevel = 0;
-                        initialBarrier.subresourceRange.levelCount = 1;
-                        initialBarrier.subresourceRange.baseArrayLayer = 0;
-                        initialBarrier.subresourceRange.layerCount = 6;  // ALL 6 faces
-                        initialBarrier.srcAccessMask = 0;
-                        initialBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-
-                        vkCmdPipelineBarrier(
-                            commandBuffer,
-                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
-                            0, 0, nullptr, 0, nullptr, 1, &initialBarrier
-                        );
-
-                        // Now render each face
-                        for (uint32_t face = 0; face < 6; ++face) {
-                            std::cout << "  Rendering cube face " << face << std::endl;
-
-                            // Don't do layout transition here, just begin rendering
-                            VkRenderingAttachmentInfo depthAttachment{};
-                            depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
-                            depthAttachment.imageView = shadowCubeMap.getFaceImageView(face);
-                            depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
-                            depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-                            depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-                            depthAttachment.clearValue.depthStencil = {1.0f, 0};
-
-                            VkRenderingInfo renderingInfo{};
-                            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-                            renderingInfo.renderArea = {{0, 0}, {shadowCubeMap.getSize(), shadowCubeMap.getSize()}};
-                            renderingInfo.layerCount = 1;
-                            renderingInfo.colorAttachmentCount = 0;
-                            renderingInfo.pDepthAttachment = &depthAttachment;
-
-                            ntDevice.vkCmdBeginRendering(commandBuffer, &renderingInfo);
-
-                            VkViewport viewport{};
-                            viewport.x = 0.0f;
-                            viewport.y = 0.0f;
-                            viewport.width = static_cast<float>(shadowCubeMap.getSize());
-                            viewport.height = static_cast<float>(shadowCubeMap.getSize());
-                            viewport.minDepth = 0.0f;
-                            viewport.maxDepth = 1.0f;
-                            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-                            VkRect2D scissor{{0, 0}, {shadowCubeMap.getSize(), shadowCubeMap.getSize()}};
-                            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-                            genericRenderSystem.setCubeFaceIndex(face);
-                            vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
-                            genericRenderSystem.renderGameObjects(frameInfo);
-
-                            ntDevice.vkCmdEndRendering(commandBuffer);
-                        }
-
-                        // Transition ALL faces to shader read
-                        ntRenderer.endShadowCubeRendering(commandBuffer, &shadowCubeMap);
-
-             // std::cout << "Cubemap rendering complete" << std::endl;
-            genericRenderSystem.setCubeFaceIndex(-1); // Reset to regular rendering
-        } else {
-            // Regular 2D shadow map rendering
-            ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
-            genericRenderSystem.switchRenderMode(RenderMode::ShadowMap);
-            vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
-            genericRenderSystem.renderGameObjects(frameInfo);
-            ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
-        }
+      ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
 
       // PASS 2: Sample from it and render main scene
       ntRenderer.beginMainRendering(commandBuffer);
@@ -643,8 +518,6 @@ void AstralApp::run() {
         // genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
         genericRenderSystem.renderGameObjects(frameInfo);
         genericRenderSystem.renderLightBillboards(frameInfo);
-
-        // debugQuadSystem->render(commandBuffer, debugQuadDescriptorSets[frameIndex]);
 
         if (ntWindow.getShowImGUI()) {
             ImGui::Render();
@@ -823,13 +696,6 @@ void AstralApp::loadGameObjects() {
   // Create light sprite texture
   std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
 
-  // auto PointLightCam = NtGameObject::makePointLight(20.0f, 0.0f);
-  // PointLightCam.transform.translation = {0.0f, 0.0f, 0.0f};
-  // PointLightCam.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  // gameObjects.emplace(PointLightCam.getId(), std::move(PointLightCam));
-
-
-
   auto PointLight1 = NtGameObject::makePointLight(100.0f, 0.0f, glm::vec3(1.0, 0.65, 0.33));
   PointLight1.transform.translation = {3.5f, -7.5f, -7.2f};
   PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
@@ -840,6 +706,7 @@ void AstralApp::loadGameObjects() {
   PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
 
+  // // Shadow caster
   auto directionalLight = NtGameObject::createGameObject();
   directionalLight.transform.translation = glm::vec3(1.0f, 1.0f, 0.5f); // Direction (will be normalized)
   directionalLight.color = glm::vec3(0.2f, 0.7f, 0.9f);
@@ -847,20 +714,6 @@ void AstralApp::loadGameObjects() {
   directionalLight.pointLight->lightIntensity = 1.0f;
   directionalLight.pointLight->lightType = 2;
   gameObjects.emplace(directionalLight.getId(), std::move(directionalLight));
-
-  // Create a spotlight
-  // auto spotlight = NtGameObject::createGameObject();
-  // spotlight.transform.translation = glm::vec3(-6.4f, -7.3f, 3.2f); // Above the scene
-  // spotlight.color = glm::vec3(0.0, 0.85, 0.55);
-  // spotlight.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  // spotlight.pointLight = std::make_unique<PointLightComponent>();
-  // spotlight.pointLight->lightIntensity = 200.0f; // Spotlights need higher intensity
-  // spotlight.pointLight->lightType = 1.0;
-  // spotlight.pointLight->spotDirection = glm::vec3(4.0f, 1.0f, -0.55f); // Point down (local space)
-  // spotlight.pointLight->spotInnerConeAngle = 5.0f; // Inner cone
-  // spotlight.pointLight->spotOuterConeAngle = 45.0f; // Outer cone (with falloff)
-  // gameObjects.emplace(spotlight.getId(), std::move(spotlight));
-
 }
 
 }

@@ -53,7 +53,6 @@ public:
   glm::vec3 color{};
   TransformComponent transform{};
   bool isCharacter = false;
-  bool isDebugVisualization = false;
 
   std::shared_ptr<NtModel> model{};
   VkDescriptorSet materialDescriptorSet = VK_NULL_HANDLE;

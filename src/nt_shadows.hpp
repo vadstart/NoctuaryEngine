@@ -36,35 +36,4 @@ private:
     void createShadowDebugSampler();
 };
 
-class NtShadowCubeMap {
-public:
-    NtShadowCubeMap(NtDevice& device, uint32_t size);
-    ~NtShadowCubeMap();
-
-    VkImage getShadowCubeImage() const { return shadowCubeImage; }
-    VkImageView getShadowCubeImageView() const { return shadowCubeImageView; }
-    VkSampler getShadowCubeSampler() const { return shadowCubeSampler; }
-    VkSampler getShadowCubeDebugSampler() const { return shadowCubeDebugSampler; }
-
-    // Get individual face view for rendering
-    VkImageView getFaceImageView(uint32_t face) const { return faceImageViews[face]; }
-
-    uint32_t getSize() const { return size; }
-
-private:
-    NtDevice& ntDevice;
-    uint32_t size; // Cubemap is square
-
-    VkImage shadowCubeImage;
-    VkDeviceMemory shadowCubeImageMemory;
-    VkImageView shadowCubeImageView; // View for all faces (sampling)
-    std::array<VkImageView, 6> faceImageViews; // Individual face views (rendering)
-    VkSampler shadowCubeSampler;
-    VkSampler shadowCubeDebugSampler;
-
-    void createShadowCubeImage();
-    void createShadowCubeImageViews();
-    void createShadowCubeSamplers();
-};
-
 }

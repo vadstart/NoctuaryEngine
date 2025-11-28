@@ -44,9 +44,6 @@ namespace nt
     void beginShadowRendering(VkCommandBuffer commandBuffer, NtShadowMap *shadowMap);
     void endShadowRendering(VkCommandBuffer commandBuffer, NtShadowMap *shadowMap);
 
-    void beginShadowCubeRendering(VkCommandBuffer commandBuffer, NtShadowCubeMap *shadowCubeMap, uint32_t face);
-    void endShadowCubeRendering(VkCommandBuffer commandBuffer, NtShadowCubeMap *shadowCubeMap);
-
     void beginMainRendering(VkCommandBuffer commandBuffer);
     void endMainRendering(VkCommandBuffer commandBuffer);
 

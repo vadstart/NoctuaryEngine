@@ -33,11 +33,8 @@ struct GlobalUbo {
 
   glm::vec4 ambientLightColor{0.8f, 0.8f, 0.8f, 0.015f};
 
-  glm::mat4 lightSpaceMatrix; // For directional/spot lights
-  glm::mat4 lightSpaceCubeMatrices[6]; // For point light cubemap (6 faces)
-
+  glm::mat4 lightSpaceMatrix; // For shadowMapping
   glm::vec4 shadowLightDirection; // xyz = direction, w = light type
-  glm::vec4 shadowLightPosition;  // xyz = position (for point light), w = far plane
 
   PointLight pointLights[MAX_LIGHTS];
   int numLights;

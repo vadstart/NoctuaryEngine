@@ -35,7 +35,6 @@ struct GridPushConstants {
 struct PointLightPushConstants {
   glm::vec4 position{};
   glm::vec4 color{};
-  float radius;
 };
 
 struct NtPushConstantData {
@@ -46,14 +45,12 @@ struct NtPushConstantData {
   alignas(4) float uvRotation{0.0f};
   alignas(4) int hasNormalTexture{0};
   alignas(4) int hasMetallicRoughnessTexture{0};
-  alignas(4) int debugMode{0};
   alignas(4) float metallicFactor{1.0f};
   alignas(4) float roughnessFactor{1.0f};
   alignas(16) glm::vec3 lightColor{1.0f, 1.0f, 1.0f};
   alignas(4) float lightIntensity{1.0f};
   alignas(4) float billboardSize{1.0f};
   alignas(4) int isAnimated{0};
-  alignas(4) int cubeFaceIndex = -1; // -1 = regular shadow, 0-5 = cube face
 };
 
 GenericRenderSystem::GenericRenderSystem(NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
@@ -148,8 +145,8 @@ void GenericRenderSystem::createPipelines(NtSwapChain &swapChain) {
         ntDevice,
         litConfig,
         litPipelineRenderingInfo,
-        "shaders/lit_shader.vert.spv",
-        "shaders/texture_lit_shader.frag.spv");
+        "shaders/pbr.vert.spv",
+        "shaders/pbr.frag.spv");
 
     // UNLIT
     PipelineConfigInfo unlitConfig{};
@@ -170,50 +167,8 @@ void GenericRenderSystem::createPipelines(NtSwapChain &swapChain) {
         ntDevice,
         unlitConfig,
         unlitPipelineRenderingInfo,
-        "shaders/unlit_shader.vert.spv",
-        "shaders/texture_unlit_shader.frag.spv");
-
-    // WIREFRAME
-    // PipelineConfigInfo wirePipelineConfig{};
-    // NtPipeline::defaultPipelineConfigInfo(wirePipelineConfig, nt::RenderMode::Wireframe, ntDevice);
-    // wirePipelineConfig.pipelineLayout = pipelineLayout;
-
-    // wirePipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
-    // wirePipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
-
-    // wireframePipeline = std::make_unique<NtPipeline>(
-    //     ntDevice,
-    //     wirePipelineConfig,
-    //     "shaders/line_shader.vert.spv",
-    //     "shaders/color_shader.frag.spv");
-
-    // NORMALS
-    // PipelineConfigInfo normalsPipelineConfig{};
-    // NtPipeline::defaultPipelineConfigInfo(normalsPipelineConfig, nt::RenderMode::Normals, ntDevice);
-    // normalsPipelineConfig.pipelineLayout = pipelineLayout;
-
-    // normalsPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
-    // normalsPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
-
-    // normalsPipeline = std::make_unique<NtPipeline>(
-    //     ntDevice,
-    //     normalsPipelineConfig,
-    //     "shaders/normals_shader.vert.spv",
-    //     "shaders/color_shader.frag.spv");
-
-    // DEPTH
-    // PipelineConfigInfo depthPipelineConfig{};
-    // NtPipeline::defaultPipelineConfigInfo(depthPipelineConfig, nt::RenderMode::Depth, ntDevice);
-    // depthPipelineConfig.pipelineLayout = pipelineLayout;
-
-    // depthPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
-    // depthPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
-
-    // depthPipeline = std::make_unique<NtPipeline>(
-    //     ntDevice,
-    //     depthPipelineConfig,
-    //     "shaders/depth_shader.vert.spv",
-    //     "shaders/depth_shader.frag.spv");
+        "shaders/npr.vert.spv",
+        "shaders/npr.frag.spv");
 
     // BILLBOARDS
     PipelineConfigInfo billboardPipelineConfig{};
@@ -251,113 +206,11 @@ void GenericRenderSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, glm
     ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
     ubo.pointLights[lightIndex].lightType = obj.pointLight->lightType;
 
-    // For spotlights, precompute cosines of cone angles
-    if (obj.pointLight->lightType == 1) {
-        ubo.pointLights[lightIndex].spotInnerConeAngle = glm::cos(glm::radians(obj.pointLight->spotInnerConeAngle));
-        ubo.pointLights[lightIndex].spotOuterConeAngle = glm::cos(glm::radians(obj.pointLight->spotOuterConeAngle));
-    }
-
+    // Shadows (computing light space matrix)
     if (lightIndex == 0) {
         int shadowCasterIndex = 0;
-        // std::cout << "Shadowcaster type: " << obj.pointLight->lightType << " | pointLights[0] type: " << ubo.pointLights[0].lightType << " | kv.first: " << kv.first << std::endl;
-        // Shadows (computing light space matrix)
+
             switch(ubo.pointLights[0].lightType) {
-                case 0: // POINT LIGHT (omnidirectional cubemap shadows)
-                {
-                // glm::vec3 lightPos = glm::vec3(ubo.pointLights[shadowCasterIndex].position);
-                glm::vec3 lightPos = glm::vec3(0.0f, 10.0f, 0.0f);
-
-                ubo.shadowLightDirection = glm::vec4(0.0f, 0.0f, 0.0f, static_cast<float>(LightType::Point));
-                ubo.shadowLightPosition = glm::vec4(lightPos, 50.0f); // w = far plane distance
-
-                // Perspective projection with 90° FOV for cubemap faces
-                float nearPlane = 0.1f;
-                float farPlane = 50.0f;
-                // glm::mat4 shadowProj = glm::perspective(glm::radians(90.0f), 1.0f, nearPlane, farPlane);
-
-                // Apply Vulkan clip correction
-                // glm::mat4 clip = glm::mat4(
-                //     1.0f,  0.0f, 0.0f, 0.0f,
-                //     0.0f, -1.0f, 0.0f, 0.0f,
-                //     0.0f,  0.0f, 0.5f, 0.0f,
-                //     0.0f,  0.0f, 0.5f, 1.0f
-                // );
-                // shadowProj = clip * shadowProj;
-
-                // Create perspective matrix manually to ensure compatibility
-                float aspect = 1.0f;
-                float fov = glm::radians(90.0f);
-                float tanHalfFov = tan(fov / 2.0f);
-
-                glm::mat4 shadowProj = glm::mat4(0.0f);
-                shadowProj[0][0] = 1.0f / (aspect * tanHalfFov);
-                shadowProj[1][1] = -1.0f / tanHalfFov;  // Negative for Vulkan Y-flip
-                shadowProj[2][2] = farPlane / (farPlane - nearPlane);  // Vulkan [0,1] depth
-                shadowProj[2][3] = 1.0f;
-                shadowProj[3][2] = -(farPlane * nearPlane) / (farPlane - nearPlane);
-
-
-                // Generate view matrices for all 6 cube faces
-                std::cout << "Generating cubemap matrices for light at ("
-                            << lightPos.x << ", " << lightPos.y << ", " << lightPos.z << ")" << std::endl;
-                std::cout << "Near: " << nearPlane << ", Far: " << farPlane << std::endl;
-
-                for (uint32_t face = 0; face < 6; ++face) {
-                    glm::mat4 viewMatrix = getCubeFaceViewMatrix(lightPos, face);
-                    ubo.lightSpaceCubeMatrices[face] = shadowProj * viewMatrix;
-
-                    // Debug: Try transforming a test point
-                    glm::vec4 testPoint = glm::vec4(0, 0, 0, 1); // Scene origin
-                    glm::vec4 transformed = ubo.lightSpaceCubeMatrices[face] * testPoint;
-                    glm::vec3 ndc = glm::vec3(transformed) / transformed.w;
-
-                    std::cout << "  Face " << face << " - origin in NDC: ("
-                                << ndc.x << ", " << ndc.y << ", " << ndc.z << ")" << std::endl;
-                }
-
-                // Also set the main lightSpaceMatrix to first face for compatibility
-                ubo.lightSpaceMatrix = ubo.lightSpaceCubeMatrices[0];
-                }
-                break;
-
-                case 1: // SPOTLIGHT
-                  {
-                      glm::vec3 spotDirection = obj.pointLight->spotDirection;
-                      float outerConeAngle = obj.pointLight->spotOuterConeAngle;
-
-                      glm::vec3 lightPos = glm::vec3(ubo.pointLights[shadowCasterIndex].position);
-
-                      // Store spotlight direction for shader
-                      ubo.shadowLightDirection = glm::vec4(spotDirection, static_cast<float>(LightType::Spot));
-
-                      // Target point along the spotlight direction
-                      glm::vec3 lightTarget = lightPos + spotDirection * 10.0f;
-
-                      glm::vec3 upVector = glm::vec3(0.0f, 1.0f, 0.0f);
-                      if (abs(glm::dot(spotDirection, upVector)) > 0.99f) {
-                          upVector = glm::vec3(1.0f, 0.0f, 0.0f);
-                      }
-
-                      glm::mat4 lightView = glm::lookAt(lightPos, lightTarget, upVector);
-
-                      float fov = outerConeAngle * 2.0f; // Full cone angle
-
-                      glm::mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-                                                 0.0f,-1.0f, 0.0f, 0.0f,
-                                                 0.0f, 0.0f, 0.5f, 0.0f,
-                                                 0.0f, 0.0f, 0.5f, 1.0f);
-
-                      glm::mat4 lightProjection = clip * glm::perspective(
-                          glm::radians(O_scale),
-                          1.0f, // Aspect ratio (1:1 for square shadow map)
-                          O_near,
-                          O_far
-                      );
-
-                      ubo.lightSpaceMatrix = lightProjection * lightView;
-                  }
-                break;
-
                 case 2: // DIRECTIONAL
                   glm::vec3 lightPos = glm::vec3(ubo.pointLights[shadowCasterIndex].position);
                   // glm::vec3 lightDir = glm::normalize(lightPos); // For directional, position represents direction
@@ -395,7 +248,7 @@ void GenericRenderSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, glm
                 break;
         }
 
-    }
+        }
 
     lightIndex += 1;
   }
@@ -464,19 +317,6 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
       push.modelMatrix = obj.transform.mat4();
       push.normalMatrix = obj.transform.normalMatrix();
       push.isAnimated = obj.animator != nullptr ? 1 : 0;
-      push.cubeFaceIndex = currentCubeFaceIndex;
-
-      // Debug output (only print occasionally to avoid spam)
-      // if (currentRenderMode == RenderMode::ShadowMap) {
-      //     std::cout << "Debugging push constant:" << std::endl;
-      //           std::cout << "Shadow render - cubeFaceIndex: " << currentCubeFaceIndex
-      //                     << " for object " << kv.first << std::endl;
-      //       }
-
-      // if(currentRenderMode != nt::RenderMode::NormalTangents)
-      //   push.debugMode = 0; // Normal rendering
-      // else push.debugMode = 1;
-      // push.debugMode = 4;
 
       // Get the material for this specific mesh
       if (materials.size() > materialIndex) {
@@ -527,7 +367,7 @@ vkCmdBindDescriptorSets(
 
 for (auto& kv: frameInfo.gameObjects) {
     auto& obj = kv.second;
-    if (obj.model == nullptr || obj.pointLight != nullptr || !obj.isCharacter || obj.isDebugVisualization) continue;
+    if (obj.model == nullptr || obj.pointLight != nullptr || !obj.isCharacter) continue;
 
     // Render each mesh with its own material
     const auto& materials = obj.model->getMaterials();
@@ -564,7 +404,6 @@ for (auto& kv: frameInfo.gameObjects) {
         push.modelMatrix = obj.transform.mat4();
         push.normalMatrix = obj.transform.normalMatrix();
         push.isAnimated = obj.animator != nullptr ? 1 : 0;
-        push.cubeFaceIndex = currentCubeFaceIndex;
 
         // Get the material for this specific mesh
         if (materials.size() > materialIndex) {
@@ -704,7 +543,6 @@ void GenericRenderSystem::renderLightBillboards(FrameInfo &frameInfo) {
     NtPushConstantData push{};
     push.modelMatrix = obj.transform.mat4();
     push.normalMatrix = obj.transform.normalMatrix();
-    push.debugMode = 0;
     push.hasNormalTexture = 0;
     push.hasMetallicRoughnessTexture = 0;
     push.metallicFactor = 1.0f;
@@ -727,11 +565,6 @@ void GenericRenderSystem::renderLightBillboards(FrameInfo &frameInfo) {
 
 void GenericRenderSystem::switchRenderMode(RenderMode newRenderMode) {
   currentRenderMode = newRenderMode;
-}
-
-glm::mat4 GenericRenderSystem::getCubeFaceViewMatrix(const glm::vec3 &lightPos, uint32_t face) {
-  return glm::lookAt(lightPos, lightPos + cubeFaces[face].target,
-                     cubeFaces[face].up);
 }
 
 } // namespace nt

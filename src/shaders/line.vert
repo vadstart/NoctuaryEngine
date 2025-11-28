@@ -5,12 +5,7 @@ layout(location = 1) in vec3 color;
 layout(location = 2) in vec3 normal;
 layout(location = 3) in vec2 uv;
 
-layout(location = 0) out vec4 fragPosView;
-
-struct PointLight {
-    vec3 position;
-    vec4 color;
-};
+layout(location = 0) out vec3 fragColor;
 
 layout(set = 0, binding = 0) uniform GlobalUbo {
     mat4 projection;
@@ -19,23 +14,23 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
     mat4 inverseView;
     vec4 ambientLightColor;
 
-    PointLight pointLights[10];
-    int numLights;
+    vec3 lightPosition;
+    vec4 lightColor;
 } ubo;
 
 layout(push_constant) uniform Push {
     mat4 modelMatrix;
     mat4 normalMatrix;
+    vec2 uvScale;
+    vec2 uvOffset;
+    float uvRotation;
     int hasNormalTexture;
     int hasMetallicRoughnessTexture;
-    int debugMode;
     float metallicFactor;
     float roughnessFactor;
 } push;
 
 void main() {
-    vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
-    fragPosView = ubo.view * positionWorld; // Camera space
-
-    gl_Position = ubo.projection * fragPosView;
+    gl_Position = ubo.projection * ubo.view * push.modelMatrix * vec4(position, 1.0);
+    fragColor = color;
 }

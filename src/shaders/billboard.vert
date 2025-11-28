@@ -8,12 +8,21 @@ layout(location = 3) in vec2 uv;
 layout(location = 0) out vec3 fragColor;
 layout(location = 1) out vec2 fragTexCoord;
 
+struct PointLight {
+    vec3 position;
+    vec4 color;
+};
+
 layout(set = 0, binding = 0) uniform GlobalUbo {
     mat4 projection;
     mat4 view;
+
     mat4 inverseView;
     vec4 ambientLightColor;
-    vec4 pointLights[10];
+    mat4 lightSpaceMatrix;
+    vec4 shadowLightDirection;
+
+    PointLight pointLights[10];
     int numLights;
 } ubo;
 
@@ -25,7 +34,6 @@ layout(push_constant) uniform Push {
     float uvRotation;
     int hasNormalTexture;
     int hasMetallicRoughnessTexture;
-    int debugMode;
     float metallicFactor;
     float roughnessFactor;
     vec3 lightColor;

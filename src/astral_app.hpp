@@ -6,7 +6,6 @@
 #include "nt_device.hpp"
 #include "nt_renderer.hpp"
 #include "nt_descriptors.hpp"
-#include "nt_debug.hpp"
 
 #include <filesystem>
 #include <memory>
@@ -51,14 +50,8 @@ namespace nt
     std::unique_ptr<NtDescriptorPool> bonePool{};
     std::unique_ptr<NtDescriptorSetLayout> boneSetLayout;
 
-    VkDescriptorSet imguiShadowMapTexture = VK_NULL_HANDLE;
-    std::unique_ptr<NtDescriptorSetLayout> debugQuadSetLayout;
-    std::unique_ptr<DebugQuadSystem> debugQuadSystem;
-    std::vector<VkDescriptorSet> debugQuadDescriptorSets;
-
     NtShadowMap shadowMap{ntDevice, 1024, 1024};
-    NtShadowCubeMap shadowCubeMap{ntDevice, 1024}; // For point lights
-     std::array<VkDescriptorSet, 6> cubemapFaceDescriptorSets; // ImGui descriptors for each face
+    VkDescriptorSet imguiShadowMapTexture = VK_NULL_HANDLE;
 
     NtGameObject::Map gameObjects;
 	};
