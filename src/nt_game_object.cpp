@@ -66,6 +66,7 @@ NtGameObject NtGameObject::makePointLight(float intensity, float radius, glm::ve
   gameObj.transform.scale.x = radius;
   gameObj.pointLight = std::make_unique<PointLightComponent>();
   gameObj.pointLight->lightIntensity = intensity;
+  gameObj.pointLight->lightType = 0;
 
   return gameObj;
 }

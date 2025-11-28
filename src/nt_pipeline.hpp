@@ -26,15 +26,9 @@ namespace nt {
     std::vector<VkDynamicState> dynamicStateEnables;
     VkPipelineDynamicStateCreateInfo dynamicStateInfo;
     VkPipelineLayout pipelineLayout = nullptr;
-
-    // (obsolete) Traditional render passes
-    VkRenderPass renderPass = nullptr;
-    uint32_t subpass = 0;
-
     // Dynamic rendering
     VkFormat colorAttachmentFormat = VK_FORMAT_UNDEFINED;
     VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED;
-    bool useDynamicRendering = false;
   };
 
   class NtPipeline {
@@ -42,6 +36,7 @@ namespace nt {
       NtPipeline(
           NtDevice& device,
           const PipelineConfigInfo& configInfo,
+          const VkPipelineRenderingCreateInfo& pipelineRenderingInfo,
           const string& vertFilepath,
           const string& fragFilepath);
       ~NtPipeline();
@@ -58,6 +53,7 @@ namespace nt {
 
       void createGraphicalPipeline(
           const PipelineConfigInfo& configInfo,
+          const VkPipelineRenderingCreateInfo& pipelineRenderingInfo,
           const string& vertFilepath,
           const string& fragFilepath);
 

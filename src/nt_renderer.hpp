@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nt_shadows.hpp"
 #include "nt_window.hpp"
 #include "nt_device.hpp"
 #include "nt_swap_chain.hpp"
@@ -21,7 +22,6 @@ namespace nt
     NtRenderer(const NtRenderer&) = delete;
 		NtRenderer& operator=(const NtRenderer&) = delete;
 
-    VkRenderPass getSwapChainRenderPass() const { return ntSwapChain->getRenderPass(); }
     NtSwapChain* getSwapChain() const { return ntSwapChain.get(); }
     size_t getSwapChainImageCount() { return ntSwapChain->imageCount(); }
     float getAspectRatio() const { return ntSwapChain->extentAspectRatio(); }
@@ -40,11 +40,15 @@ namespace nt
 
     VkCommandBuffer beginFrame();
     void endFrame();
-    void beginSwapChainRenderPass(VkCommandBuffer commandBuffer);
-    void endSwapChainRenderPass(VkCommandBuffer commandBuffer);
 
-    void beginDynamicRendering(VkCommandBuffer commandBuffer);
-    void endDynamicRendering(VkCommandBuffer commandBuffer);
+    void beginShadowRendering(VkCommandBuffer commandBuffer, NtShadowMap *shadowMap);
+    void endShadowRendering(VkCommandBuffer commandBuffer, NtShadowMap *shadowMap);
+
+    void beginShadowCubeRendering(VkCommandBuffer commandBuffer, NtShadowCubeMap *shadowCubeMap, uint32_t face);
+    void endShadowCubeRendering(VkCommandBuffer commandBuffer, NtShadowCubeMap *shadowCubeMap);
+
+    void beginMainRendering(VkCommandBuffer commandBuffer);
+    void endMainRendering(VkCommandBuffer commandBuffer);
 
 	private:
     void createCommandBuffers();

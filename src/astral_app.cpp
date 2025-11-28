@@ -12,6 +12,7 @@
 #include <chrono>
 #include <cstdint>
 #include <glm/fwd.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <iostream>
 
 #include "imgui/imgui.h"
@@ -39,7 +40,7 @@ AstralApp::AstralApp()
   ImGui::CreateContext();
   ImGuiIO& io = ImGui::GetIO(); (void)io;
   io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
+  //io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;      // Enable Gamepad Controls
 
   ImGui::StyleColorsDark();
 
@@ -69,10 +70,6 @@ AstralApp::AstralApp()
   VkFormat depthFormat = ntRenderer.getSwapChain()->getSwapChainDepthFormat();
   init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = depthFormat;
 
-  // Traditional renderpass rendering
-  // init_info.RenderPass = ntRenderer.getSwapChainRenderPass();
-  // init_info.Subpass = 0;
-
   init_info.MinImageCount = 2;
   init_info.ImageCount = ntRenderer.getSwapChainImageCount();
   init_info.MSAASamples = ntDevice.getMsaaSamples();
@@ -80,8 +77,9 @@ AstralApp::AstralApp()
   ImGui_ImplVulkan_Init(&init_info);
 
   globalPool = NtDescriptorPool::Builder(ntDevice)
-    .setMaxSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT)
+    .setMaxSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT * 2)
     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, NtSwapChain::MAX_FRAMES_IN_FLIGHT)
+    .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, NtSwapChain::MAX_FRAMES_IN_FLIGHT * 4)
     .build();
 
   modelPool = NtDescriptorPool::Builder(ntDevice)
@@ -100,6 +98,7 @@ AstralApp::~AstralApp() {
 
 void AstralApp::run() {
 
+  // ENGINE INIT
   std::vector<std::unique_ptr<NtBuffer>> uboBuffers(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
   for (int i = 0; i < uboBuffers.size(); i++) {
     uboBuffers[i] = std::make_unique<NtBuffer> (
@@ -114,6 +113,9 @@ void AstralApp::run() {
 
   globalSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
     .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Shadow map
+    .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Shadow map (debug)
+    .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Shadow cube map
     .build();
 
   modelSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
@@ -129,20 +131,82 @@ void AstralApp::run() {
     .build();
 
   std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
+  // Shadow map descriptor image info
+  VkDescriptorImageInfo shadowMapImageInfo{};
+  shadowMapImageInfo.sampler = shadowMap.getShadowSampler();
+  shadowMapImageInfo.imageView = shadowMap.getShadowImageView();
+  shadowMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+  VkDescriptorImageInfo shadowMapDebugImageInfo{};
+  shadowMapDebugImageInfo.sampler = shadowMap.getShadowDebugSampler();
+  shadowMapDebugImageInfo.imageView = shadowMap.getShadowImageView();
+  shadowMapDebugImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+  // Shadow cube map descriptor
+   VkDescriptorImageInfo shadowCubeMapImageInfo{};
+   shadowCubeMapImageInfo.sampler = shadowCubeMap.getShadowCubeSampler();
+   shadowCubeMapImageInfo.imageView = shadowCubeMap.getShadowCubeImageView();
+   shadowCubeMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+
+   std::cout << "Shadow cube map info:" << std::endl;
+     std::cout << "  Sampler: " << shadowCubeMapImageInfo.sampler << std::endl;
+     std::cout << "  ImageView: " << shadowCubeMapImageInfo.imageView << std::endl;
+     std::cout << "  Size: " << shadowCubeMap.getSize() << std::endl;
+
   for(int i = 0; i < globalDescriptorSets.size(); i++) {
     auto bufferInfo = uboBuffers[i]->descriptorInfo();
 
     NtDescriptorWriter(*globalSetLayout, *globalPool)
       .writeBuffer(0, &bufferInfo)
+      .writeImage(1, &shadowMapImageInfo)
+      .writeImage(2, &shadowMapDebugImageInfo)
+      .writeImage(3, &shadowCubeMapImageInfo)
       .build(globalDescriptorSets[i]);
   }
+
+  // ImGUI -> Debug ShadowMap
+  imguiShadowMapTexture = ImGui_ImplVulkan_AddTexture(
+      shadowMap.getShadowDebugSampler(),
+      shadowMap.getShadowImageView(),
+      VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+  static glm::vec3 OrthoDir = glm::vec3(-0.55, -0.8f, 0.55f);
+  static float OrthoScale = 31.0f;
+  static float OrthoNear = -30.0f;
+  static float OrthoFar = 44.0f;
+
+  // Register each cubemap face with ImGui for debugging
+    for (uint32_t face = 0; face < 6; ++face) {
+        cubemapFaceDescriptorSets[face] = ImGui_ImplVulkan_AddTexture(
+            shadowCubeMap.getShadowCubeDebugSampler(),
+            shadowCubeMap.getFaceImageView(face), // Individual face view
+            VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+    }
+
+  // Create descriptor set layout for debug quad (just needs the shadow map texture)
+  debugQuadSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+    .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT)
+    .build();
+
+  // Create debug quad descriptor sets
+  debugQuadDescriptorSets.resize(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
+  for(int i = 0; i < debugQuadDescriptorSets.size(); i++) {
+    NtDescriptorWriter(*debugQuadSetLayout, *globalPool)
+      .writeImage(0, &shadowMapDebugImageInfo)
+      .build(debugQuadDescriptorSets[i]);
+  }
+
+  // Create debug quad system
+  debugQuadSystem = std::make_unique<DebugQuadSystem>(
+    ntDevice,
+    debugQuadSetLayout->getDescriptorSetLayout());
 
   GlobalUbo ubo{};
 
   GenericRenderSystem genericRenderSystem(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
-      modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout(), true);
-  NtCamera camera{};
+      modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
 
+  // CAMERA SETUP
+  NtCamera camera{};
   auto viewerObject = NtGameObject::createGameObject();
   viewerObject.transform.rotation = {-1.2f, 2.8f, 0.0f};
   viewerObject.transform.translation = {-12.5f, -7.8f, -10.8f};
@@ -156,9 +220,9 @@ void AstralApp::run() {
 
   loadGameObjects();
 
-  // Temporary implementation of DeltaTime
   auto currentTime = std::chrono::high_resolution_clock::now();
 
+  // ENGINE LOOP
   while (!ntWindow.shouldClose()) {
     glfwPollEvents();
 
@@ -181,14 +245,12 @@ void AstralApp::run() {
     int framebufferW, framebufferH;
     glfwGetWindowSize(ntWindow.getGLFWwindow(), &windowW, &windowH);
     glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &framebufferW, &framebufferH);
-
     ImVec2 scale = ImVec2(
         windowW > 0 ? (float)framebufferW / windowW : 1.0f,
         windowH > 0 ? (float)framebufferH / windowH : 1.0f
     );
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
-    // TODO: Refactor inputs and camera controls
     // if (!ntWindow.getShowCursor()) {
     inputController.update(
       &ntWindow,
@@ -379,20 +441,54 @@ void AstralApp::run() {
         }
         ImGui::End();
 
-        if (ImGui::Begin("Animation Debug")) {
-            for (const auto& kv : gameObjects) {
-              auto &gobject = kv.second;
-              if (gobject.animator && gobject.animator->isPlaying()) {
-                ImGui::Text("Playing: %s", gobject.animator->getCurrentAnimationName().c_str());
-                ImGui::Text("Time: %.2f / %.2f",
-                            gobject.animator->getCurrentTime(),
-                            gobject.animator->getDuration());
+        // if (ImGui::Begin("Animation Debug")) {
+        //     for (const auto& kv : gameObjects) {
+        //       auto &gobject = kv.second;
+        //       if (gobject.animator && gobject.animator->isPlaying()) {
+        //         ImGui::Text("Playing: %s", gobject.animator->getCurrentAnimationName().c_str());
+        //         ImGui::Text("Time: %.2f / %.2f",
+        //                     gobject.animator->getCurrentTime(),
+        //                     gobject.animator->getDuration());
 
-                if (ImGui::Button("Reset")) {
-                    gobject.animator->play("Idle", true);
-                }
-              }
-            }
+        //         if (ImGui::Button("Reset")) {
+        //             gobject.animator->play("Idle", true);
+        //         }
+        //       }
+        //     }
+        // }
+        // ImGui::End();
+
+        if (ImGui::Begin("ShadowMap")) {
+            ImGui::DragFloat3("Light Dir", glm::value_ptr(OrthoDir), 0.01f, -5.0f, 5.0f);
+            ImGui::SliderFloat("Ortho Scale", &OrthoScale, 1.0f, 200.0f);
+            ImGui::SliderFloat("Ortho Near", &OrthoNear, -100.0f, 100.0f);
+            ImGui::SliderFloat("Ortho Far", &OrthoFar, 1.0f, 200.0f);
+            uint16_t shad_deb_mult = 25;
+            ImGui::Image((ImTextureID)(uint64_t)imguiShadowMapTexture, ImVec2(16 * shad_deb_mult, 9 * shad_deb_mult));
+
+            // Show cubemap faces in a grid
+            // ImGui::Text("Point Light Cubemap Faces");
+            // const char* faceNames[6] = {"+X (Right)", "-X (Left)", "+Y (Up)", "-Y (Down)", "+Z (Forward)", "-Z (Back)"};
+
+            // // Display in 2x3 grid
+            // for (uint32_t face = 0; face < 6; ++face) {
+            //     ImTextureID cubeTexId = (ImTextureID)(uintptr_t)cubemapFaceDescriptorSets[face];
+
+            //     // Start new row after 2 images
+            //     if (face > 0 && face % 2 == 0) {
+            //         // New row
+            //     }
+
+            //     ImGui::BeginGroup();
+            //     ImGui::Text("%s", faceNames[face]);
+            //     ImGui::Image(cubeTexId, ImVec2(200, 200));
+            //     ImGui::EndGroup();
+
+            //     // Same line for pairs
+            //     if (face % 2 == 0 && face < 5) {
+            //         ImGui::SameLine();
+            //     }
+            // }
         }
         ImGui::End();
 
@@ -407,19 +503,18 @@ void AstralApp::run() {
     }
 
     if (!camProjType) {
-      camera.setPerspectiveProjection(glm::radians(65.f), aspect, 0.1f, 1500.f);
+      camera.setPerspectiveProjection(glm::radians(65.f), aspect, 0.1f, 1000.f);
     }
     else
     {
-      float zoom = inputController.orthoZoomLevel; // ← from inputController
+      float zoom = inputController.orthoZoomLevel;
       float halfHeight = zoom;
       float halfWidth = aspect * halfHeight;
-      camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, 0.1f, 500.f);
+      camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, -10.0f, 500.f);
     }
 
-
+    // EVERY FRAME
     if (auto commandBuffer = ntRenderer.beginFrame()) {
-      // TODO: Add Reflections, Shadows, Postprocessing, etc
       int frameIndex = ntRenderer.getFrameIndex();
       FrameInfo frameInfo {
         frameIndex,
@@ -430,79 +525,136 @@ void AstralApp::run() {
         gameObjects
       };
 
-      //update
+      // UBO
+      // ---
+      // Update the camera
       ubo.projection = camera.getProjection();
       ubo.view = camera.getView();
       ubo.inverseView = camera.getInverseView();
+      // Lighting
+      genericRenderSystem.updateLights(frameInfo, ubo, OrthoDir, OrthoScale, OrthoNear, OrthoFar);
 
-      // Animate the lights
-      genericRenderSystem.updateLights(frameInfo, ubo);
+      uboBuffers[frameIndex]->writeToBuffer(&ubo);
+      uboBuffers[frameIndex]->flush();
+      // ---
 
-      float time = static_cast<float>(glfwGetTime());
-      float orbitRadius = 3.0f;
-      float bounceAmplitude = 1.0f;
-      float speed8 = .2f;
-      float speedVert = 0.75f;
-
-      int lightIndex = 0;
+      // ANIMATION
       for (auto& kv : frameInfo.gameObjects) {
           auto& obj = kv.second;
-
-          // ANIMATION
           if (obj.animator && obj.model && obj.model->hasSkeleton()) {
             obj.animator->update(deltaTime);
             obj.model->updateSkeleton();
           }
+      }
 
-          // if (obj.pointLight == nullptr || lightIndex >= ubo.numLights) continue;
+      // RENDERING
+      // ---
+      // PASS 1: Render shadow map
+      // TODO: Check if shadow caster is point light
+        bool renderCubeShadows = false; // Set this based on shadow caster type
 
-          // float angleOffset = glm::two_pi<float>() * lightIndex / ubo.numLights;
-          // float t = time * speed8 + angleOffset;
-          // float t2 = time * speedVert + angleOffset;
+        genericRenderSystem.switchRenderMode(RenderMode::ShadowMap);
+        if (renderCubeShadows) {
+            // PASS 1: Render shadow cube map (6 faces)
+            std::cout << "Rendering cubemap shadows..." << std::endl;
 
-          // glm::vec3 newPos;
+                        // Transition ALL cube faces to depth attachment ONCE before rendering
+                        VkImageMemoryBarrier initialBarrier{};
+                        initialBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                        initialBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+                        initialBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+                        initialBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        initialBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+                        initialBarrier.image = shadowCubeMap.getShadowCubeImage();
+                        initialBarrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+                        initialBarrier.subresourceRange.baseMipLevel = 0;
+                        initialBarrier.subresourceRange.levelCount = 1;
+                        initialBarrier.subresourceRange.baseArrayLayer = 0;
+                        initialBarrier.subresourceRange.layerCount = 6;  // ALL 6 faces
+                        initialBarrier.srcAccessMask = 0;
+                        initialBarrier.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
 
-          // Camera light
-          // if (lightIndex == 5) {
-          //     newPos = viewerObject.transform.translation;
-          // }
-          // else if (lightIndex == 4) {
-          //     // Light 0 — figure-8 motion (centered at 0, -10, 0)
-          //     float x = glm::sin(t) * 39.4f;
-          //     float z = glm::sin(2.0f * t) * 9.5f + 1.0f;
-          //     float y = -10.0f;
-          //     newPos = glm::vec3(x, y, z);
-          // } else {
-              // Other lights — bounce vertically
-          //     float x = obj.transform.translation.x;  // keep current X
-          //     float z = obj.transform.translation.z;  // keep current Z
-          //     float y = -3.0f + glm::sin(t2 * 2.0f) * 2.0f;
-          //     newPos = glm::vec3(x, y, z);
-          //     // }
+                        vkCmdPipelineBarrier(
+                            commandBuffer,
+                            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                            VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT,
+                            0, 0, nullptr, 0, nullptr, 1, &initialBarrier
+                        );
 
-          // // Update UBO and object transform
-          // ubo.pointLights[lightIndex].position = glm::vec4(newPos, 1.0f);
-          // obj.transform.translation = newPos;
+                        // Now render each face
+                        for (uint32_t face = 0; face < 6; ++face) {
+                            std::cout << "  Rendering cube face " << face << std::endl;
 
-          // lightIndex++;
-          }
+                            // Don't do layout transition here, just begin rendering
+                            VkRenderingAttachmentInfo depthAttachment{};
+                            depthAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                            depthAttachment.imageView = shadowCubeMap.getFaceImageView(face);
+                            depthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+                            depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+                            depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+                            depthAttachment.clearValue.depthStencil = {1.0f, 0};
+
+                            VkRenderingInfo renderingInfo{};
+                            renderingInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+                            renderingInfo.renderArea = {{0, 0}, {shadowCubeMap.getSize(), shadowCubeMap.getSize()}};
+                            renderingInfo.layerCount = 1;
+                            renderingInfo.colorAttachmentCount = 0;
+                            renderingInfo.pDepthAttachment = &depthAttachment;
+
+                            ntDevice.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+                            VkViewport viewport{};
+                            viewport.x = 0.0f;
+                            viewport.y = 0.0f;
+                            viewport.width = static_cast<float>(shadowCubeMap.getSize());
+                            viewport.height = static_cast<float>(shadowCubeMap.getSize());
+                            viewport.minDepth = 0.0f;
+                            viewport.maxDepth = 1.0f;
+                            vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+                            VkRect2D scissor{{0, 0}, {shadowCubeMap.getSize(), shadowCubeMap.getSize()}};
+                            vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+                            genericRenderSystem.setCubeFaceIndex(face);
+                            vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
+                            genericRenderSystem.renderGameObjects(frameInfo);
+
+                            ntDevice.vkCmdEndRendering(commandBuffer);
+                        }
+
+                        // Transition ALL faces to shader read
+                        ntRenderer.endShadowCubeRendering(commandBuffer, &shadowCubeMap);
+
+             // std::cout << "Cubemap rendering complete" << std::endl;
+            genericRenderSystem.setCubeFaceIndex(-1); // Reset to regular rendering
+        } else {
+            // Regular 2D shadow map rendering
+            ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
+            genericRenderSystem.switchRenderMode(RenderMode::ShadowMap);
+            vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
+            genericRenderSystem.renderGameObjects(frameInfo);
+            ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
+        }
+
+      // PASS 2: Sample from it and render main scene
+      ntRenderer.beginMainRendering(commandBuffer);
+
+        genericRenderSystem.switchRenderMode(RenderMode::Lit);
+        // genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
+        genericRenderSystem.renderGameObjects(frameInfo);
+        genericRenderSystem.renderLightBillboards(frameInfo);
+
+        // debugQuadSystem->render(commandBuffer, debugQuadDescriptorSets[frameIndex]);
+
+        if (ntWindow.getShowImGUI()) {
+            ImGui::Render();
+            ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
+        }
+
+      ntRenderer.endMainRendering(commandBuffer);
+      // ---
 
 
-      uboBuffers[frameIndex]->writeToBuffer(&ubo);
-      uboBuffers[frameIndex]->flush();
-
-      // render
-      // ntRenderer.beginSwapChainRenderPass(commandBuffer);
-      ntRenderer.beginDynamicRendering(commandBuffer);
-      // genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
-      genericRenderSystem.renderGameObjects(frameInfo);
-      genericRenderSystem.renderLightBillboards(frameInfo);
-
-      ImGui::Render();
-      ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
-
-      //ntRenderer.endSwapChainRenderPass(commandBuffer);
-      ntRenderer.endDynamicRendering(commandBuffer);
       ntRenderer.endFrame();
     }
   }
@@ -652,9 +804,6 @@ void AstralApp::loadGameObjects() {
   go_MoonlitCafe.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
   gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
 
-  // Create light sprite texture
-  std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
-
   auto go_Cassandra = NtGameObject::createGameObject(true);
   go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"),
       modelSetLayout->getDescriptorSetLayout(),
@@ -671,20 +820,47 @@ void AstralApp::loadGameObjects() {
   }
   gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
 
+  // Create light sprite texture
+  std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
+
   // auto PointLightCam = NtGameObject::makePointLight(20.0f, 0.0f);
   // PointLightCam.transform.translation = {0.0f, 0.0f, 0.0f};
   // PointLightCam.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   // gameObjects.emplace(PointLightCam.getId(), std::move(PointLightCam));
 
+
+
   auto PointLight1 = NtGameObject::makePointLight(100.0f, 0.0f, glm::vec3(1.0, 0.65, 0.33));
-  PointLight1.transform.translation = {2.2f, -5.5f, -4.0f};
-  // PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  PointLight1.transform.translation = {3.5f, -7.5f, -7.2f};
+  PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
 
   auto PointLight2 = NtGameObject::makePointLight(75.0f, 0.0f, glm::vec3(1.0, 0.3, 0.03));
   PointLight2.transform.translation = {13.0f, -4.2f, 9.9f};
-  // PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
+
+  auto directionalLight = NtGameObject::createGameObject();
+  directionalLight.transform.translation = glm::vec3(1.0f, 1.0f, 0.5f); // Direction (will be normalized)
+  directionalLight.color = glm::vec3(0.2f, 0.7f, 0.9f);
+  directionalLight.pointLight = std::make_unique<PointLightComponent>();
+  directionalLight.pointLight->lightIntensity = 1.0f;
+  directionalLight.pointLight->lightType = 2;
+  gameObjects.emplace(directionalLight.getId(), std::move(directionalLight));
+
+  // Create a spotlight
+  // auto spotlight = NtGameObject::createGameObject();
+  // spotlight.transform.translation = glm::vec3(-6.4f, -7.3f, 3.2f); // Above the scene
+  // spotlight.color = glm::vec3(0.0, 0.85, 0.55);
+  // spotlight.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  // spotlight.pointLight = std::make_unique<PointLightComponent>();
+  // spotlight.pointLight->lightIntensity = 200.0f; // Spotlights need higher intensity
+  // spotlight.pointLight->lightType = 1.0;
+  // spotlight.pointLight->spotDirection = glm::vec3(4.0f, 1.0f, -0.55f); // Point down (local space)
+  // spotlight.pointLight->spotInnerConeAngle = 5.0f; // Inner cone
+  // spotlight.pointLight->spotOuterConeAngle = 45.0f; // Outer cone (with falloff)
+  // gameObjects.emplace(spotlight.getId(), std::move(spotlight));
+
 }
 
 }

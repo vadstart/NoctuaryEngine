@@ -29,34 +29,6 @@ void NtInputController::update(NtWindow* ntWindow, NtGameObject& gameObject, NtG
 void NtInputController::updateCamFPS(NtWindow* ntWindow, NtGameObject& cameraObject, float dt) {
     GLFWwindow* window = ntWindow->getGLFWwindow();
 
-    // static bool previousToggleState = false;
-    // static bool previousGamepadToggleState = false;
-    // bool currentToggleState = glfwGetKey(window, keys.toggleCursor) == GLFW_PRESS;
-    // bool currentGamepadToggleState = gamepadConnected && isGamepadButtonPressed(gamepad.toggleCursor);
-
-    // if ((currentToggleState && !previousToggleState) || (currentGamepadToggleState && !previousGamepadToggleState)) {
-    //     cursorLocked = !cursorLocked;
-    //     if (cursorLocked) {
-    //         std::cout << "Cursor locked" << std::endl;
-    //         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    //     } else {
-    //         std::cout << "Cursor unlocked" << std::endl;
-    //         glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-    //     }
-    // }
-    // previousToggleState = currentToggleState;
-    // previousGamepadToggleState = currentGamepadToggleState;
-
-    // // Initialize cursor lock if not already done
-    // static bool cursorLockInitialized = false;
-    // if (!cursorLockInitialized) {
-    //     if (cursorLocked) {
-    //         std::cout << "Cursor locked 2" << std::endl;
-    //         // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-    //     }
-    //     cursorLockInitialized = true;
-    // }
-
     // Mouse look - only when cursor is locked
     // if (cursorLocked) {
     if(!ntWindow->getShowCursor()) {

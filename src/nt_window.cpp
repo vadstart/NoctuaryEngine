@@ -20,7 +20,7 @@ void NtWindow::initWindow()
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);	// No need for a standard OpenGL_API
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    // glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 	window_ = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
 
 	glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
@@ -48,15 +48,15 @@ void NtWindow::keyCallback(GLFWwindow* window, int key, int scancode, int action
     }
     else if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
         if (ntWindow->bShowCursor) {
-        // if (glfwRawMouseMotionSupported())
-          glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-        ntWindow->bShowCursor = false;
+            if (glfwRawMouseMotionSupported())
+                glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            ntWindow->bShowCursor = false;
         }
         else {
-        // glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
-        glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-        ntWindow->bShowCursor = true;
+            glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            ntWindow->bShowCursor = true;
         }
     }
 }

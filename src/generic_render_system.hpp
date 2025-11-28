@@ -14,40 +14,64 @@ using std::vector;
 
 namespace nt
 {
-	class GenericRenderSystem
-	{
-	public:
-	GenericRenderSystem(NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
-        VkDescriptorSetLayout modelSetLayout,
-        VkDescriptorSetLayout boneSetLayout,
-        bool useDynamicRendering);
-    ~GenericRenderSystem();
+    // Cube face orientations (target, up vectors)
+    struct CubeFace {
+        glm::vec3 target;
+        glm::vec3 up;
+    };
 
-    GenericRenderSystem(const GenericRenderSystem&) = delete;
-		GenericRenderSystem& operator=(const GenericRenderSystem&) = delete;
+    static const CubeFace cubeFaces[6] = {
+        {{1.0f, 0.0f, 0.0f}, {0.0f, -1.0f, 0.0f}},  // +X (right)
+        {{-1.0f, 0.0f, 0.0f}, {0.0f, -1.0f, 0.0f}}, // -X (left)
+        {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},   // +Y (up)
+        {{0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}}, // -Y (down)
+        {{0.0f, 0.0f, 1.0f}, {0.0f, -1.0f, 0.0f}},  // +Z (forward)
+        {{0.0f, 0.0f, -1.0f}, {0.0f, -1.0f, 0.0f}}  // -Z (back)
+    };
 
-    void updateLights(FrameInfo &frameInfo, GlobalUbo &ubo);
+    class GenericRenderSystem {
+    public:
+      GenericRenderSystem(NtDevice &device, NtSwapChain &swapChain,
+                          VkDescriptorSetLayout globalSetLayout,
+                          VkDescriptorSetLayout modelSetLayout,
+                          VkDescriptorSetLayout boneSetLayout);
+      ~GenericRenderSystem();
 
-    void renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject, glm::vec3 cameraPos);
-    void renderGameObjects(FrameInfo &frameInfo);
-    void renderLightBillboards(FrameInfo &frameInfo);
-    void switchRenderMode(RenderMode newRenderMode);
+      GenericRenderSystem(const GenericRenderSystem &) = delete;
+      GenericRenderSystem &operator=(const GenericRenderSystem &) = delete;
 
-	private:
-    void createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout);
-    void createPipeline(NtSwapChain &swapChain, bool useDynamicRendering);
+      void updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, glm::vec3 O_dir,
+                        float O_scale, float O_near, float O_far);
 
-    NtDevice &ntDevice;
+      void renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject,
+                           glm::vec3 cameraPos);
+      void renderGameObjects(FrameInfo &frameInfo);
+      void renderLightBillboards(FrameInfo &frameInfo);
+      void switchRenderMode(RenderMode newRenderMode);
+      void setCubeFaceIndex(int faceIndex) { currentCubeFaceIndex = faceIndex; }
 
-    std::unique_ptr<NtPipeline> debugGridPipeline;
-    std::unique_ptr<NtPipeline> litPipeline;
-    std::unique_ptr<NtPipeline> unlitPipeline;
-    std::unique_ptr<NtPipeline> wireframePipeline;
-    std::unique_ptr<NtPipeline> normalsPipeline;
-    std::unique_ptr<NtPipeline> depthPipeline;
-    std::unique_ptr<NtPipeline> billboardPipeline;
-    VkPipelineLayout pipelineLayout;
+    private:
+      void createPipelineLayout(VkDescriptorSetLayout globalSetLayout,
+                                VkDescriptorSetLayout modelSetLayout,
+                                VkDescriptorSetLayout boneSetLayout);
+      void createPipelines(NtSwapChain &swapChain);
 
-    RenderMode currentRenderMode = RenderMode::Lit;
-	};
+      glm::mat4 getCubeFaceViewMatrix(const glm::vec3 &lightPos, uint32_t face);
+
+      NtDevice &ntDevice;
+
+      std::unique_ptr<NtPipeline> debugGridPipeline;
+      std::unique_ptr<NtPipeline> shadowMapPipeline;
+      std::unique_ptr<NtPipeline> litPipeline;
+      std::unique_ptr<NtPipeline> unlitPipeline;
+      std::unique_ptr<NtPipeline> wireframePipeline;
+      std::unique_ptr<NtPipeline> normalsPipeline;
+      std::unique_ptr<NtPipeline> depthPipeline;
+      std::unique_ptr<NtPipeline> billboardPipeline;
+      VkPipelineLayout pipelineLayout;
+
+      RenderMode currentRenderMode = RenderMode::Lit;
+
+      int currentCubeFaceIndex = -1;
+    };
 }

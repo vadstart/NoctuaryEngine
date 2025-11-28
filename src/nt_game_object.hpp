@@ -25,6 +25,10 @@ struct TransformComponent {
 
 struct PointLightComponent {
   float lightIntensity = 1.0f;
+  int lightType = 0;
+  glm::vec3 spotDirection = glm::vec3(0.0f, -1.0f, 0.0f); // Default: pointing down
+  float spotInnerConeAngle = 12.5f; // Degrees
+  float spotOuterConeAngle = 17.5f; // Degrees
 };
 
 class NtGameObject {

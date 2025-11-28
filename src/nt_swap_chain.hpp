@@ -24,8 +24,6 @@ class NtSwapChain {
   NtSwapChain(const NtSwapChain &) = delete;
   NtSwapChain &operator=(const NtSwapChain &) = delete;
 
-  VkFramebuffer getFrameBuffer(int index) { return swapChainFramebuffers[index]; }
-  VkRenderPass getRenderPass() { return renderPass; }
   VkImageView getImageView(int index) { return swapChainImageViews[index]; }
   VkImage getImage(int index) { return swapChainImages[index]; }
   VkImageView getColorImageView() { return colorImageView; }
@@ -58,8 +56,6 @@ class NtSwapChain {
   void createImageViews();
   void createColorResources();
   void createDepthResources();
-  void createRenderPass();
-  void createFramebuffers();
   void createSyncObjects();
 
   // Helper functions
@@ -72,9 +68,6 @@ class NtSwapChain {
   VkFormat swapChainImageFormat;
   VkFormat swapChainDepthFormat;
   VkExtent2D swapChainExtent;
-
-  std::vector<VkFramebuffer> swapChainFramebuffers;
-  VkRenderPass renderPass;
 
   VkImage colorImage;
   VkDeviceMemory colorImageMemory;

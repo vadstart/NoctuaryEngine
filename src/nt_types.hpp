@@ -17,6 +17,7 @@ enum class RenderMode {
   Normals,
   NormalTangents,
   Depth,
+  ShadowMap,
   Lighting,
   LitWireframe,
   Wireframe,

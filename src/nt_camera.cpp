@@ -1,6 +1,7 @@
 #include "nt_camera.hpp"
 
 #include <cassert>
+#include <glm/ext/matrix_clip_space.hpp>
 
 namespace nt {
 
