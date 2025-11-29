@@ -14,21 +14,6 @@ using std::vector;
 
 namespace nt
 {
-    // Cube face orientations (target, up vectors)
-    struct CubeFace {
-        glm::vec3 target;
-        glm::vec3 up;
-    };
-
-    static const CubeFace cubeFaces[6] = {
-        {{1.0f, 0.0f, 0.0f}, {0.0f, -1.0f, 0.0f}},  // +X (right)
-        {{-1.0f, 0.0f, 0.0f}, {0.0f, -1.0f, 0.0f}}, // -X (left)
-        {{0.0f, 1.0f, 0.0f}, {0.0f, 0.0f, 1.0f}},   // +Y (up)
-        {{0.0f, -1.0f, 0.0f}, {0.0f, 0.0f, -1.0f}}, // -Y (down)
-        {{0.0f, 0.0f, 1.0f}, {0.0f, -1.0f, 0.0f}},  // +Z (forward)
-        {{0.0f, 0.0f, -1.0f}, {0.0f, -1.0f, 0.0f}}  // -Z (back)
-    };
-
     class GenericRenderSystem {
     public:
       GenericRenderSystem(NtDevice &device, NtSwapChain &swapChain,
@@ -43,12 +28,9 @@ namespace nt
       void updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, glm::vec3 O_dir,
                         float O_scale, float O_near, float O_far);
 
-      void renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject,
-                           glm::vec3 cameraPos);
       void renderGameObjects(FrameInfo &frameInfo);
       void renderLightBillboards(FrameInfo &frameInfo);
       void switchRenderMode(RenderMode newRenderMode);
-      void setCubeFaceIndex(int faceIndex) { currentCubeFaceIndex = faceIndex; }
 
     private:
       void createPipelineLayout(VkDescriptorSetLayout globalSetLayout,
@@ -60,7 +42,6 @@ namespace nt
 
       NtDevice &ntDevice;
 
-      std::unique_ptr<NtPipeline> debugGridPipeline;
       std::unique_ptr<NtPipeline> shadowMapPipeline;
       std::unique_ptr<NtPipeline> litPipeline;
       std::unique_ptr<NtPipeline> unlitPipeline;
@@ -71,7 +52,5 @@ namespace nt
       VkPipelineLayout pipelineLayout;
 
       RenderMode currentRenderMode = RenderMode::Lit;
-
-      int currentCubeFaceIndex = -1;
     };
 }

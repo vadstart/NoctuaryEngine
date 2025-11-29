@@ -127,9 +127,6 @@ class NtModel {
           void loadGltfAnimation(const tinygltf::Model &model, const tinygltf::Animation& anim);
 
          void calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices);
-         // glm::mat4 getNodeTransform(const tinygltf::Node& node);
-         // glm::mat4 computeGlobalTransform(int nodeIndex, const tinygltf::Model& model);
-         // int findParentBone(const tinygltf::Model& model, int jointNodeIndex, const std::vector<int>& jointIndices);
 
           // Reference to device for material creation
           NtDevice &ntDevice;
@@ -155,7 +152,6 @@ class NtModel {
 
         const VkDescriptorSet& getBoneDescriptorSet() const { return boneDescriptorSet; }
         bool hasBoneDescriptor() const { return boneDescriptorSet != VK_NULL_HANDLE; }
-        // void updateBoneMatrices(const std::vector<glm::mat4>& matrices);
 
         void bind (VkCommandBuffer commandBuffer, uint32_t meshIndex = 0);
         void draw (VkCommandBuffer commandBuffer, uint32_t meshIndex = 0);
@@ -163,6 +159,11 @@ class NtModel {
         void updateSkeleton();
 
         bool hasSkeleton() const { return skeleton.has_value(); }
+
+        // std::unique_ptr<NtModel> createGOPlane(float size);
+        // std::unique_ptr<NtModel> createGOCube(float size);
+        // std::unique_ptr<NtModel> createBillboardQuad(float size = 1.0f);
+        // std::unique_ptr<NtModel> createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture);
     private:
         struct MeshBuffers {
           std::unique_ptr<NtBuffer> vertexBuffer;

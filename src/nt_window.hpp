@@ -43,7 +43,7 @@ namespace nt
 		int height;
     bool framebufferResized = false;
     bool bShowImGUI = true;
-    bool bShowCursor = false;
+    bool bShowCursor = true;
 
 		string windowName;
 		GLFWwindow* window_;

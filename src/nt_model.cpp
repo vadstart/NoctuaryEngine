@@ -1192,4 +1192,137 @@ void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const st
   }
 }
 
+
+// Helper functions
+/*std::unique_ptr<NtModel> NtModel::createGOPlane(float size) {
+  NtModel::Builder modelData{ntDevice};
+  modelData.l_meshes.resize(1);
+
+  // Quad vertices (using a plane in the XZ plane)
+  modelData.l_meshes[0].vertices = {
+    {{-size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}
+  };
+
+  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
+
+  return std::make_unique<NtModel>(ntDevice, modelData);
+}
+
+std::unique_ptr<NtModel> NtModel::createGOCube(float size) {
+  NtModel::Builder modelData{ntDevice};
+  modelData.l_meshes.resize(1);
+
+  // Cube vertices
+  modelData.l_meshes[0].vertices = {
+    // Front face
+    {{-size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size,  size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size,  size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+
+    // Back face
+    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+
+    // Left face
+    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+    {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+    {{-size,  size,  size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
+
+    // Right face
+    {{ size, -size,  size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
+    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
+    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
+    {{ size,  size,  size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
+
+    // Top face
+    {{-size,  size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size,  size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
+
+    // Bottom face
+    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{ size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
+    {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}}
+  };
+
+  modelData.l_meshes[0].indices = {
+    // Front face
+    0, 1, 2, 2, 3, 0,
+    // Back face
+    4, 5, 6, 6, 7, 4,
+    // Left face
+    8, 9, 10, 10, 11, 8,
+    // Right face
+    12, 13, 14, 14, 15, 12,
+    // Top face
+    16, 17, 18, 18, 19, 16,
+    // Bottom face
+    20, 21, 22, 22, 23, 20
+  };
+
+  return std::make_unique<NtModel>(ntDevice, modelData);
+  }
+
+std::unique_ptr<NtModel> NtModel::createBillboardQuad(float size) {
+  NtModel::Builder modelData{ntDevice};
+  modelData.l_meshes.resize(1);
+
+  // Billboard quad vertices (facing forward, centered at origin)
+  modelData.l_meshes[0].vertices = {
+    {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
+    {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
+    {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
+    {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
+  };
+
+  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
+
+  modelData.l_materials.resize(1);
+  NtMaterial::MaterialData materialData;
+  materialData.name = "BillboardMaterial";
+  materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+  modelData.l_materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
+
+  // Update the material with descriptor set
+  modelData.l_materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+
+  return std::make_unique<NtModel>(ntDevice, modelData);
+}
+
+std::unique_ptr<NtModel> NtModel::createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture) {
+  NtModel::Builder modelData{ntDevice};
+  modelData.l_meshes.resize(1);
+
+  // Billboard quad vertices (facing forward, centered at origin)
+  modelData.l_meshes[0].vertices = {
+    {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
+    {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
+    {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
+    {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
+  };
+
+  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
+
+  modelData.l_materials.resize(1);
+  NtMaterial::MaterialData materialData;
+  materialData.name = "BillboardMaterial";
+  materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
+  materialData.pbrMetallicRoughness.baseColorTexture = texture;
+  modelData.l_materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
+
+  // Update the material with descriptor set
+  modelData.l_materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+
+  return std::make_unique<NtModel>(ntDevice, modelData);
+  }*/
+
 }

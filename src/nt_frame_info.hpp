@@ -11,12 +11,6 @@ namespace nt {
 
 #define MAX_LIGHTS 10
 
-enum class LightType : int {
-    Point = 0,
-    Spot = 1,
-    Directional = 2
-};
-
 struct PointLight {
   glm::vec4 position{};
   glm::vec4 color{};

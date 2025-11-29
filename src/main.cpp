@@ -49,7 +49,7 @@ void setWorkingDirectory() {
 #endif
 }
 
-int main() 
+int main()
 {
   setWorkingDirectory();
 

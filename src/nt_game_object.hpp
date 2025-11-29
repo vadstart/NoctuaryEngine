@@ -26,9 +26,6 @@ struct TransformComponent {
 struct PointLightComponent {
   float lightIntensity = 1.0f;
   int lightType = 0;
-  glm::vec3 spotDirection = glm::vec3(0.0f, -1.0f, 0.0f); // Default: pointing down
-  float spotInnerConeAngle = 12.5f; // Degrees
-  float spotOuterConeAngle = 17.5f; // Degrees
 };
 
 class NtGameObject {
@@ -36,19 +33,20 @@ public:
   using id_t = unsigned int;
   using Map = std::unordered_map<id_t, NtGameObject>;
 
-  static NtGameObject createGameObject(bool isObjCharacter = false) {
+  static NtGameObject createGameObject(std::string objName, bool isObjCharacter = false) {
     static id_t currentId = 0;
-    return NtGameObject{currentId++, isObjCharacter};
+    return NtGameObject{currentId++, objName, isObjCharacter};
   }
 
-  static NtGameObject makePointLight(float intensity = 5.0f, float radius = 0.1f, glm::vec3 color = glm::vec3(1.0f));
+  static NtGameObject makePointLight(float intensity = 5.0f, glm::vec3 color = glm::vec3(1.0f));
 
   NtGameObject(const NtGameObject &) = delete;
   NtGameObject &operator=(const NtGameObject &) = delete;
   NtGameObject(NtGameObject&&) = default;
   NtGameObject &operator=(NtGameObject&&) = default;
 
-  id_t getId() { return id; }
+  const id_t getId() { return id; }
+  std::string getName() const { return name; }
 
   glm::vec3 color{};
   TransformComponent transform{};
@@ -64,10 +62,11 @@ public:
   std::unique_ptr<NtAnimator> animator{nullptr};
 
 private:
-  NtGameObject(id_t objId, bool isObjCharacter) : id{objId}, isCharacter{isObjCharacter} {
+  NtGameObject(id_t objId, std::string objName, bool isObjCharacter) : id{objId},  name{objName}, isCharacter{isObjCharacter} {
   }
 
   id_t id;
+  std::string name;
 };
 
 }

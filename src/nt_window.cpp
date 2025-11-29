@@ -23,7 +23,7 @@ void NtWindow::initWindow()
     glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 	window_ = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
 
-	glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+	// glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glfwSetWindowUserPointer (window_, this);
 	glfwSetFramebufferSizeCallback(window_, framebufferResizeCallback);
 

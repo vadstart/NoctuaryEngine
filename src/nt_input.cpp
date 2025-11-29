@@ -9,7 +9,7 @@
 namespace nt {
 
 void NtInputController::update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY,
-    CameraProjectionType camProjType, CameraControlType camControlType)
+    CameraControlType camControlType)
 {
     checkGamepadConnection();
 
@@ -19,7 +19,7 @@ void NtInputController::update(NtWindow* ntWindow, NtGameObject& gameObject, NtG
             updateCamFPSGamepad(gameObject, dt);
         }
     } else {
-        updateCamOrbit(ntWindow, gameObject, targetObject, dt, mouseScrollY, camProjType);
+        updateCamOrbit(ntWindow, gameObject, targetObject, dt, mouseScrollY);
         if (gamepadConnected) {
             updateCamOrbitGamepad(gameObject, targetObject, dt);
         }
@@ -75,8 +75,7 @@ void NtInputController::updateCamFPS(NtWindow* ntWindow, NtGameObject& cameraObj
     }
 }
 
-void NtInputController::updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraObject, NtGameObject& targetObject, float dt, float mouseScrollY,
-    CameraProjectionType camProjType) {
+void NtInputController::updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraObject, NtGameObject& targetObject, float dt, float mouseScrollY) {
     GLFWwindow* window = ntWindow->getGLFWwindow();
     // ROTATION
     // - Mouse
@@ -109,24 +108,14 @@ void NtInputController::updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraO
     }
 
     // Zoom (scroll wheel)
-    static float distance = 2.0f;
-    static float orthoZoom = 1.0f;
-
-    if (camProjType == CameraProjectionType::Perspective) {
-        distance -= mouseScrollY * zoomSpeed;
-        distance = glm::clamp(distance, 0.5f, 100.0f);
-    } else {
-        orthoZoom -= mouseScrollY * zoomSpeed * 0.2f;
-        orthoZoom = glm::clamp(orthoZoom, 0.1f, 100.0f);
-    }
+    distance -= mouseScrollY * zoomSpeed;
+    distance = glm::clamp(distance, 0.5f, 100.0f);
 
     // Convert spherical to Cartesian coordinates
-    float usedDistance = (camProjType == CameraProjectionType::Perspective) ? distance : 2.0f;
+    float usedDistance = distance;
     cameraObject.transform.translation.x = targetObject.transform.translation.x + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::sin(cameraObject.transform.rotation.y);
     cameraObject.transform.translation.y = targetObject.transform.translation.y + usedDistance * glm::sin(cameraObject.transform.rotation.x);
     cameraObject.transform.translation.z = targetObject.transform.translation.z + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::cos(cameraObject.transform.rotation.y);
-
-    this->orthoZoomLevel = orthoZoom;
 }
 
 void NtInputController::checkGamepadConnection() {
@@ -237,18 +226,18 @@ void NtInputController::updateCamOrbitGamepad(NtGameObject& cameraObject, NtGame
             // Pan the target point
             glm::vec3 right = glm::vec3{glm::cos(cameraObject.transform.rotation.y), 0, -glm::sin(cameraObject.transform.rotation.y)};
             glm::vec3 up = glm::vec3{0, 1, 0};
-            targetObject.transform.translation -= -right * rightStickX * panSpeed * 10.0f * dt + up * rightStickY * panSpeed * 10.0f * dt;
+            targetObject.transform.translation -= -right * rightStickX * gamepadSensitivity * 10.0f * dt + up * rightStickY * panSpeed * 10.0f * dt;
         } else if (orbitMode || (!panMode && !orbitMode)) { // Default to orbit if no modifier pressed
             // Orbit around the target
-            cameraObject.transform.rotation.y += rightStickX * orbitSpeed * 50.0f * dt;
+            cameraObject.transform.rotation.y += rightStickX * gamepadSensitivity * dt;
             cameraObject.transform.rotation.y = glm::mod(cameraObject.transform.rotation.y, glm::two_pi<float>());
-            cameraObject.transform.rotation.x -= rightStickY * orbitSpeed * 50.0f * dt;
+            cameraObject.transform.rotation.x -= rightStickY * gamepadSensitivity * dt;
             cameraObject.transform.rotation.x = glm::clamp(cameraObject.transform.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
         }
     }
 
     // Zoom with left stick Y or triggers
-    float zoomInput = -leftStickY; // Use left stick Y for zoom
+    float zoomInput; // Use left stick Y for zoom
     float leftTrigger = getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_TRIGGER);
     float rightTrigger = getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
@@ -258,27 +247,17 @@ void NtInputController::updateCamOrbitGamepad(NtGameObject& cameraObject, NtGame
     }
 
     if (std::abs(zoomInput) > 0.0f) {
-        static float distance = 2.0f;
-        static float orthoZoom = 1.0f;
-
         // Apply zoom similar to mouse scroll
-        float zoomAmount = zoomInput * gamepadZoomSpeed * dt;
+        float zoomAmount = zoomInput * gamepadSensitivity * 2 * dt;
 
-        // Get current projection type from the update call context
-        // We'll assume perspective for now, but this could be passed as parameter
         distance -= zoomAmount;
         distance = glm::clamp(distance, 0.5f, 100.0f);
-
-        orthoZoom -= zoomAmount * 0.2f;
-        orthoZoom = glm::clamp(orthoZoom, 0.1f, 100.0f);
 
         // Update camera position based on new distance
         float usedDistance = distance; // Assuming perspective for gamepad
         cameraObject.transform.translation.x = targetObject.transform.translation.x + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::sin(cameraObject.transform.rotation.y);
         cameraObject.transform.translation.y = targetObject.transform.translation.y + usedDistance * glm::sin(cameraObject.transform.rotation.x);
         cameraObject.transform.translation.z = targetObject.transform.translation.z + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::cos(cameraObject.transform.rotation.y);
-
-        this->orthoZoomLevel = orthoZoom;
     }
 }
 

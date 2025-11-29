@@ -33,15 +33,13 @@ class NtInputController {
         int panModifier = GLFW_GAMEPAD_BUTTON_B;
       };
 
-    float orthoZoomLevel{0.0f};
     bool gamepadConnected{false};
     int connectedGamepadId{-1};
 
     void update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY,
-        CameraProjectionType camProjType, CameraControlType camControlType);
+        CameraControlType camControlType);
     void updateCamFPS(NtWindow* ntWindow, NtGameObject& cameraObject, float dt);
-    void updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraObject, NtGameObject& targetObject, float dt, float mouseScrollY,
-        CameraProjectionType projectionType);
+    void updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraObject, NtGameObject& targetObject, float dt, float mouseScrollY);
 
     // Gamepad methods
     void checkGamepadConnection();
@@ -61,9 +59,13 @@ class NtInputController {
     float getGamepadDeadzone() const { return gamepadDeadzone; }
     float getGamepadZoomSpeed() const { return gamepadZoomSpeed; }
 
+    void setDistance(float newDistance) { distance = newDistance; }
+
 private:
   KeyMappings keys{};
   GamepadMappings gamepad{};
+
+  float distance{2.0f};
 
   float moveSpeed{25.0f};
   float lookSpeed{1.5f};

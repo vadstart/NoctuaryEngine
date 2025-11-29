@@ -14,15 +14,14 @@ enum class CameraControlType {
 enum class RenderMode {
   Lit,
   Unlit,
-  Normals,
-  NormalTangents,
-  Depth,
   ShadowMap,
-  Lighting,
-  LitWireframe,
-  Wireframe,
-  DebugGrid,
   Billboard
+};
+
+enum class eLightType : int {
+    Point = 0,
+    Spot = 1,
+    Directional = 2
 };
 
 }

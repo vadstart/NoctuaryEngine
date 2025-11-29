@@ -57,10 +57,10 @@ layout(set = 0, binding = 1) uniform sampler2DShadow shadowMap;
 float calculateShadow(vec3 fragPosWorld, vec3 normal) {
     // Check if surface faces away from light - if so, it's in shadow anyway
     vec3 lightDir = normalize(ubo.shadowLightDirection.xyz);
-    float NdotL = dot(normal, lightDir);
+    float NdotL = dot(normal, -lightDir);
 
     // If surface faces away from light, it's in shadow (no need to sample shadow map)
-    if (NdotL <= 0.0) {
+    if (NdotL >= 0.0) {
         return 1.0; // Fully shadowed
     }
 

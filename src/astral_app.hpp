@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nt_ecs.hpp"
 #include "nt_game_object.hpp"
 #include "nt_shadows.hpp"
 #include "nt_window.hpp"
@@ -14,6 +15,8 @@ using std::vector;
 
 namespace nt
 {
+    class DebugSystem : public NtSystem {};
+
 	class AstralApp
 	{
 	public:
@@ -26,27 +29,29 @@ namespace nt
     AstralApp(const AstralApp&) = delete;
 		AstralApp& operator=(const AstralApp&) = delete;
 
-
 		void run();
 
 	private:
     void loadGameObjects();
 
-    std::unique_ptr<NtModel> createGOPlane(float size);
-    std::unique_ptr<NtModel> createGOCube(float size);
-    std::unique_ptr<NtModel> createBillboardQuad(float size = 1.0f);
-    std::unique_ptr<NtModel> createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture);
+    // Helper functions
+    std::unique_ptr<NtModel> createModelFromFile(const std::string &filepath) {
+        return NtModel::createModelFromFile(
+            ntDevice,
+            filepath,
+            modelSetLayout->getDescriptorSetLayout(),
+            modelPool->getDescriptorPool());
+    };
 
     NtWindow ntWindow{ WIDTH, HEIGHT, "🌋 You are wandering through the Astral Realm.." };
     NtDevice ntDevice{ntWindow};
     NtRenderer ntRenderer{ntWindow, ntDevice};
 
+    // Descriptors
     std::unique_ptr<NtDescriptorPool> globalPool{};
     std::unique_ptr<NtDescriptorSetLayout> globalSetLayout;
-
     std::unique_ptr<NtDescriptorPool> modelPool{};
     std::unique_ptr<NtDescriptorSetLayout> modelSetLayout;
-
     std::unique_ptr<NtDescriptorPool> bonePool{};
     std::unique_ptr<NtDescriptorSetLayout> boneSetLayout;
 
@@ -54,5 +59,6 @@ namespace nt
     VkDescriptorSet imguiShadowMapTexture = VK_NULL_HANDLE;
 
     NtGameObject::Map gameObjects;
+    NtAstral Astral;
 	};
 }

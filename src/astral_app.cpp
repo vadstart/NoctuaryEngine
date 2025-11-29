@@ -8,6 +8,7 @@
 #include "nt_input.hpp"
 #include "nt_types.hpp"
 #include "nt_utils.hpp"
+#include "nt_components.hpp"
 
 #include <chrono>
 #include <cstdint>
@@ -35,55 +36,73 @@ namespace nt
 
 AstralApp::AstralApp()
 {
-  // Setup ImGUI
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGuiIO& io = ImGui::GetIO(); (void)io;
-  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
+  // SETUP ImGUI
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable Keyboard Controls
 
-  ImGui::StyleColorsDark();
+    ImGui::StyleColorsDark();
 
-  // Setup Platform/Renderer backends
-  ImGui_ImplGlfw_InitForVulkan(ntWindow.getGLFWwindow(), true);
-  ImGui_ImplVulkan_InitInfo init_info = {};
-  //init_info.ApiVersion = VK_API_VERSION_1_3;              // Pass in your value of VkApplicationInfo::apiVersion, otherwise will default to header version.
-  init_info.Instance = ntDevice.instance();
-  init_info.PhysicalDevice = ntDevice.physicalDevice();
-  init_info.Device = ntDevice.device();
-  // Select graphics queue family
-  static uint32_t g_QueueFamily = (uint32_t)-1;
-  g_QueueFamily = ImGui_ImplVulkanH_SelectQueueFamilyIndex(init_info.PhysicalDevice);
-  IM_ASSERT(g_QueueFamily != (uint32_t)-1);
-  init_info.QueueFamily = g_QueueFamily;
-  init_info.Queue = ntDevice.graphicsQueue();
-  init_info.PipelineCache = VK_NULL_HANDLE;
-  init_info.DescriptorPoolSize = 1000;
+    // Setup Platform/Renderer backends
+    ImGui_ImplGlfw_InitForVulkan(ntWindow.getGLFWwindow(), true);
+    ImGui_ImplVulkan_InitInfo init_info = {};
+    //init_info.ApiVersion = VK_API_VERSION_1_3;              // Pass in your value of VkApplicationInfo::apiVersion, otherwise will default to header version.
+    init_info.Instance = ntDevice.instance();
+    init_info.PhysicalDevice = ntDevice.physicalDevice();
+    init_info.Device = ntDevice.device();
+    // Select graphics queue family
+    static uint32_t g_QueueFamily = (uint32_t)-1;
+    g_QueueFamily = ImGui_ImplVulkanH_SelectQueueFamilyIndex(init_info.PhysicalDevice);
+    IM_ASSERT(g_QueueFamily != (uint32_t)-1);
+    init_info.QueueFamily = g_QueueFamily;
+    init_info.Queue = ntDevice.graphicsQueue();
+    init_info.PipelineCache = VK_NULL_HANDLE;
+    init_info.DescriptorPoolSize = 1000;
 
-  // Dynamic Rendering
-  init_info.UseDynamicRendering = true;
-  init_info.PipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-  init_info.PipelineRenderingCreateInfo.pNext = nullptr;
-  VkFormat colorFormat = ntRenderer.getSwapChain()->getSwapChainImageFormat();
-  init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-  init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
-  VkFormat depthFormat = ntRenderer.getSwapChain()->getSwapChainDepthFormat();
-  init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = depthFormat;
+    // Dynamic Rendering
+    init_info.UseDynamicRendering = true;
+    init_info.PipelineRenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    init_info.PipelineRenderingCreateInfo.pNext = nullptr;
+    VkFormat colorFormat = ntRenderer.getSwapChain()->getSwapChainImageFormat();
+    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &colorFormat;
+    VkFormat depthFormat = ntRenderer.getSwapChain()->getSwapChainDepthFormat();
+    init_info.PipelineRenderingCreateInfo.depthAttachmentFormat = depthFormat;
 
-  init_info.MinImageCount = 2;
-  init_info.ImageCount = ntRenderer.getSwapChainImageCount();
-  init_info.MSAASamples = ntDevice.getMsaaSamples();
-  init_info.Allocator = nullptr;
-  ImGui_ImplVulkan_Init(&init_info);
+    init_info.MinImageCount = 2;
+    init_info.ImageCount = ntRenderer.getSwapChainImageCount();
+    init_info.MSAASamples = ntDevice.getMsaaSamples();
+    init_info.Allocator = nullptr;
+    ImGui_ImplVulkan_Init(&init_info);
 
+  // Allocate memory for descriptor pools
   globalPool = NtDescriptorPool::Builder(ntDevice)
     .setMaxSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT)
     .addPoolSize(VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, NtSwapChain::MAX_FRAMES_IN_FLIGHT)
     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, NtSwapChain::MAX_FRAMES_IN_FLIGHT * 2)
     .build();
 
+  globalSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+    .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Shadow map
+    .build();
+
+
   modelPool = NtDescriptorPool::Builder(ntDevice)
     .setMaxSets(100)
     .addPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 500)
+    .build();
+
+  modelSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+    .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Base color texture
+    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Normal texture
+    .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Metallic-roughness texture
+    .build();
+
+
+  boneSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
+    .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
     .build();
 
   bonePool = NtDescriptorPool::Builder(ntDevice)
@@ -95,100 +114,125 @@ AstralApp::~AstralApp() {
 
 }
 
-void AstralApp::run() {
+void AstralApp::run()
+{
+//  Rendering System, buffers and descriptorSets
+    GenericRenderSystem genericRenderSystem(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
+        modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
 
-  // ENGINE INIT
-  std::vector<std::unique_ptr<NtBuffer>> uboBuffers(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
-  for (int i = 0; i < uboBuffers.size(); i++) {
-    uboBuffers[i] = std::make_unique<NtBuffer> (
-      ntDevice,
-      sizeof(GlobalUbo),
-      NtSwapChain::MAX_FRAMES_IN_FLIGHT,
-      VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
+    GlobalUbo ubo{};
+    std::vector<std::unique_ptr<NtBuffer>> uboBuffers(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
+    for (int i = 0; i < uboBuffers.size(); i++) {
+      uboBuffers[i] = std::make_unique<NtBuffer> (
+        ntDevice,
+        sizeof(GlobalUbo),
+        NtSwapChain::MAX_FRAMES_IN_FLIGHT,
+        VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT);
 
-    uboBuffers[i]->map();
-  }
+      uboBuffers[i]->map();
+    }
+    std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
+    // Shadow map descriptor image info
+    VkDescriptorImageInfo shadowMapImageInfo{};
+    shadowMapImageInfo.sampler = shadowMap.getShadowSampler();
+    shadowMapImageInfo.imageView = shadowMap.getShadowImageView();
+    shadowMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
 
-  globalSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
-    .addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Shadow map
-    .build();
+    for(int i = 0; i < globalDescriptorSets.size(); i++) {
+      auto bufferInfo = uboBuffers[i]->descriptorInfo();
 
-  modelSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
-    .addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Base color texture
-    .addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Normal texture
-    .addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Metallic-roughness texture
-    // .addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Occlusion texture
-    // .addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT) // Emissive texture
-    .build();
+      NtDescriptorWriter(*globalSetLayout, *globalPool)
+        .writeBuffer(0, &bufferInfo)
+        .writeImage(1, &shadowMapImageInfo)
+        .build(globalDescriptorSets[i]);
+    }
 
-  boneSetLayout = NtDescriptorSetLayout::Builder(ntDevice)
-    .addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT)
-    .build();
+// ⌛
+    auto currentTime = std::chrono::high_resolution_clock::now();
 
-  std::vector<VkDescriptorSet> globalDescriptorSets(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
-  // Shadow map descriptor image info
-  VkDescriptorImageInfo shadowMapImageInfo{};
-  shadowMapImageInfo.sampler = shadowMap.getShadowSampler();
-  shadowMapImageInfo.imageView = shadowMap.getShadowImageView();
-  shadowMapImageInfo.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL;
+// ECS
+    Astral.Init();
 
-  for(int i = 0; i < globalDescriptorSets.size(); i++) {
-    auto bufferInfo = uboBuffers[i]->descriptorInfo();
+    // Component Types setup
+    Astral.RegisterComponent<cName>();
+    Astral.RegisterComponent<cTransform>();
+    Astral.RegisterComponent<cLight>();
+    Astral.RegisterComponent<cModel>();
+    Astral.RegisterComponent<cPlayerController>();
 
-    NtDescriptorWriter(*globalSetLayout, *globalPool)
-      .writeBuffer(0, &bufferInfo)
-      .writeImage(1, &shadowMapImageInfo)
-      .build(globalDescriptorSets[i]);
-  }
+    // System setup
+    auto debugSystem = Astral.RegisterSystem<DebugSystem>();
 
-  // ImGUI -> Debug ShadowMap
-  imguiShadowMapTexture = ImGui_ImplVulkan_AddTexture(
-      shadowMap.getShadowDebugSampler(),
-      shadowMap.getShadowImageView(),
-      VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-  static glm::vec3 OrthoDir = glm::vec3(0.68, -0.8f, -0.46f);
-  static float OrthoScale = 31.0f;
-  static float OrthoNear = -30.0f;
-  static float OrthoFar = 44.0f;
+    NtSignature signature;
+    signature.set(Astral.GetComponentType<cName>());
+    Astral.SetSystemSignature<DebugSystem>(signature);
 
-  GlobalUbo ubo{};
+    // Spawning entities
+    // NtEntity Camera = Astral.CreateEntity();
+    // Astral.AddComponent(MoonlitCafe,
+    //     Transform{ glm::vec3(0.0f), glm::vec3(0.0f) });
+    // Astral.AddComponent(MoonlitCafe,
+    //     Camera{});
 
-  GenericRenderSystem genericRenderSystem(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
-      modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
+    auto MoonlitCafe = Astral.CreateEntity();
+    MoonlitCafe.AddComponent(cName{"MoonlitCafe"})
+        .AddComponent(cTransform{ glm::vec3(0.0f),
+            glm::vec3(glm::radians(90.0f), 0.0f, 0.0f) })
+        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf")) });
 
-  // CAMERA SETUP
-  NtCamera camera{};
-  auto viewerObject = NtGameObject::createGameObject();
-  viewerObject.transform.rotation = {-1.2f, 2.8f, 0.0f};
-  viewerObject.transform.translation = {-12.5f, -7.8f, -10.8f};
-  auto targetObject = NtGameObject::createGameObject();
-  targetObject.transform.translation = {-0.1f, -0.5f, 0};
-  NtInputController inputController{};
+    auto Cassandra = Astral.CreateEntity();
+    Cassandra.AddComponent(cName{"Cassandra"})
+        .AddComponent(cTransform{ glm::vec3(0.0f, -1.5f, 0.0f),
+            glm::vec3(glm::radians(90.0f), glm::radians(90.0f), 0.0f) })
+        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true })
+        .AddComponent(cPlayerController{5.0f, 10.0f});
 
-  // Debug world grid
-  // auto debugGridObject = NtGameObject::createGameObject();
-  // debugGridObject.model = createGOPlane(1000.0f);
+    auto BarLight = Astral.CreateEntity();
+    BarLight.AddComponent(cName{"Light.Bar"})
+        .AddComponent(cTransform{ glm::vec3(3.5f, -7.5f, -7.2f) })
+        .AddComponent(cLight{100.0f, glm::vec3(1.0f, 0.65f, 0.33f) });
 
-  loadGameObjects();
+    auto SunShadowCaster = Astral.CreateEntity();
+    SunShadowCaster.AddComponent(cName{"Light.Sun"})
+        .AddComponent(cLight{50.0f, glm::vec3(0.5f, 0.35f, 0.33f), eLightType::Directional });
 
-  auto currentTime = std::chrono::high_resolution_clock::now();
+    loadGameObjects();
+
+//  CAMERA SETUP
+    NtCamera camera{};
+    auto viewerObject = NtGameObject::createGameObject("Camera");
+    viewerObject.transform.rotation = {-0.7f, 4.1f, 0.0f};
+    viewerObject.transform.translation = {-12.5f, -7.8f, -10.8f};
+    auto targetObject = NtGameObject::createGameObject("Camera Target");
+    targetObject.transform.translation = {-0.1f, -0.5f, 0};
+    NtInputController inputController{};
+    inputController.setDistance(15.0f);
+    static int camControlType = 1;
+    float aspect = ntRenderer.getAspectRatio();
+    camera.setPerspectiveProjection(glm::radians(65.f), aspect, 0.1f, 1000.f);
+
+//  Debug stuff
+    imguiShadowMapTexture = ImGui_ImplVulkan_AddTexture(
+        shadowMap.getShadowDebugSampler(),
+        shadowMap.getShadowImageView(),
+        VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
+    static glm::vec3 OrthoDir = glm::vec3(0.68, -0.8f, -0.46f);
+    static float OrthoScale = 31.0f;
+    static float OrthoNear = -30.0f;
+    static float OrthoFar = 44.0f;
+    static int selectedEntityID = -1;
 
   // ENGINE LOOP
   while (!ntWindow.shouldClose()) {
     glfwPollEvents();
 
+// Time
     auto newTime = std::chrono::high_resolution_clock::now();
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
     currentTime = newTime;
 
-    static int camProjType = 0;
-    static int camControlType = 0;
-    static bool autoRotate = false;
-    static float autoRotateSpeed = glm::radians(30.0f); // degrees per second
-
-    // Start the ImGui frame
+// ImGUI
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
@@ -203,26 +247,6 @@ void AstralApp::run() {
         windowH > 0 ? (float)framebufferH / windowH : 1.0f
     );
     io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
-
-    // if (!ntWindow.getShowCursor()) {
-    inputController.update(
-      &ntWindow,
-      viewerObject,
-      targetObject,
-      deltaTime,
-      io.MouseWheel,
-      static_cast<nt::CameraProjectionType>(camProjType),
-      static_cast<nt::CameraControlType>(camControlType)
-    );
-
-    if (autoRotate) {
-      viewerObject.transform.rotation.y += autoRotateSpeed * deltaTime;
-    }
-
-    if (!camControlType)
-        camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-    else camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
-    // }
 
     if (ntWindow.getShowImGUI())
     {
@@ -277,12 +301,6 @@ void AstralApp::run() {
 
           ImGui::RadioButton("FPS", &camControlType, 0); ImGui::SameLine();
           ImGui::RadioButton("Orbit", &camControlType, 1);
-
-          if (camControlType == 1) {
-              ImGui::RadioButton("Perspective", &camProjType, 0); ImGui::SameLine();
-              ImGui::RadioButton("Orthographic", &camProjType, 1);
-              ImGui::Checkbox("Auto Rotate", &autoRotate);ImGui::SameLine();
-          }
 
           ImGui::Text("Position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
           ImGui::Text("Rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
@@ -394,23 +412,6 @@ void AstralApp::run() {
         }
         ImGui::End();
 
-        // if (ImGui::Begin("Animation Debug")) {
-        //     for (const auto& kv : gameObjects) {
-        //       auto &gobject = kv.second;
-        //       if (gobject.animator && gobject.animator->isPlaying()) {
-        //         ImGui::Text("Playing: %s", gobject.animator->getCurrentAnimationName().c_str());
-        //         ImGui::Text("Time: %.2f / %.2f",
-        //                     gobject.animator->getCurrentTime(),
-        //                     gobject.animator->getDuration());
-
-        //         if (ImGui::Button("Reset")) {
-        //             gobject.animator->play("Idle", true);
-        //         }
-        //       }
-        //     }
-        // }
-        // ImGui::End();
-
         if (ImGui::Begin("ShadowMap")) {
             ImGui::DragFloat3("Light Dir", glm::value_ptr(OrthoDir), 0.01f, -5.0f, 5.0f);
             ImGui::SliderFloat("Ortho Scale", &OrthoScale, 1.0f, 200.0f);
@@ -418,55 +419,144 @@ void AstralApp::run() {
             ImGui::SliderFloat("Ortho Far", &OrthoFar, 1.0f, 200.0f);
             uint16_t shad_deb_mult = 25;
             ImGui::Image((ImTextureID)(uint64_t)imguiShadowMapTexture, ImVec2(16 * shad_deb_mult, 9 * shad_deb_mult));
+        }
+        ImGui::End();
 
-            // Show cubemap faces in a grid
-            // ImGui::Text("Point Light Cubemap Faces");
-            // const char* faceNames[6] = {"+X (Right)", "-X (Left)", "+Y (Up)", "-Y (Down)", "+Z (Forward)", "-Z (Back)"};
+        if (ImGui::Begin("Entities")) {
+            static ImGuiTextFilter filter;
+            filter.Draw("##");
+            for (auto const& entity : debugSystem->entities )
+            {
+                std::string displayName = Astral.GetComponent<cName>(entity).name + " (id=" + std::to_string(entity) + ")";
+                if (filter.PassFilter(displayName.c_str())) {
+                    if (ImGui::Selectable(displayName.c_str(), selectedEntityID == entity))
+                        selectedEntityID = entity;
+                }
+            }
+        }
+        ImGui::End();
 
-            // // Display in 2x3 grid
-            // for (uint32_t face = 0; face < 6; ++face) {
-            //     ImTextureID cubeTexId = (ImTextureID)(uintptr_t)cubemapFaceDescriptorSets[face];
+        if (ImGui::Begin("Selected Entity")) {
+            if (selectedEntityID >= 0) {
+                ImGui::Text("Entity ID: %d", selectedEntityID);
+                ImGui::Separator();
 
-            //     // Start new row after 2 images
-            //     if (face > 0 && face % 2 == 0) {
-            //         // New row
-            //     }
+                static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg;
 
-            //     ImGui::BeginGroup();
-            //     ImGui::Text("%s", faceNames[face]);
-            //     ImGui::Image(cubeTexId, ImVec2(200, 200));
-            //     ImGui::EndGroup();
+                // Check and display each component type
+                if (Astral.HasComponent<cName>(selectedEntityID)) {
+                    auto& name = Astral.GetComponent<cName>(selectedEntityID);
+                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Name");
+                    if (ImGui::BeginTable("NameComponent", 2, flags)) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Name");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::TextUnformatted(name.name.c_str());
+                        ImGui::EndTable();
+                    }
+                    ImGui::Spacing();
+                }
 
-            //     // Same line for pairs
-            //     if (face % 2 == 0 && face < 5) {
-            //         ImGui::SameLine();
-            //     }
-            // }
+                if (Astral.HasComponent<cTransform>(selectedEntityID)) {
+                    auto& transform = Astral.GetComponent<cTransform>(selectedEntityID);
+                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Transform");
+                    if (ImGui::BeginTable("TransformComponent", 2, flags)) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Position");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f, %.1f, %.1f", transform.translation.x, transform.translation.y, transform.translation.z);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Rotation");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f, %.1f, %.1f", transform.rotation.x, transform.rotation.y, transform.rotation.z);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Scale");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f, %.1f, %.1f", transform.scale.x, transform.scale.y, transform.scale.z);
+
+                        ImGui::EndTable();
+                    }
+                    ImGui::Spacing();
+                }
+
+                if (Astral.HasComponent<cModel>(selectedEntityID)) {
+                    auto& model = Astral.GetComponent<cModel>(selectedEntityID);
+                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Model");
+                    if (ImGui::BeginTable("ModelComponent", 2, flags)) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Drop Shadow:");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%d", model.bDropShadow);
+                        ImGui::EndTable();
+                    }
+                    ImGui::Spacing();
+                }
+
+                if (Astral.HasComponent<cLight>(selectedEntityID)) {
+                    auto& light = Astral.GetComponent<cLight>(selectedEntityID);
+                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Light");
+                    if (ImGui::BeginTable("LightComponent", 2, flags)) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Type");
+                        ImGui::TableSetColumnIndex(1);
+                        static std::string lightType;
+                        switch (light.type)
+                        {
+                            case eLightType::Point:        lightType="Point"; break;
+                            case eLightType::Spot:         lightType="Spot"; break;
+                            case eLightType::Directional:  lightType="Directional"; break;
+                            default:                       lightType="Unknown"; break;
+                        }
+                        ImGui::Text("%s", lightType.c_str());
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Intensity");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%f", light.intensity);
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Color");
+                        ImGui::TableSetColumnIndex(1);
+                        static ImVec4 light_color = { light.color.x, light.color.y, light.color.z, 1.0f };
+                        ImGui::ColorButton("MyColor", light_color, ImGuiColorEditFlags_NoTooltip);
+                        ImGui::SameLine();
+                        ImGui::Text("%.2f, %.2f, %.2f", light.color.x, light.color.y, light.color.z);
+                        ImGui::EndTable();
+                    }
+                    ImGui::Spacing();
+                }
+            }
         }
         ImGui::End();
 
         }
+    // ---
 
-    float aspect = ntRenderer.getAspectRatio();
+// Input update
+    inputController.update(
+      &ntWindow,
+      viewerObject,
+      targetObject,
+      deltaTime,
+      io.MouseWheel,
+      static_cast<nt::CameraControlType>(camControlType)
+    );
 
-    // Ortho projection and Auto Rotate can only be used with Orbital camera
-    if (!camControlType) {
-      camProjType = 0;
-      autoRotate = false;
-    }
+// Camera update
+    if (!camControlType)
+        camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+    else camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
+    // ---
 
-    if (!camProjType) {
-      camera.setPerspectiveProjection(glm::radians(65.f), aspect, 0.1f, 1000.f);
-    }
-    else
-    {
-      float zoom = inputController.orthoZoomLevel;
-      float halfHeight = zoom;
-      float halfWidth = aspect * halfHeight;
-      camera.setOrthographicProjection(-halfWidth, halfWidth, -halfHeight, halfHeight, -10.0f, 500.f);
-    }
-
-    // EVERY FRAME
+// EVERY FRAME
     if (auto commandBuffer = ntRenderer.beginFrame()) {
       int frameIndex = ntRenderer.getFrameIndex();
       FrameInfo frameInfo {
@@ -478,8 +568,7 @@ void AstralApp::run() {
         gameObjects
       };
 
-      // UBO
-      // ---
+    // UBO
       // Update the camera
       ubo.projection = camera.getProjection();
       ubo.view = camera.getView();
@@ -491,17 +580,17 @@ void AstralApp::run() {
       uboBuffers[frameIndex]->flush();
       // ---
 
-      // ANIMATION
-      for (auto& kv : frameInfo.gameObjects) {
-          auto& obj = kv.second;
-          if (obj.animator && obj.model && obj.model->hasSkeleton()) {
-            obj.animator->update(deltaTime);
-            obj.model->updateSkeleton();
-          }
-      }
-
-      // RENDERING
+    // ANIMATION
+      // for (auto& kv : frameInfo.gameObjects) {
+      //     auto& obj = kv.second;
+      //     if (obj.animator && obj.model && obj.model->hasSkeleton()) {
+      //       obj.animator->update(deltaTime);
+      //       obj.model->updateSkeleton();
+      //     }
+      // }
       // ---
+
+    // RENDERING
       // PASS 1: Render shadow map
       ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
 
@@ -515,7 +604,6 @@ void AstralApp::run() {
       ntRenderer.beginMainRendering(commandBuffer);
 
         genericRenderSystem.switchRenderMode(RenderMode::Lit);
-        // genericRenderSystem.renderDebugGrid(frameInfo, debugGridObject, viewerObject.transform.translation);
         genericRenderSystem.renderGameObjects(frameInfo);
         genericRenderSystem.renderLightBillboards(frameInfo);
 
@@ -526,7 +614,6 @@ void AstralApp::run() {
 
       ntRenderer.endMainRendering(commandBuffer);
       // ---
-
 
       ntRenderer.endFrame();
     }
@@ -540,144 +627,15 @@ void AstralApp::run() {
   ImGui::DestroyContext();
 }
 
-std::unique_ptr<NtModel> AstralApp::createGOPlane(float size) {
-  NtModel::Builder modelData{ntDevice};
-  modelData.l_meshes.resize(1);
-
-  // Quad vertices (using a plane in the XZ plane)
-  modelData.l_meshes[0].vertices = {
-    {{-size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}
-  };
-
-  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
-
-  return std::make_unique<NtModel>(ntDevice, modelData);
-}
-
-std::unique_ptr<NtModel> AstralApp::createGOCube(float size) {
-  NtModel::Builder modelData{ntDevice};
-  modelData.l_meshes.resize(1);
-
-  // Cube vertices
-  modelData.l_meshes[0].vertices = {
-    // Front face
-    {{-size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size,  size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size,  size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-
-    // Back face
-    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-
-    // Left face
-    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-    {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-    {{-size,  size,  size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-
-    // Right face
-    {{ size, -size,  size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
-    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
-    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
-    {{ size,  size,  size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
-
-    // Top face
-    {{-size,  size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size,  size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-
-    // Bottom face
-    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}}
-  };
-
-  modelData.l_meshes[0].indices = {
-    // Front face
-    0, 1, 2, 2, 3, 0,
-    // Back face
-    4, 5, 6, 6, 7, 4,
-    // Left face
-    8, 9, 10, 10, 11, 8,
-    // Right face
-    12, 13, 14, 14, 15, 12,
-    // Top face
-    16, 17, 18, 18, 19, 16,
-    // Bottom face
-    20, 21, 22, 22, 23, 20
-  };
-
-  return std::make_unique<NtModel>(ntDevice, modelData);
-  }
-
-std::unique_ptr<NtModel> AstralApp::createBillboardQuad(float size) {
-  NtModel::Builder modelData{ntDevice};
-  modelData.l_meshes.resize(1);
-
-  // Billboard quad vertices (facing forward, centered at origin)
-  modelData.l_meshes[0].vertices = {
-    {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
-    {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
-    {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
-    {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
-  };
-
-  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
-
-  modelData.l_materials.resize(1);
-  NtMaterial::MaterialData materialData;
-  materialData.name = "BillboardMaterial";
-  materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-  modelData.l_materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
-
-  // Update the material with descriptor set
-  modelData.l_materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-
-  return std::make_unique<NtModel>(ntDevice, modelData);
-}
-
-std::unique_ptr<NtModel> AstralApp::createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture) {
-  NtModel::Builder modelData{ntDevice};
-  modelData.l_meshes.resize(1);
-
-  // Billboard quad vertices (facing forward, centered at origin)
-  modelData.l_meshes[0].vertices = {
-    {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
-    {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
-    {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
-    {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
-  };
-
-  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
-
-  modelData.l_materials.resize(1);
-  NtMaterial::MaterialData materialData;
-  materialData.name = "BillboardMaterial";
-  materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-  materialData.pbrMetallicRoughness.baseColorTexture = texture;
-  modelData.l_materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
-
-  // Update the material with descriptor set
-  modelData.l_materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-
-  return std::make_unique<NtModel>(ntDevice, modelData);
-}
-
 void AstralApp::loadGameObjects() {
-  auto go_MoonlitCafe = NtGameObject::createGameObject();
-  go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"), modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  auto go_MoonlitCafe = NtGameObject::createGameObject("Cafe Interior");
+  go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"),
+      modelSetLayout->getDescriptorSetLayout(),
+      modelPool->getDescriptorPool());
   go_MoonlitCafe.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
   gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
 
-  auto go_Cassandra = NtGameObject::createGameObject(true);
+  auto go_Cassandra = NtGameObject::createGameObject("Cassandra", true);
   go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"),
       modelSetLayout->getDescriptorSetLayout(),
       modelPool->getDescriptorPool(),
@@ -696,19 +654,19 @@ void AstralApp::loadGameObjects() {
   // Create light sprite texture
   std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
 
-  auto PointLight1 = NtGameObject::makePointLight(100.0f, 0.0f, glm::vec3(1.0, 0.65, 0.33));
+  auto PointLight1 = NtGameObject::makePointLight(100.0f, glm::vec3(1.0, 0.65, 0.33));
   PointLight1.transform.translation = {3.5f, -7.5f, -7.2f};
-  PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  // PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
   gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
 
-  auto PointLight2 = NtGameObject::makePointLight(75.0f, 0.0f, glm::vec3(1.0, 0.3, 0.03));
-  PointLight2.transform.translation = {13.0f, -4.2f, 9.9f};
-  PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
+  // auto PointLight2 = NtGameObject::makePointLight(75.0f, 0.0f, glm::vec3(1.0, 0.3, 0.03));
+  // PointLight2.transform.translation = {13.0f, -4.2f, 9.9f};
+  // PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
+  // gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
 
   // // Shadow caster
-  auto directionalLight = NtGameObject::createGameObject();
-  directionalLight.transform.translation = glm::vec3(1.0f, 1.0f, 0.5f); // Direction (will be normalized)
+  auto directionalLight = NtGameObject::createGameObject("Sunlight");
+  directionalLight.transform.rotation = glm::vec3(1.0f, 1.0f, 0.5f);
   directionalLight.color = glm::vec3(0.2f, 0.7f, 0.9f);
   directionalLight.pointLight = std::make_unique<PointLightComponent>();
   directionalLight.pointLight->lightIntensity = 1.0f;

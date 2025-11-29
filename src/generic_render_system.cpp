@@ -13,7 +13,7 @@
 
 // Libraries
 #define GLM_FORCE_RADIANS
-// #define GLM_FORCE_DEPTH_ZERO_TO_ONE
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/constants.hpp>
 
@@ -24,13 +24,6 @@
 
 namespace nt
 {
-
-struct GridPushConstants {
-    glm::mat4 modelMatrix;
-    float gridSpacing = 1.0f;
-    float lineThickness = 1.0f;
-    float fadeDistance = 50.0f;
-};
 
 struct PointLightPushConstants {
   glm::vec4 position{};
@@ -112,20 +105,6 @@ void GenericRenderSystem::createPipelines(NtSwapChain &swapChain) {
         "shaders/shadowmap.vert.spv",
         "shaders/shadowmap.frag.spv");
 
-    // DEBUG GRID
-    // PipelineConfigInfo debGridPipelineConfig{};
-    // NtPipeline::defaultPipelineConfigInfo(debGridPipelineConfig, nt::RenderMode::ShadowMap, ntDevice);
-    // debGridPipelineConfig.pipelineLayout = pipelineLayout;
-
-    // debGridPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
-    // debGridPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
-
-    // debugGridPipeline = std::make_unique<NtPipeline>(
-    //     ntDevice,
-    //     debGridPipelineConfig,
-    //     "shaders/debug_grid.vert.spv",
-    //     "shaders/debug_grid.frag.spv");
-
     // LIT
     PipelineConfigInfo litConfig{};
     NtPipeline::defaultPipelineConfigInfo(litConfig, nt::RenderMode::Lit, ntDevice);
@@ -202,7 +181,9 @@ void GenericRenderSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, glm
     assert(lightIndex < MAX_LIGHTS && "Point lights exceed maximum specified!");
 
     // copy the light to ubo
-    ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
+    if (obj.pointLight->lightType != 2)
+        ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
+    else ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.rotation, 1.f); // We only care about the rotation of directional light
     ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
     ubo.pointLights[lightIndex].lightType = obj.pointLight->lightType;
 
@@ -225,7 +206,7 @@ void GenericRenderSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, glm
                     }
 
                   // Store light direction for shader
-                  ubo.shadowLightDirection = glm::vec4(lightDir, static_cast<float>(LightType::Directional));
+                  ubo.shadowLightDirection = glm::vec4(lightDir, static_cast<float>(eLightType::Directional));
 
                   glm::mat4 lightViewMatrix = glm::lookAt(lightDir, sceneCenter, upVector);
 
@@ -262,22 +243,6 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
         case nt::RenderMode::ShadowMap:
             shadowMapPipeline->bind(frameInfo.commandBuffer);
             break;
-
-        case nt::RenderMode::Unlit:
-          unlitPipeline->bind(frameInfo.commandBuffer);
-          break;
-
-        case nt::RenderMode::Wireframe:
-          wireframePipeline->bind(frameInfo.commandBuffer);
-          break;
-
-        case nt::RenderMode::Depth:
-          depthPipeline->bind(frameInfo.commandBuffer);
-          break;
-
-        case nt::RenderMode::Normals:
-          normalsPipeline->bind(frameInfo.commandBuffer);
-          break;
 
         default:
           litPipeline->bind(frameInfo.commandBuffer);
@@ -482,35 +447,6 @@ for (auto& kv: frameInfo.gameObjects) {
   // }
 
 }
-
-void GenericRenderSystem::renderDebugGrid(FrameInfo &frameInfo, NtGameObject &gridObject, glm::vec3 cameraPos) {
-  debugGridPipeline->bind(frameInfo.commandBuffer);
-
-  vkCmdBindDescriptorSets(
-    frameInfo.commandBuffer,
-    VK_PIPELINE_BIND_POINT_GRAPHICS,
-    pipelineLayout,
-    0, 1,
-    &frameInfo.globalDescriptorSet,
-    0, nullptr);
-
-  GridPushConstants push{};
-  push.modelMatrix = gridObject.transform.mat4();
-  push.gridSpacing = 1.0f;
-  push.lineThickness = 1.0f;
-  push.fadeDistance = 50.0f;
-
-  vkCmdPushConstants(
-    frameInfo.commandBuffer,
-    pipelineLayout,
-    VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-    0,
-    sizeof(GridPushConstants),
-    &push);
-
-  gridObject.model->drawAll(frameInfo.commandBuffer);
-}
-
 
 void GenericRenderSystem::renderLightBillboards(FrameInfo &frameInfo) {
   billboardPipeline->bind(frameInfo.commandBuffer);
