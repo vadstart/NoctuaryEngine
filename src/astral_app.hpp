@@ -32,8 +32,6 @@ namespace nt
 		void run();
 
 	private:
-    void loadGameObjects();
-
     // Helper functions
     std::unique_ptr<NtModel> createModelFromFile(const std::string &filepath) {
         return NtModel::createModelFromFile(
@@ -58,7 +56,6 @@ namespace nt
     NtShadowMap shadowMap{ntDevice, 1024, 1024};
     VkDescriptorSet imguiShadowMapTexture = VK_NULL_HANDLE;
 
-    NtGameObject::Map gameObjects;
     NtAstral Astral;
 	};
 }

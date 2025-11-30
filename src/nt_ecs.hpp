@@ -280,16 +280,16 @@ public:
 class NtSystemManager
 {
 public:
-    template<typename T>
-    std::shared_ptr<T> RegisterSystem()
+    template<typename T, typename... Args>
+    std::shared_ptr<T> RegisterSystem(Args&&... args)
     {
         std::type_index typeIndex(typeid(T));
 
         assert(systems.find(typeIndex) == systems.end() && "Registering system more than once");
 
         // Create a pointer to the system and return it so it can be used externally
-        auto system = std::make_shared<T>();
-        systems.insert({typeIndex, system});
+        auto system = std::make_shared<T>(std::forward<Args>(args)...);
+        systems.insert({typeIndex,  std::static_pointer_cast<NtSystem>(system)});
         return system;
     }
 
@@ -445,10 +445,10 @@ public:
     }
 
     // System methods
-    template<typename T>
-    std::shared_ptr<T> RegisterSystem()
+    template<typename T, typename... Args>
+    std::shared_ptr<T> RegisterSystem(Args&&... args)
     {
-        return systemManager->RegisterSystem<T>();
+        return systemManager->RegisterSystem<T>(std::forward<Args>(args)...);
     }
 
     template<typename T>

@@ -1,11 +1,21 @@
-#include "nt_camera.hpp"
+#include "nt_camera_system.hpp"
 
 #include <cassert>
 #include <glm/ext/matrix_clip_space.hpp>
 
 namespace nt {
 
-void NtCamera::setPerspectiveProjection(float fovy, float aspect, float near, float far) {
+CameraSystem::CameraSystem(NtAstral *astral_ptr)
+{
+    astral = astral_ptr;
+
+    // Onlyu care about the first camera for now
+    for (auto const& entity : entities)
+        auto const& camera = astral->GetComponent<cCamera>(entity);
+    setPerspectiveProjection(camera.fov, camera.aspect, camera.near, camera.far);
+}
+
+void CameraSystem::setPerspectiveProjection(float fovy, float aspect, float near, float far) {
   assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) && "Camera aspect ratio must be non-zero and finite");
   const float tanHalfFovy = tan(fovy / 2.f);
   projectionMatrix = glm::mat4{0.0f};
@@ -16,7 +26,7 @@ void NtCamera::setPerspectiveProjection(float fovy, float aspect, float near, fl
   projectionMatrix[3][2] = -(far * near) / (far - near);
 }
 
-void NtCamera::setViewDirection(glm::vec3 position, glm::vec3 direction, glm::vec3 up) {
+void CameraSystem::setViewDirection(glm::vec3 position, glm::vec3 direction, glm::vec3 up) {
   assert(glm::length(direction) > std::numeric_limits<float>::epsilon() && "Camera direction must be non-zero");
   assert(glm::length(up) > std::numeric_limits<float>::epsilon() && "Camera up vector must be non-zero");
   float dot = glm::abs(glm::dot(glm::normalize(direction), glm::normalize(up)));
@@ -55,11 +65,11 @@ void NtCamera::setViewDirection(glm::vec3 position, glm::vec3 direction, glm::ve
   inverseViewMatrix[3][2] = position.z;
 }
 
-void NtCamera::setViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up) {
+void CameraSystem::setViewTarget(glm::vec3 position, glm::vec3 target, glm::vec3 up) {
   setViewDirection(position, target - position, up);
 }
 
-void NtCamera::setViewYXZ(glm::vec3 position, glm::vec3 rotation) {
+void CameraSystem::setViewYXZ(glm::vec3 position, glm::vec3 rotation) {
   const float c3 = glm::cos(rotation.z);
   const float s3 = glm::sin(rotation.z);
   const float c2 = glm::cos(rotation.x);
@@ -96,6 +106,14 @@ void NtCamera::setViewYXZ(glm::vec3 position, glm::vec3 rotation) {
   inverseViewMatrix[3][0] = position.x;
   inverseViewMatrix[3][1] = position.y;
   inverseViewMatrix[3][2] = position.z;
+}
+
+void CameraSystem::update()
+{
+    // if (!camControlType)
+    //     setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
+    // else
+        setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
 }
 
 }

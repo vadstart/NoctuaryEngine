@@ -1,11 +1,12 @@
 #include "astral_app.hpp"
-#include "generic_render_system.hpp"
-#include "nt_camera.hpp"
+#include "nt_camera_system.hpp"
 #include "nt_buffer.hpp"
 #include "nt_descriptors.hpp"
 #include "nt_frame_info.hpp"
 #include "nt_image.hpp"
 #include "nt_input.hpp"
+#include "nt_light_system.hpp"
+#include "nt_render_system.hpp"
 #include "nt_types.hpp"
 #include "nt_utils.hpp"
 #include "nt_components.hpp"
@@ -15,6 +16,7 @@
 #include <glm/fwd.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <iostream>
+#include <ostream>
 
 #include "imgui/imgui.h"
 #include "imgui/backends/imgui_impl_glfw.h"
@@ -116,9 +118,8 @@ AstralApp::~AstralApp() {
 
 void AstralApp::run()
 {
-//  Rendering System, buffers and descriptorSets
-    GenericRenderSystem genericRenderSystem(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
-        modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
+//  Buffers and descriptorSets
+
 
     GlobalUbo ubo{};
     std::vector<std::unique_ptr<NtBuffer>> uboBuffers(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
@@ -151,6 +152,8 @@ void AstralApp::run()
 // ⌛
     auto currentTime = std::chrono::high_resolution_clock::now();
 
+std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
+
 // ECS
     Astral.Init();
 
@@ -162,18 +165,34 @@ void AstralApp::run()
     Astral.RegisterComponent<cPlayerController>();
 
     // System setup
+    // GenericRenderSystem genericRenderSystem(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
+    //     modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
     auto debugSystem = Astral.RegisterSystem<DebugSystem>();
+    NtSignature debugSignature;
+    debugSignature.set(Astral.GetComponentType<cName>());
+    Astral.SetSystemSignature<DebugSystem>(debugSignature);
 
-    NtSignature signature;
-    signature.set(Astral.GetComponentType<cName>());
-    Astral.SetSystemSignature<DebugSystem>(signature);
+    auto renderSystem = Astral.RegisterSystem<RenderSystem>(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
+            modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
+    NtSignature renderSignature;
+    renderSignature.set(Astral.GetComponentType<cModel>());
+    Astral.SetSystemSignature<RenderSystem>(renderSignature);
+
+    auto lightSystem = Astral.RegisterSystem<LightSystem>();
+    NtSignature lightSignature;
+    lightSignature.set(Astral.GetComponentType<cLight>());
+    Astral.SetSystemSignature<LightSystem>(lightSignature);
+
+    auto cameraSystem = Astral.RegisterSystem<CameraSystem>();
+    NtSignature cameraSignature;
+    cameraSignature.set(Astral.GetComponentType<cCamera>());
+    Astral.SetSystemSignature<CameraSystem>(cameraSignature);
 
     // Spawning entities
-    // NtEntity Camera = Astral.CreateEntity();
-    // Astral.AddComponent(MoonlitCafe,
-    //     Transform{ glm::vec3(0.0f), glm::vec3(0.0f) });
-    // Astral.AddComponent(MoonlitCafe,
-    //     Camera{});
+    auto Camera = Astral.CreateEntity();
+    Camera.AddComponent(cName{"Camera"})
+        .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(-12.5f, -7.8f, -10.8f) })
+        .AddComponent(cCamera{ glm::radians(65.f), ntRenderer.getAspectRatio(), 0.1f, 1000.f });
 
     auto MoonlitCafe = Astral.CreateEntity();
     MoonlitCafe.AddComponent(cName{"MoonlitCafe"})
@@ -188,29 +207,15 @@ void AstralApp::run()
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true })
         .AddComponent(cPlayerController{5.0f, 10.0f});
 
+    auto SunShadowCaster = Astral.CreateEntity();
+    SunShadowCaster.AddComponent(cName{"Light.Sun"})
+        .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(1.0f, 1.0f, 0.5f) })
+        .AddComponent(cLight{1.0f, glm::vec3(0.5f, 0.35f, 0.33f), eLightType::Directional });
+
     auto BarLight = Astral.CreateEntity();
     BarLight.AddComponent(cName{"Light.Bar"})
         .AddComponent(cTransform{ glm::vec3(3.5f, -7.5f, -7.2f) })
         .AddComponent(cLight{100.0f, glm::vec3(1.0f, 0.65f, 0.33f) });
-
-    auto SunShadowCaster = Astral.CreateEntity();
-    SunShadowCaster.AddComponent(cName{"Light.Sun"})
-        .AddComponent(cLight{50.0f, glm::vec3(0.5f, 0.35f, 0.33f), eLightType::Directional });
-
-    loadGameObjects();
-
-//  CAMERA SETUP
-    NtCamera camera{};
-    auto viewerObject = NtGameObject::createGameObject("Camera");
-    viewerObject.transform.rotation = {-0.7f, 4.1f, 0.0f};
-    viewerObject.transform.translation = {-12.5f, -7.8f, -10.8f};
-    auto targetObject = NtGameObject::createGameObject("Camera Target");
-    targetObject.transform.translation = {-0.1f, -0.5f, 0};
-    NtInputController inputController{};
-    inputController.setDistance(15.0f);
-    static int camControlType = 1;
-    float aspect = ntRenderer.getAspectRatio();
-    camera.setPerspectiveProjection(glm::radians(65.f), aspect, 0.1f, 1000.f);
 
 //  Debug stuff
     imguiShadowMapTexture = ImGui_ImplVulkan_AddTexture(
@@ -284,29 +289,11 @@ void AstralApp::run()
 
         ImGui::Text("Current FPS: %.1f", io.Framerate);
 
-
-        const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "TangentNormals", "Depth", "Lighting", "LitWireframe", "Wireframe" };
-        static int renderModeCurrent = 0;
-        ImGui::Combo("##RenderMode", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
-        ImGui::SetItemTooltip("View mode");
-        genericRenderSystem.switchRenderMode(static_cast<RenderMode>(renderModeCurrent));
-
-        // ImGui::SetNextItemOpen(true, ImGuiCond_Once);
-        if (ImGui::TreeNode("Camera"))
-        {
-
-          if (ImGui::Button("Reset")) {
-              targetObject.transform.translation = {-0.05f, -.3f, 0.0f};
-          }
-
-          ImGui::RadioButton("FPS", &camControlType, 0); ImGui::SameLine();
-          ImGui::RadioButton("Orbit", &camControlType, 1);
-
-          ImGui::Text("Position: %.1f %.1f %.1f", viewerObject.transform.translation.x, viewerObject.transform.translation.y, viewerObject.transform.translation.z);
-          ImGui::Text("Rotation: %.1f %.1f %.1f", viewerObject.transform.rotation.x, viewerObject.transform.rotation.y, viewerObject.transform.rotation.z);
-
-          ImGui::TreePop();
-        }
+        // const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "TangentNormals", "Depth", "Lighting", "LitWireframe", "Wireframe" };
+        // static int renderModeCurrent = 0;
+        // ImGui::Combo("##RenderMode", &renderModeCurrent, renderModeItems, IM_ARRAYSIZE(renderModeItems));
+        // ImGui::SetItemTooltip("View mode");
+        // genericRenderSystem.switchRenderMode(static_cast<RenderMode>(renderModeCurrent));
 
         if (ImGui::TreeNode("Gamepad")) {
             if (inputController.gamepadConnected) {
@@ -398,15 +385,6 @@ void AstralApp::run()
           double xpos, ypos;
           glfwGetCursorPos(ntWindow.getGLFWwindow(), &xpos, &ypos);
           ImGui::Text("Mouse: X %.1f | Y %.1f", xpos, ypos);
-
-          uint32_t totalMeshCount = 0;
-          for (const auto& kv : gameObjects) {
-            auto &gobject = kv.second;
-            if (gobject.model) {
-              totalMeshCount += gobject.model->getMeshCount();
-            }
-          }
-          ImGui::Text("Mesh count: %u", totalMeshCount);
 
           ImGui::TreePop();
         }
@@ -551,10 +529,7 @@ void AstralApp::run()
     );
 
 // Camera update
-    if (!camControlType)
-        camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-    else camera.setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
-    // ---
+    cameraSystem.update();
 
 // EVERY FRAME
     if (auto commandBuffer = ntRenderer.beginFrame()) {
@@ -563,9 +538,7 @@ void AstralApp::run()
         frameIndex,
         deltaTime,
         commandBuffer,
-        camera,
-        globalDescriptorSets[frameIndex],
-        gameObjects
+        globalDescriptorSets[frameIndex]
       };
 
     // UBO
@@ -574,7 +547,7 @@ void AstralApp::run()
       ubo.view = camera.getView();
       ubo.inverseView = camera.getInverseView();
       // Lighting
-      genericRenderSystem.updateLights(frameInfo, ubo, OrthoDir, OrthoScale, OrthoNear, OrthoFar);
+      lightSystem->updateLights(Astral, frameInfo, ubo, OrthoDir, OrthoScale, OrthoNear, OrthoFar);
 
       uboBuffers[frameIndex]->writeToBuffer(&ubo);
       uboBuffers[frameIndex]->flush();
@@ -594,18 +567,18 @@ void AstralApp::run()
       // PASS 1: Render shadow map
       ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
 
-        genericRenderSystem.switchRenderMode(RenderMode::ShadowMap);
+        renderSystem->switchRenderMode(RenderMode::ShadowMap);
         vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
-        genericRenderSystem.renderGameObjects(frameInfo);
+        renderSystem->renderGameObjects(Astral, frameInfo);
 
       ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
 
       // PASS 2: Sample from it and render main scene
       ntRenderer.beginMainRendering(commandBuffer);
 
-        genericRenderSystem.switchRenderMode(RenderMode::Lit);
-        genericRenderSystem.renderGameObjects(frameInfo);
-        genericRenderSystem.renderLightBillboards(frameInfo);
+        renderSystem->switchRenderMode(RenderMode::Lit);
+        renderSystem->renderGameObjects(Astral, frameInfo);
+        // genericRenderSystem.renderLightBillboards(frameInfo);
 
         if (ntWindow.getShowImGUI()) {
             ImGui::Render();
@@ -625,53 +598,6 @@ void AstralApp::run()
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
-}
-
-void AstralApp::loadGameObjects() {
-  auto go_MoonlitCafe = NtGameObject::createGameObject("Cafe Interior");
-  go_MoonlitCafe.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf"),
-      modelSetLayout->getDescriptorSetLayout(),
-      modelPool->getDescriptorPool());
-  go_MoonlitCafe.transform.rotation = {glm::radians(90.0f), 0.0f, 0.0f};
-  gameObjects.emplace(go_MoonlitCafe.getId(), std::move(go_MoonlitCafe));
-
-  auto go_Cassandra = NtGameObject::createGameObject("Cassandra", true);
-  go_Cassandra.model = NtModel::createModelFromFile(ntDevice, getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"),
-      modelSetLayout->getDescriptorSetLayout(),
-      modelPool->getDescriptorPool(),
-      boneSetLayout->getDescriptorSetLayout(),
-      bonePool->getDescriptorPool());
-  go_Cassandra.transform.translation = {0.0f, -1.5f, 0.0f};
-  go_Cassandra.transform.rotation = {glm::radians(90.0f), glm::radians(90.0f), 0.0f};
-  // go_Cassandra.transform.scale = {0.85f, 0.85f, 0.85f};
-  if (go_Cassandra.model->hasSkeleton()) {
-      go_Cassandra.animator = std::make_unique<NtAnimator>(*go_Cassandra.model);
-
-      go_Cassandra.animator->play("Idle", true);
-  }
-  gameObjects.emplace(go_Cassandra.getId(), std::move(go_Cassandra));
-
-  // Create light sprite texture
-  std::shared_ptr<NtImage> lightSpriteTexture = NtImage::createTextureFromFile(ntDevice, getAssetPath("assets/sprites/light.png"));
-
-  auto PointLight1 = NtGameObject::makePointLight(100.0f, glm::vec3(1.0, 0.65, 0.33));
-  PointLight1.transform.translation = {3.5f, -7.5f, -7.2f};
-  // PointLight1.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  gameObjects.emplace(PointLight1.getId(), std::move(PointLight1));
-
-  // auto PointLight2 = NtGameObject::makePointLight(75.0f, 0.0f, glm::vec3(1.0, 0.3, 0.03));
-  // PointLight2.transform.translation = {13.0f, -4.2f, 9.9f};
-  // PointLight2.model = createBillboardQuadWithTexture(1.0f, lightSpriteTexture);
-  // gameObjects.emplace(PointLight2.getId(), std::move(PointLight2));
-
-  // // Shadow caster
-  auto directionalLight = NtGameObject::createGameObject("Sunlight");
-  directionalLight.transform.rotation = glm::vec3(1.0f, 1.0f, 0.5f);
-  directionalLight.color = glm::vec3(0.2f, 0.7f, 0.9f);
-  directionalLight.pointLight = std::make_unique<PointLightComponent>();
-  directionalLight.pointLight->lightIntensity = 1.0f;
-  directionalLight.pointLight->lightType = 2;
-  gameObjects.emplace(directionalLight.getId(), std::move(directionalLight));
 }
 
 }

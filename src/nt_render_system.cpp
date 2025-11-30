@@ -1,10 +1,10 @@
-#include "generic_render_system.hpp"
-#include "imgui/imgui.h"
+#include "nt_render_system.hpp"
 #include "nt_device.hpp"
 #include "nt_frame_info.hpp"
 #include "nt_pipeline.hpp"
 #include "nt_swap_chain.hpp"
 #include "nt_types.hpp"
+
 #include "vulkan/vulkan_core.h"
 #include <cstdint>
 #include <glm/fwd.hpp>
@@ -33,29 +33,33 @@ struct PointLightPushConstants {
 struct NtPushConstantData {
   alignas(16) glm::mat4 modelMatrix{1.f};
   alignas(16) glm::mat4 normalMatrix{1.f};
+
   alignas(8) glm::vec2 uvScale{1.0f, 1.0f};
   alignas(8) glm::vec2 uvOffset{0.0f, 0.0f};
   alignas(4) float uvRotation{0.0f};
+
   alignas(4) int hasNormalTexture{0};
   alignas(4) int hasMetallicRoughnessTexture{0};
   alignas(4) float metallicFactor{1.0f};
   alignas(4) float roughnessFactor{1.0f};
+
   alignas(16) glm::vec3 lightColor{1.0f, 1.0f, 1.0f};
   alignas(4) float lightIntensity{1.0f};
+
   alignas(4) float billboardSize{1.0f};
   alignas(4) int isAnimated{0};
 };
 
-GenericRenderSystem::GenericRenderSystem(NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
+RenderSystem::RenderSystem(NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
     VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout) : ntDevice{device} {
   createPipelineLayout(globalSetLayout, modelSetLayout, boneSetLayout);
   createPipelines(swapChain);
 }
-GenericRenderSystem::~GenericRenderSystem() {
+RenderSystem::~RenderSystem() {
   vkDestroyPipelineLayout(ntDevice.device(), pipelineLayout, nullptr);
 }
 
-void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout) {
+void RenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLayout, VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout) {
 
   VkPushConstantRange pushConstantRange{};
   pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -80,7 +84,7 @@ void GenericRenderSystem::createPipelineLayout(VkDescriptorSetLayout globalSetLa
   }
 }
 
-void GenericRenderSystem::createPipelines(NtSwapChain &swapChain) {
+void RenderSystem::createPipelines(NtSwapChain &swapChain) {
     assert(pipelineLayout != nullptr && "Cannot create pipeline before pipeline layout");
 
     // SHADOW MAP
@@ -172,73 +176,8 @@ void GenericRenderSystem::createPipelines(NtSwapChain &swapChain) {
         "shaders/billboard.frag.spv");
 }
 
-void GenericRenderSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, glm::vec3 O_dir, float O_scale, float O_near, float O_far) {
-  int lightIndex = 0;
-  for (auto& kv: frameInfo.gameObjects) {
-    auto &obj = kv.second;
-    if (obj.pointLight == nullptr) continue;
-
-    assert(lightIndex < MAX_LIGHTS && "Point lights exceed maximum specified!");
-
-    // copy the light to ubo
-    if (obj.pointLight->lightType != 2)
-        ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.translation, 1.f);
-    else ubo.pointLights[lightIndex].position = glm::vec4(obj.transform.rotation, 1.f); // We only care about the rotation of directional light
-    ubo.pointLights[lightIndex].color = glm::vec4(obj.color, obj.pointLight->lightIntensity);
-    ubo.pointLights[lightIndex].lightType = obj.pointLight->lightType;
-
-    // Shadows (computing light space matrix)
-    if (lightIndex == 0) {
-        int shadowCasterIndex = 0;
-
-            switch(ubo.pointLights[0].lightType) {
-                case 2: // DIRECTIONAL
-                  glm::vec3 lightPos = glm::vec3(ubo.pointLights[shadowCasterIndex].position);
-                  // glm::vec3 lightDir = glm::normalize(lightPos); // For directional, position represents direction
-                  glm::vec3 sceneCenter = glm::vec3(0.0f, 0.0f, 0.0f);
-                  glm::vec3 lightDir = glm::normalize(O_dir);
-
-                  // Use standard up vector
-                    glm::vec3 upVector = glm::vec3(0.0f, 1.0f, 0.0f);
-                    // Avoid gimbal lock if light direction is parallel to up
-                    if (abs(glm::dot(lightDir, upVector)) > 0.99f) {
-                        upVector = glm::vec3(1.0f, 0.0f, 0.0f);
-                    }
-
-                  // Store light direction for shader
-                  ubo.shadowLightDirection = glm::vec4(lightDir, static_cast<float>(eLightType::Directional));
-
-                  glm::mat4 lightViewMatrix = glm::lookAt(lightDir, sceneCenter, upVector);
-
-                  // Vulcan clip space correction matrix
-                  // Converts from OpenGL [-1, 1] to Vulkan [0, 1] depth and flips Y
-                  glm::mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-                                             0.0f,-1.0f, 0.0f, 0.0f,    // Flip Y
-                                             0.0f, 0.0f, 0.5f, 0.0f,    // Scale Z from [-1, 1] to [0, 1]
-                                             0.0f, 0.0f, 0.5f, 1.0f);   // Translate Z
-
-                  float orthoSize = O_scale;
-                  glm::mat4 lightProjection = clip * glm::ortho(
-                      -orthoSize, orthoSize,
-                      -orthoSize, orthoSize,
-                      O_near, O_far
-                  );
-                  lightProjection[1][1] *= -1;
-
-                  ubo.lightSpaceMatrix = lightProjection * lightViewMatrix;
-                break;
-        }
-
-        }
-
-    lightIndex += 1;
-  }
-  ubo.numLights = lightIndex;
-
-}
-
-void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
-
+void RenderSystem::renderGameObjects(NtAstral &astral, FrameInfo &frameInfo)
+{
   switch (currentRenderMode) {
         case nt::RenderMode::ShadowMap:
             shadowMapPipeline->bind(frameInfo.commandBuffer);
@@ -257,16 +196,19 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
     &frameInfo.globalDescriptorSet,
     0, nullptr);
 
-  for (auto& kv: frameInfo.gameObjects) {
-    auto& obj = kv.second;
-    if (obj.model == nullptr || obj.pointLight != nullptr || obj.isCharacter || currentRenderMode == nt::RenderMode::ShadowMap) continue;
+  for (auto const& entity : entities)
+  {
+    auto& transform = astral.GetComponent<cTransform>(entity);
+    const auto& model = astral.GetComponent<cModel>(entity);
+
+    if (currentRenderMode == RenderMode::ShadowMap && !model.bDropShadow) continue;
 
     // Render each mesh with its own material
-    const auto& materials = obj.model->getMaterials();
-    for (uint32_t meshIndex = 0; meshIndex < obj.model->getMeshCount(); ++meshIndex) {
-
+    const auto& materials = model.mesh->getMaterials();
+    for (uint32_t meshIndex = 0; meshIndex < model.mesh->getMeshCount(); ++meshIndex)
+    {
       // Bind the material descriptor set for this specific mesh
-      uint32_t materialIndex = obj.model->getMaterialIndex(meshIndex);
+      uint32_t materialIndex = model.mesh->getMaterialIndex(meshIndex);
       if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
         VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
         vkCmdBindDescriptorSets(
@@ -279,12 +221,12 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
       }
 
       NtPushConstantData push{};
-      push.modelMatrix = obj.transform.mat4();
-      push.normalMatrix = obj.transform.normalMatrix();
-      push.isAnimated = obj.animator != nullptr ? 1 : 0;
+      push.modelMatrix = transform.mat4();
+      push.normalMatrix = transform.normalMatrix();
+      push.isAnimated = false;
+      // push.isAnimated = obj.animator != nullptr ? 1 : 0;
 
       // Get the material for this specific mesh
-      if (materials.size() > materialIndex) {
         push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
         push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
         push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
@@ -292,15 +234,6 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
         push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
         push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
         push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
-      } else {
-        push.uvScale = glm::vec2(1.0f);
-        push.uvOffset = glm::vec2(0.0f);
-        push.uvRotation = 0.0f;
-        push.hasNormalTexture = 0;
-        push.hasMetallicRoughnessTexture = 0;
-        push.metallicFactor = 1.0f;
-        push.roughnessFactor = 1.0f;
-      }
 
       vkCmdPushConstants(
         frameInfo.commandBuffer,
@@ -310,15 +243,15 @@ void GenericRenderSystem::renderGameObjects(FrameInfo &frameInfo) {
         sizeof(NtPushConstantData),
         &push);
 
-      obj.model->bind(frameInfo.commandBuffer, meshIndex);
-      obj.model->draw(frameInfo.commandBuffer, meshIndex);
+      model.mesh->bind(frameInfo.commandBuffer, meshIndex);
+      model.mesh->draw(frameInfo.commandBuffer, meshIndex);
     }
   }
 
 //===================================================
 //  Character stylized Pipeline
 //===================================================
-if(currentRenderMode != nt::RenderMode::ShadowMap)
+/*if(currentRenderMode != nt::RenderMode::ShadowMap)
     unlitPipeline->bind(frameInfo.commandBuffer);
 
 vkCmdBindDescriptorSets(
@@ -400,7 +333,7 @@ for (auto& kv: frameInfo.gameObjects) {
         obj.model->bind(frameInfo.commandBuffer, meshIndex);
         obj.model->draw(frameInfo.commandBuffer, meshIndex);
     }
-    }
+    }*/
 
 //===================================================
 //  Visualize Wireframe ON TOP of regular rendering
@@ -448,58 +381,58 @@ for (auto& kv: frameInfo.gameObjects) {
 
 }
 
-void GenericRenderSystem::renderLightBillboards(FrameInfo &frameInfo) {
-  billboardPipeline->bind(frameInfo.commandBuffer);
+// void GenericRenderSystem::renderLightBillboards(FrameInfo &frameInfo) {
+//   billboardPipeline->bind(frameInfo.commandBuffer);
 
-  vkCmdBindDescriptorSets(
-    frameInfo.commandBuffer,
-    VK_PIPELINE_BIND_POINT_GRAPHICS,
-    pipelineLayout,
-    0, 1,
-    &frameInfo.globalDescriptorSet,
-    0, nullptr);
+//   vkCmdBindDescriptorSets(
+//     frameInfo.commandBuffer,
+//     VK_PIPELINE_BIND_POINT_GRAPHICS,
+//     pipelineLayout,
+//     0, 1,
+//     &frameInfo.globalDescriptorSet,
+//     0, nullptr);
 
-  for (auto& kv: frameInfo.gameObjects) {
-    auto& obj = kv.second;
-    if (obj.pointLight == nullptr || obj.model == nullptr) continue;
+//   for (auto& kv: frameInfo.gameObjects) {
+//     auto& obj = kv.second;
+//     if (obj.pointLight == nullptr || obj.model == nullptr) continue;
 
-    // Bind the material descriptor set for the billboard texture
-    const auto& materials = obj.model->getMaterials();
-    if (materials.size() > 0 && materials[0]->getDescriptorSet() != VK_NULL_HANDLE) {
-      VkDescriptorSet materialDescriptorSet = materials[0]->getDescriptorSet();
-      vkCmdBindDescriptorSets(
-        frameInfo.commandBuffer,
-        VK_PIPELINE_BIND_POINT_GRAPHICS,
-        pipelineLayout,
-        1, 1,
-        &materialDescriptorSet,
-        0, nullptr);
-    }
+//     // Bind the material descriptor set for the billboard texture
+//     const auto& materials = obj.model->getMaterials();
+//     if (materials.size() > 0 && materials[0]->getDescriptorSet() != VK_NULL_HANDLE) {
+//       VkDescriptorSet materialDescriptorSet = materials[0]->getDescriptorSet();
+//       vkCmdBindDescriptorSets(
+//         frameInfo.commandBuffer,
+//         VK_PIPELINE_BIND_POINT_GRAPHICS,
+//         pipelineLayout,
+//         1, 1,
+//         &materialDescriptorSet,
+//         0, nullptr);
+//     }
 
-    NtPushConstantData push{};
-    push.modelMatrix = obj.transform.mat4();
-    push.normalMatrix = obj.transform.normalMatrix();
-    push.hasNormalTexture = 0;
-    push.hasMetallicRoughnessTexture = 0;
-    push.metallicFactor = 1.0f;
-    push.roughnessFactor = 1.0f;
-    push.lightColor = obj.color;
-    push.lightIntensity = obj.pointLight->lightIntensity;
-    push.billboardSize = 0.5f; // Default billboard size
+//     NtPushConstantData push{};
+//     push.modelMatrix = obj.transform.mat4();
+//     push.normalMatrix = obj.transform.normalMatrix();
+//     push.hasNormalTexture = 0;
+//     push.hasMetallicRoughnessTexture = 0;
+//     push.metallicFactor = 1.0f;
+//     push.roughnessFactor = 1.0f;
+//     push.lightColor = obj.color;
+//     push.lightIntensity = obj.pointLight->lightIntensity;
+//     push.billboardSize = 0.5f; // Default billboard size
 
-    vkCmdPushConstants(
-      frameInfo.commandBuffer,
-      pipelineLayout,
-      VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-      0,
-      sizeof(NtPushConstantData),
-      &push);
+//     vkCmdPushConstants(
+//       frameInfo.commandBuffer,
+//       pipelineLayout,
+//       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+//       0,
+//       sizeof(NtPushConstantData),
+//       &push);
 
-    obj.model->drawAll(frameInfo.commandBuffer);
-  }
-}
+//     obj.model->drawAll(frameInfo.commandBuffer);
+//   }
+// }
 
-void GenericRenderSystem::switchRenderMode(RenderMode newRenderMode) {
+void RenderSystem::switchRenderMode(RenderMode newRenderMode) {
   currentRenderMode = newRenderMode;
 }
 
