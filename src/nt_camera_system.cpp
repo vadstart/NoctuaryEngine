@@ -1,29 +1,23 @@
 #include "nt_camera_system.hpp"
+#include "glm/trigonometric.hpp"
+#include "nt_components.hpp"
 
 #include <cassert>
 #include <glm/ext/matrix_clip_space.hpp>
 
 namespace nt {
 
-CameraSystem::CameraSystem(NtAstral *astral_ptr)
-{
-    astral = astral_ptr;
+void CameraSystem::setPerspectiveProjection() {
+    auto const& camera = astral->GetComponent<cCamera>(*entities.begin());
 
-    // Onlyu care about the first camera for now
-    for (auto const& entity : entities)
-        auto const& camera = astral->GetComponent<cCamera>(entity);
-    setPerspectiveProjection(camera.fov, camera.aspect, camera.near, camera.far);
-}
-
-void CameraSystem::setPerspectiveProjection(float fovy, float aspect, float near, float far) {
-  assert(glm::abs(aspect - std::numeric_limits<float>::epsilon()) && "Camera aspect ratio must be non-zero and finite");
-  const float tanHalfFovy = tan(fovy / 2.f);
-  projectionMatrix = glm::mat4{0.0f};
-  projectionMatrix[0][0] = 1.f / (aspect * tanHalfFovy);
-  projectionMatrix[1][1] = 1.f / (tanHalfFovy);
-  projectionMatrix[2][2] = far / (far - near);
-  projectionMatrix[2][3] = 1.f;
-  projectionMatrix[3][2] = -(far * near) / (far - near);
+    assert(glm::abs(camera.aspect - std::numeric_limits<float>::epsilon()) && "Camera aspect ratio must be non-zero and finite");
+    const float tanHalfFovy = tan(glm::radians(camera.fov) / 2.f);
+    projectionMatrix = glm::mat4{0.0f};
+    projectionMatrix[0][0] = 1.f / (camera.aspect * tanHalfFovy);
+    projectionMatrix[1][1] = 1.f / (tanHalfFovy);
+    projectionMatrix[2][2] = camera.far_clip / (camera.far_clip - camera.near_clip);
+    projectionMatrix[2][3] = 1.f;
+    projectionMatrix[3][2] = -(camera.far_clip * camera.near_clip) / (camera.far_clip - camera.near_clip);
 }
 
 void CameraSystem::setViewDirection(glm::vec3 position, glm::vec3 direction, glm::vec3 up) {
@@ -110,10 +104,20 @@ void CameraSystem::setViewYXZ(glm::vec3 position, glm::vec3 rotation) {
 
 void CameraSystem::update()
 {
-    // if (!camControlType)
-    //     setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
-    // else
-        setViewTarget(viewerObject.transform.translation, targetObject.transform.translation);
+    // Only care about the first camera for now
+    assert(!entities.empty() && "No entities found in the Camera System");
+
+    auto const& transform = astral->GetComponent<cTransform>(*entities.begin());
+    auto& camera = astral->GetComponent<cCamera>(*entities.begin());
+
+    if (camera.projectionDirty) {
+        setPerspectiveProjection();
+        camera.projectionDirty = false;
+    }
+
+    glm::vec3 cameraPos = { camera.position.translation.x, camera.position.translation.y, camera.position.translation.z };
+    glm::vec3 targetPos = { transform.translation.x + camera.offset.x, transform.translation.y + camera.offset.y, transform.translation.z + camera.offset.z };
+    setViewTarget(cameraPos, targetPos);
 }
 
 }

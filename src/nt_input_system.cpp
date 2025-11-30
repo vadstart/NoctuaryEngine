@@ -1,4 +1,4 @@
-#include "nt_input.hpp"
+#include "nt_input_system.hpp"
 #include "nt_game_object.hpp"
 #include "nt_types.hpp"
 #include <glm/geometric.hpp>
@@ -8,24 +8,24 @@
 
 namespace nt {
 
-void NtInputController::update(NtWindow* ntWindow, NtGameObject& gameObject, NtGameObject& targetObject, float dt, float mouseScrollY,
-    CameraControlType camControlType)
+void InputSystem::update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity)
 {
-    checkGamepadConnection();
+    // checkGamepadConnection();
 
-    if (camControlType == CameraControlType::FPS) {
-        updateCamFPS(ntWindow, gameObject, dt);
-        if (gamepadConnected) {
-            updateCamFPSGamepad(gameObject, dt);
-        }
-    } else {
-        updateCamOrbit(ntWindow, gameObject, targetObject, dt, mouseScrollY);
-        if (gamepadConnected) {
-            updateCamOrbitGamepad(gameObject, targetObject, dt);
-        }
-    }
+    // if (camControlType == CameraControlType::FPS) {
+    //     updateCamFPS(ntWindow, gameObject, dt);
+    //     if (gamepadConnected) {
+    //         updateCamFPSGamepad(gameObject, dt);
+    //     }
+    // } else {
+        updateCamOrbit(ntWindow, dt, mouseScrollY, camEntity);
+    //     if (gamepadConnected) {
+    //         updateCamOrbitGamepad(gameObject, targetObject, dt);
+    //     }
+    // }
 }
 
+/*
 void NtInputController::updateCamFPS(NtWindow* ntWindow, NtGameObject& cameraObject, float dt) {
     GLFWwindow* window = ntWindow->getGLFWwindow();
 
@@ -73,9 +73,9 @@ void NtInputController::updateCamFPS(NtWindow* ntWindow, NtGameObject& cameraObj
     if (glm::dot(moveDir, moveDir) > std::numeric_limits<float>::epsilon()) {
       cameraObject.transform.translation += moveSpeed * dt * glm::normalize(moveDir);
     }
-}
+    }*/
 
-void NtInputController::updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraObject, NtGameObject& targetObject, float dt, float mouseScrollY) {
+void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity) {
     GLFWwindow* window = ntWindow->getGLFWwindow();
     // ROTATION
     // - Mouse
@@ -92,32 +92,35 @@ void NtInputController::updateCamOrbit(NtWindow* ntWindow, NtGameObject& cameraO
     bool alt = glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS;;
     bool shift = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
 
+    auto& transform = astral->GetComponent<cTransform>(camEntity);
+    auto& camera = astral->GetComponent<cCamera>(camEntity);
+
     if (middleMouse || alt) {
-        if (shift) {
-        // Pan the target point
-        glm::vec3 right = glm::vec3{glm::cos(cameraObject.transform.rotation.y), 0, -glm::sin(cameraObject.transform.rotation.y)};
-        glm::vec3 up = glm::vec3{0, 1, 0};
-        targetObject.transform.translation -= -right * deltaX * panSpeed + up * deltaY * panSpeed;
-        } else {
+        // if (shift) {
+        // // Pan the target point
+        // glm::vec3 right = glm::vec3{glm::cos(cameraObject.transform.rotation.y), 0, -glm::sin(cameraObject.transform.rotation.y)};
+        // glm::vec3 up = glm::vec3{0, 1, 0};
+        // targetObject.transform.translation -= -right * deltaX * panSpeed + up * deltaY * panSpeed;
+        // } else {
         // Orbit around the target
-        cameraObject.transform.rotation.y += deltaX * orbitSpeed;
-        cameraObject.transform.rotation.y = glm::mod(cameraObject.transform.rotation.y, glm::two_pi<float>());
-        cameraObject.transform.rotation.x -= deltaY * orbitSpeed;
-        cameraObject.transform.rotation.x = glm::clamp(cameraObject.transform.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
-        }
+        camera.position.rotation.y += deltaX * orbitSpeed;
+        camera.position.rotation.y = glm::mod(camera.position.rotation.y, glm::two_pi<float>());
+        camera.position.rotation.x -= deltaY * orbitSpeed;
+        camera.position.rotation.x = glm::clamp(camera.position.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
+        // }
     }
 
     // Zoom (scroll wheel)
-    distance -= mouseScrollY * zoomSpeed;
-    distance = glm::clamp(distance, 0.5f, 100.0f);
+    camera.offset.w -= mouseScrollY * zoomSpeed;
+    camera.offset.w = glm::clamp(camera.offset.w, 0.5f, 100.0f);
 
     // Convert spherical to Cartesian coordinates
-    float usedDistance = distance;
-    cameraObject.transform.translation.x = targetObject.transform.translation.x + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::sin(cameraObject.transform.rotation.y);
-    cameraObject.transform.translation.y = targetObject.transform.translation.y + usedDistance * glm::sin(cameraObject.transform.rotation.x);
-    cameraObject.transform.translation.z = targetObject.transform.translation.z + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::cos(cameraObject.transform.rotation.y);
+    camera.position.translation.x = (transform.translation.x + camera.offset.x) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::sin(camera.position.rotation.y);
+    camera.position.translation.y = (transform.translation.y + camera.offset.y) + camera.offset.w * glm::sin(camera.position.rotation.x);
+    camera.position.translation.z = (transform.translation.z + camera.offset.z) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::cos(camera.position.rotation.y);
 }
 
+/*
 void NtInputController::checkGamepadConnection() {
     gamepadConnected = false;
     connectedGamepadId = -1;
@@ -259,6 +262,6 @@ void NtInputController::updateCamOrbitGamepad(NtGameObject& cameraObject, NtGame
         cameraObject.transform.translation.y = targetObject.transform.translation.y + usedDistance * glm::sin(cameraObject.transform.rotation.x);
         cameraObject.transform.translation.z = targetObject.transform.translation.z + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::cos(cameraObject.transform.rotation.y);
     }
-}
+    }*/
 
 } // namespace nt

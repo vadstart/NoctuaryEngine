@@ -9,7 +9,7 @@
 
 namespace nt {
 
-struct cName {
+struct cMeta {
     std::string name;
 };
 
@@ -80,9 +80,13 @@ struct cTransform {
 
 struct cCamera {
     float fov{65.f};
-    float aspect{0};
+    float aspect{1.77f};
     float near_clip{0.1f};
     float far_clip{100.f};
+    glm::vec4 offset{0.0f, 0.0f, 0.0f, 5.0f};
+    cTransform position;
+
+    bool projectionDirty = true;
     // Type? (Orbital/FPS)
 };
 

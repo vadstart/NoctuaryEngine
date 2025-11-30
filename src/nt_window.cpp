@@ -20,7 +20,7 @@ void NtWindow::initWindow()
 	glfwInit();
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);	// No need for a standard OpenGL_API
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-    glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
+    // glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 	window_ = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
 
 	// glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);

@@ -280,6 +280,8 @@ public:
 class NtSystemManager
 {
 public:
+    NtSystemManager() = default;
+
     template<typename T, typename... Args>
     std::shared_ptr<T> RegisterSystem(Args&&... args)
     {

@@ -4,7 +4,7 @@
 #include "nt_descriptors.hpp"
 #include "nt_frame_info.hpp"
 #include "nt_image.hpp"
-#include "nt_input.hpp"
+#include "nt_input_system.hpp"
 #include "nt_light_system.hpp"
 #include "nt_render_system.hpp"
 #include "nt_types.hpp"
@@ -152,24 +152,21 @@ void AstralApp::run()
 // ⌛
     auto currentTime = std::chrono::high_resolution_clock::now();
 
-std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
-
 // ECS
     Astral.Init();
 
     // Component Types setup
-    Astral.RegisterComponent<cName>();
+    Astral.RegisterComponent<cMeta>();
     Astral.RegisterComponent<cTransform>();
     Astral.RegisterComponent<cLight>();
     Astral.RegisterComponent<cModel>();
+    Astral.RegisterComponent<cCamera>();
     Astral.RegisterComponent<cPlayerController>();
 
     // System setup
-    // GenericRenderSystem genericRenderSystem(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
-    //     modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
     auto debugSystem = Astral.RegisterSystem<DebugSystem>();
     NtSignature debugSignature;
-    debugSignature.set(Astral.GetComponentType<cName>());
+    debugSignature.set(Astral.GetComponentType<cMeta>());
     Astral.SetSystemSignature<DebugSystem>(debugSignature);
 
     auto renderSystem = Astral.RegisterSystem<RenderSystem>(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
@@ -183,37 +180,41 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
     lightSignature.set(Astral.GetComponentType<cLight>());
     Astral.SetSystemSignature<LightSystem>(lightSignature);
 
-    auto cameraSystem = Astral.RegisterSystem<CameraSystem>();
+    auto cameraSystem = Astral.RegisterSystem<CameraSystem>(&Astral);
     NtSignature cameraSignature;
     cameraSignature.set(Astral.GetComponentType<cCamera>());
     Astral.SetSystemSignature<CameraSystem>(cameraSignature);
 
-    // Spawning entities
-    auto Camera = Astral.CreateEntity();
-    Camera.AddComponent(cName{"Camera"})
-        .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(-12.5f, -7.8f, -10.8f) })
-        .AddComponent(cCamera{ glm::radians(65.f), ntRenderer.getAspectRatio(), 0.1f, 1000.f });
+    auto inputSystem = Astral.RegisterSystem<InputSystem>(&Astral);
+    // Astral.SetSystemSignature<InputSystem>(cameraSignature);
 
+    // Spawning entities
     auto MoonlitCafe = Astral.CreateEntity();
-    MoonlitCafe.AddComponent(cName{"MoonlitCafe"})
+    MoonlitCafe.AddComponent(cMeta{"MoonlitCafe"})
         .AddComponent(cTransform{ glm::vec3(0.0f),
             glm::vec3(glm::radians(90.0f), 0.0f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf")) });
 
     auto Cassandra = Astral.CreateEntity();
-    Cassandra.AddComponent(cName{"Cassandra"})
+    Cassandra.AddComponent(cMeta{"Cassandra"})
         .AddComponent(cTransform{ glm::vec3(0.0f, -1.5f, 0.0f),
             glm::vec3(glm::radians(90.0f), glm::radians(90.0f), 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true })
+        .AddComponent(cCamera{ 65.f
+            ,ntRenderer.getAspectRatio()
+            ,0.1f
+            ,1000.f
+            ,glm::vec4(0.0f, -1.0f, 0.0f, 5.0f)
+            ,{ glm::vec3(1.0f) }})
         .AddComponent(cPlayerController{5.0f, 10.0f});
 
     auto SunShadowCaster = Astral.CreateEntity();
-    SunShadowCaster.AddComponent(cName{"Light.Sun"})
+    SunShadowCaster.AddComponent(cMeta{"Light.Sun"})
         .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(1.0f, 1.0f, 0.5f) })
         .AddComponent(cLight{1.0f, glm::vec3(0.5f, 0.35f, 0.33f), eLightType::Directional });
 
     auto BarLight = Astral.CreateEntity();
-    BarLight.AddComponent(cName{"Light.Bar"})
+    BarLight.AddComponent(cMeta{"Light.Bar"})
         .AddComponent(cTransform{ glm::vec3(3.5f, -7.5f, -7.2f) })
         .AddComponent(cLight{100.0f, glm::vec3(1.0f, 0.65f, 0.33f) });
 
@@ -251,7 +252,7 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
         windowW > 0 ? (float)framebufferW / windowW : 1.0f,
         windowH > 0 ? (float)framebufferH / windowH : 1.0f
     );
-    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    // io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
     if (ntWindow.getShowImGUI())
     {
@@ -295,7 +296,7 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
         // ImGui::SetItemTooltip("View mode");
         // genericRenderSystem.switchRenderMode(static_cast<RenderMode>(renderModeCurrent));
 
-        if (ImGui::TreeNode("Gamepad")) {
+        /*if (ImGui::TreeNode("Gamepad")) {
             if (inputController.gamepadConnected) {
                 ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (ID: %d)", inputController.connectedGamepadId);
                 const char* name = glfwGetGamepadName(inputController.connectedGamepadId);
@@ -360,7 +361,7 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
                 }
             }
             ImGui::TreePop();
-        }
+            }*/
 
         if (ImGui::TreeNode("Lighting"))
         {
@@ -405,7 +406,7 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
             filter.Draw("##");
             for (auto const& entity : debugSystem->entities )
             {
-                std::string displayName = Astral.GetComponent<cName>(entity).name + " (id=" + std::to_string(entity) + ")";
+                std::string displayName = Astral.GetComponent<cMeta>(entity).name + " (id=" + std::to_string(entity) + ")";
                 if (filter.PassFilter(displayName.c_str())) {
                     if (ImGui::Selectable(displayName.c_str(), selectedEntityID == entity))
                         selectedEntityID = entity;
@@ -422,15 +423,15 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
                 static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg;
 
                 // Check and display each component type
-                if (Astral.HasComponent<cName>(selectedEntityID)) {
-                    auto& name = Astral.GetComponent<cName>(selectedEntityID);
-                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Name");
-                    if (ImGui::BeginTable("NameComponent", 2, flags)) {
+                if (Astral.HasComponent<cMeta>(selectedEntityID)) {
+                    auto& meta = Astral.GetComponent<cMeta>(selectedEntityID);
+                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Meta");
+                    if (ImGui::BeginTable("MetaComponent", 2, flags)) {
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("Name");
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::TextUnformatted(name.name.c_str());
+                        ImGui::TextUnformatted(meta.name.c_str());
                         ImGui::EndTable();
                     }
                     ImGui::Spacing();
@@ -444,19 +445,25 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("Position");
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%.1f, %.1f, %.1f", transform.translation.x, transform.translation.y, transform.translation.z);
+                        // static float vec4a[4] = { 0.10f, 0.20f, 0.30f, 0.44f };
+                        ImGui::PushItemWidth();
+                        ImGui::Indent();
+                        ImGui::InputFloat3("##position", (float*)&transform.translation);
+                        // ImGui::Text("%.1f, %.1f, %.1f", transform.translation.x, transform.translation.y, transform.translation.z);
 
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("Rotation");
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%.1f, %.1f, %.1f", transform.rotation.x, transform.rotation.y, transform.rotation.z);
+                        ImGui::InputFloat3("##rotation", (float*)&transform.rotation);
+                        // ImGui::Text("%.1f, %.1f, %.1f", transform.rotation.x, transform.rotation.y, transform.rotation.z);
 
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("Scale");
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%.1f, %.1f, %.1f", transform.scale.x, transform.scale.y, transform.scale.z);
+                        ImGui::InputFloat3("##scale", (float*)&transform.scale);
+                        // ImGui::Text("%.1f, %.1f, %.1f", transform.scale.x, transform.scale.y, transform.scale.z);
 
                         ImGui::EndTable();
                     }
@@ -511,6 +518,51 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
                     }
                     ImGui::Spacing();
                 }
+
+                if (Astral.HasComponent<cCamera>(selectedEntityID)) {
+                    auto& camera = Astral.GetComponent<cCamera>(selectedEntityID);
+                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Camera");
+                    if (ImGui::BeginTable("CameraComponent", 2, flags)) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Position");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f, %.1f, %.1f", camera.position.translation.x, camera.position.translation.y, camera.position.translation.z);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Rotation");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f, %.1f, %.1f", camera.position.rotation.x, camera.position.rotation.y, camera.position.rotation.z);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Target offset/Zoom");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f, %.1f, %.1f / %.1f", camera.offset.x, camera.offset.y, camera.offset.z, camera.offset.w);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("FOV");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%f", camera.fov);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Aspect Ratio");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f", camera.aspect);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Near/Far Clip");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f / %.1f", camera.near_clip, camera.far_clip);
+
+                        ImGui::EndTable();
+                    }
+                    ImGui::Spacing();
+                }
             }
         }
         ImGui::End();
@@ -519,17 +571,10 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
     // ---
 
 // Input update
-    inputController.update(
-      &ntWindow,
-      viewerObject,
-      targetObject,
-      deltaTime,
-      io.MouseWheel,
-      static_cast<nt::CameraControlType>(camControlType)
-    );
+    inputSystem->update(&ntWindow, deltaTime, io.MouseWheel, cameraSystem->getActiveCamera());
 
 // Camera update
-    cameraSystem.update();
+    cameraSystem->update();
 
 // EVERY FRAME
     if (auto commandBuffer = ntRenderer.beginFrame()) {
@@ -543,9 +588,9 @@ std::cout << "Aspect ratio: " << ntRenderer.getAspectRatio() << std::endl;
 
     // UBO
       // Update the camera
-      ubo.projection = camera.getProjection();
-      ubo.view = camera.getView();
-      ubo.inverseView = camera.getInverseView();
+      ubo.projection = cameraSystem->getProjection();
+      ubo.view = cameraSystem->getView();
+      ubo.inverseView = cameraSystem->getInverseView();
       // Lighting
       lightSystem->updateLights(Astral, frameInfo, ubo, OrthoDir, OrthoScale, OrthoNear, OrthoFar);
 
