@@ -24,6 +24,18 @@ inline std::string getAssetPath(const std::string& relPath) {
   return (root / relPath).string();
 }
 
+template<typename Container, typename Func>
+std::string join(const Container& container, const std::string& delimiter, Func accessor) {
+    std::string result;
+    bool first = true;
+    for (const auto& item : container) {
+        if (!first) result += delimiter;
+        result += accessor(item);
+        first = false;
+    }
+    return result;
+}
+
 // From https://stackoverflow.com/a/57595105
 template <typename T, typename... Rest>
 void hashCombine(std::size_t& seed, const T& v, const Rest&... rest) {

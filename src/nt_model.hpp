@@ -179,7 +179,6 @@ class NtModel {
         void createIndexBuffer(const std::vector<uint32_t> &indices, MeshBuffers &meshBuffers);
         void createBoneBuffer();
         void updateBoneBuffer(VkDescriptorSetLayout boneLayout, VkDescriptorPool bonePool);
-        void computeBindPoseMatrices(std::vector<glm::mat4>& matrices);
 
         std::unique_ptr<NtBuffer> boneBuffer;
         VkDescriptorSet boneDescriptorSet = VK_NULL_HANDLE;

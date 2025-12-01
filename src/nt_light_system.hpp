@@ -10,8 +10,13 @@ namespace nt
 class LightSystem : public NtSystem
 {
 public:
-    void updateLights(NtAstral &astral, FrameInfo &frameInfo, GlobalUbo &ubo, glm::vec3 O_dir,
+    LightSystem(NtAstral* astral_ptr) : astral(astral_ptr) {};
+
+    void updateLights(FrameInfo &frameInfo, GlobalUbo &ubo,
                     float O_scale, float O_near, float O_far);
+
+private:
+    NtAstral* astral;
 };
 
 }

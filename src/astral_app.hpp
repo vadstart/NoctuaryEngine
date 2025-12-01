@@ -1,7 +1,6 @@
 #pragma once
 
 #include "nt_ecs.hpp"
-#include "nt_game_object.hpp"
 #include "nt_shadows.hpp"
 #include "nt_window.hpp"
 #include "nt_device.hpp"
@@ -15,7 +14,14 @@ using std::vector;
 
 namespace nt
 {
-    class DebugSystem : public NtSystem {};
+    class DebugSystem : public NtSystem
+    {
+        public:
+        DebugSystem(NtAstral* astral_ptr) : astral(astral_ptr) {};
+
+        private:
+            NtAstral* astral;
+    };
 
 	class AstralApp
 	{
@@ -38,7 +44,9 @@ namespace nt
             ntDevice,
             filepath,
             modelSetLayout->getDescriptorSetLayout(),
-            modelPool->getDescriptorPool());
+            modelPool->getDescriptorPool(),
+            boneSetLayout->getDescriptorSetLayout(),
+            bonePool->getDescriptorPool());
     };
 
     NtWindow ntWindow{ WIDTH, HEIGHT, "🌋 You are wandering through the Astral Realm.." };

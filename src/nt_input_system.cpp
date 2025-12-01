@@ -1,5 +1,5 @@
 #include "nt_input_system.hpp"
-#include "nt_game_object.hpp"
+#include "nt_components.hpp"
 #include "nt_types.hpp"
 #include <glm/geometric.hpp>
 #include <iostream>
@@ -8,21 +8,60 @@
 
 namespace nt {
 
-void InputSystem::update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity)
+void InputSystem::update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity, NtEntity playerEntity)
 {
-    // checkGamepadConnection();
+    checkGamepadConnection();
 
+    // CAMERA
     // if (camControlType == CameraControlType::FPS) {
     //     updateCamFPS(ntWindow, gameObject, dt);
     //     if (gamepadConnected) {
     //         updateCamFPSGamepad(gameObject, dt);
     //     }
     // } else {
-        updateCamOrbit(ntWindow, dt, mouseScrollY, camEntity);
-    //     if (gamepadConnected) {
-    //         updateCamOrbitGamepad(gameObject, targetObject, dt);
-    //     }
+    updateCamOrbit(ntWindow, dt, mouseScrollY, camEntity);
+    if (gamepadConnected) {
+        updateCamOrbitGamepad(dt, camEntity);
+    }
     // }
+
+    // PLAYER
+    // Get input
+    float x = -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
+    float y = -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
+
+    // Move in camera direction
+    auto& camera = astral->GetComponent<cCamera>(camEntity);
+    glm::vec3 forward = camera.position.getForward();
+    glm::vec3 right = camera.position.getRight();
+    forward.y = 0.0f; right.y = 0.0f;
+    forward = glm::normalize(forward);
+    right = glm::normalize(right);
+
+    auto& playerPos = astral->GetComponent<cTransform>(camEntity);
+    glm::vec3 moveDirection = (forward * y + right * x);
+    playerPos.translation += moveDirection * 5.0f * dt;
+
+    // Rotate player to face movement direction
+    if (glm::length(moveDirection) > 0.001f) {
+        float targetAngle = std::atan2(-moveDirection.x, -moveDirection.z);
+
+        // Smooth rotation (lerp)
+        float currentAngle = playerPos.rotation.y;
+        float angleDiff = targetAngle - currentAngle;
+
+        // Normalize angle difference to [-PI, PI]
+        while (angleDiff > glm::pi<float>()) angleDiff -= 2.0f * glm::pi<float>();
+        while (angleDiff < -glm::pi<float>()) angleDiff += 2.0f * glm::pi<float>();
+
+        // Apply smooth rotation
+        float rotationStep = 5.0f * dt;
+        if (std::abs(angleDiff) < rotationStep) {
+            playerPos.rotation.y = targetAngle;
+        } else {
+            playerPos.rotation.y += std::copysign(rotationStep, angleDiff);
+        }
+    }
 }
 
 /*
@@ -120,8 +159,8 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
     camera.position.translation.z = (transform.translation.z + camera.offset.z) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::cos(camera.position.rotation.y);
 }
 
-/*
-void NtInputController::checkGamepadConnection() {
+
+void InputSystem::checkGamepadConnection() {
     gamepadConnected = false;
     connectedGamepadId = -1;
 
@@ -134,7 +173,7 @@ void NtInputController::checkGamepadConnection() {
     }
 }
 
-bool NtInputController::isGamepadButtonPressed(int button) {
+bool InputSystem::isGamepadButtonPressed(int button) {
     if (!gamepadConnected) return false;
 
     GLFWgamepadstate state;
@@ -144,7 +183,7 @@ bool NtInputController::isGamepadButtonPressed(int button) {
     return false;
 }
 
-float NtInputController::getGamepadAxis(int axis) {
+float InputSystem::getGamepadAxis(int axis) {
     if (!gamepadConnected) return 0.0f;
 
     GLFWgamepadstate state;
@@ -164,7 +203,8 @@ float NtInputController::getGamepadAxis(int axis) {
     return 0.0f;
 }
 
-void NtInputController::updateCamFPSGamepad(NtGameObject& cameraObject, float dt) {
+/*
+void InputSystem::updateCamFPSGamepad(NtGameObject& cameraObject, float dt) {
     if (!gamepadConnected) return;
 
     // Movement with left stick
@@ -210,8 +250,9 @@ void NtInputController::updateCamFPSGamepad(NtGameObject& cameraObject, float dt
         cameraObject.transform.translation += gamepadMoveSpeed * dt * glm::normalize(moveDir);
     }
 }
+*/
 
-void NtInputController::updateCamOrbitGamepad(NtGameObject& cameraObject, NtGameObject& targetObject, float dt) {
+void InputSystem::updateCamOrbitGamepad(float dt, NtEntity camEntity) {
     if (!gamepadConnected) return;
 
     // Right stick for orbit/pan control
@@ -222,46 +263,48 @@ void NtInputController::updateCamOrbitGamepad(NtGameObject& cameraObject, NtGame
     float leftStickY = getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
 
     bool orbitMode = isGamepadButtonPressed(gamepad.orbitModifier);
-    bool panMode = isGamepadButtonPressed(gamepad.panModifier);
+    // bool panMode = isGamepadButtonPressed(gamepad.panModifier);
+
+    auto& transform = astral->GetComponent<cTransform>(camEntity);
+    auto& camera = astral->GetComponent<cCamera>(camEntity);
 
     if (std::abs(rightStickX) > 0.0f || std::abs(rightStickY) > 0.0f) {
-        if (panMode) {
-            // Pan the target point
-            glm::vec3 right = glm::vec3{glm::cos(cameraObject.transform.rotation.y), 0, -glm::sin(cameraObject.transform.rotation.y)};
-            glm::vec3 up = glm::vec3{0, 1, 0};
-            targetObject.transform.translation -= -right * rightStickX * gamepadSensitivity * 10.0f * dt + up * rightStickY * panSpeed * 10.0f * dt;
-        } else if (orbitMode || (!panMode && !orbitMode)) { // Default to orbit if no modifier pressed
+        // if (panMode) {
+        //     // Pan the target point
+        //     glm::vec3 right = glm::vec3{glm::cos(cameraObject.transform.rotation.y), 0, -glm::sin(cameraObject.transform.rotation.y)};
+        //     glm::vec3 up = glm::vec3{0, 1, 0};
+        //     targetObject.transform.translation -= -right * rightStickX * gamepadSensitivity * 10.0f * dt + up * rightStickY * panSpeed * 10.0f * dt;
+        // } else if (orbitMode || (!panMode && !orbitMode)) { // Default to orbit if no modifier pressed
             // Orbit around the target
-            cameraObject.transform.rotation.y += rightStickX * gamepadSensitivity * dt;
-            cameraObject.transform.rotation.y = glm::mod(cameraObject.transform.rotation.y, glm::two_pi<float>());
-            cameraObject.transform.rotation.x -= rightStickY * gamepadSensitivity * dt;
-            cameraObject.transform.rotation.x = glm::clamp(cameraObject.transform.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
-        }
+            camera.position.rotation.y += rightStickX * gamepadSensitivity * dt;
+            camera.position.rotation.y = glm::mod(camera.position.rotation.y, glm::two_pi<float>());
+            camera.position.rotation.x -= rightStickY * gamepadSensitivity * dt;
+            camera.position.rotation.x = glm::clamp(camera.position.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
+        // }
     }
 
     // Zoom with left stick Y or triggers
-    float zoomInput; // Use left stick Y for zoom
+    // float zoomInput = -leftStickY;
     float leftTrigger = getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_TRIGGER);
     float rightTrigger = getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
     // Use triggers for zoom if stick isn't being used much
-    if (std::abs(zoomInput) < 0.3f) {
-        zoomInput = rightTrigger - leftTrigger;
-    }
+    // if (std::abs(zoomInput) < 0.3f) {
+    float zoomInput = rightTrigger - leftTrigger;
+    // }
 
     if (std::abs(zoomInput) > 0.0f) {
         // Apply zoom similar to mouse scroll
         float zoomAmount = zoomInput * gamepadSensitivity * 2 * dt;
 
-        distance -= zoomAmount;
-        distance = glm::clamp(distance, 0.5f, 100.0f);
+        camera.offset.w -= zoomAmount;
+        camera.offset.w = glm::clamp(camera.offset.w, 0.5f, 100.0f);
 
         // Update camera position based on new distance
-        float usedDistance = distance; // Assuming perspective for gamepad
-        cameraObject.transform.translation.x = targetObject.transform.translation.x + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::sin(cameraObject.transform.rotation.y);
-        cameraObject.transform.translation.y = targetObject.transform.translation.y + usedDistance * glm::sin(cameraObject.transform.rotation.x);
-        cameraObject.transform.translation.z = targetObject.transform.translation.z + usedDistance * glm::cos(cameraObject.transform.rotation.x) * glm::cos(cameraObject.transform.rotation.y);
+        camera.position.translation.x = (transform.translation.x + camera.offset.x) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::sin(camera.position.rotation.y);
+        camera.position.translation.y = (transform.translation.y + camera.offset.y) + camera.offset.w * glm::sin(camera.position.rotation.x);
+        camera.position.translation.z = (transform.translation.z + camera.offset.z) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::cos(camera.position.rotation.y);
+        }
     }
-    }*/
 
 } // namespace nt

@@ -43,15 +43,13 @@ struct NtPushConstantData {
   alignas(4) float metallicFactor{1.0f};
   alignas(4) float roughnessFactor{1.0f};
 
-  alignas(16) glm::vec3 lightColor{1.0f, 1.0f, 1.0f};
-  alignas(4) float lightIntensity{1.0f};
-
   alignas(4) float billboardSize{1.0f};
   alignas(4) int isAnimated{0};
 };
 
-RenderSystem::RenderSystem(NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
+RenderSystem::RenderSystem(NtAstral* astral_ptr, NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
     VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout) : ntDevice{device} {
+  astral = astral_ptr;
   createPipelineLayout(globalSetLayout, modelSetLayout, boneSetLayout);
   createPipelines(swapChain);
 }
@@ -176,17 +174,11 @@ void RenderSystem::createPipelines(NtSwapChain &swapChain) {
         "shaders/billboard.frag.spv");
 }
 
-void RenderSystem::renderGameObjects(NtAstral &astral, FrameInfo &frameInfo)
+void RenderSystem::renderGameObjects(FrameInfo &frameInfo, bool bShadowPass)
 {
-  switch (currentRenderMode) {
-        case nt::RenderMode::ShadowMap:
-            shadowMapPipeline->bind(frameInfo.commandBuffer);
-            break;
-
-        default:
-          litPipeline->bind(frameInfo.commandBuffer);
-          break;
-  }
+    if (bShadowPass)
+        shadowMapPipeline->bind(frameInfo.commandBuffer);
+    else litPipeline->bind(frameInfo.commandBuffer);
 
   vkCmdBindDescriptorSets(
     frameInfo.commandBuffer,
@@ -198,10 +190,10 @@ void RenderSystem::renderGameObjects(NtAstral &astral, FrameInfo &frameInfo)
 
   for (auto const& entity : entities)
   {
-    auto& transform = astral.GetComponent<cTransform>(entity);
-    const auto& model = astral.GetComponent<cModel>(entity);
+    auto& transform = astral->GetComponent<cTransform>(entity);
+    const auto& model = astral->GetComponent<cModel>(entity);
 
-    if (currentRenderMode == RenderMode::ShadowMap && !model.bDropShadow) continue;
+    if ((bShadowPass && !model.bDropShadow) || model.bNPRshading) continue;
 
     // Render each mesh with its own material
     const auto& materials = model.mesh->getMaterials();
@@ -223,8 +215,23 @@ void RenderSystem::renderGameObjects(NtAstral &astral, FrameInfo &frameInfo)
       NtPushConstantData push{};
       push.modelMatrix = transform.mat4();
       push.normalMatrix = transform.normalMatrix();
-      push.isAnimated = false;
-      // push.isAnimated = obj.animator != nullptr ? 1 : 0;
+
+      // Bind bone matrices if animated (binding 2)
+      if (model.mesh->hasSkeleton()) {
+        if (astral->HasComponent<cAnimator>(entity)) {
+            if (model.mesh->getBoneDescriptorSet() != VK_NULL_HANDLE) {
+                vkCmdBindDescriptorSets(
+                    frameInfo.commandBuffer,
+                    VK_PIPELINE_BIND_POINT_GRAPHICS,
+                    pipelineLayout,
+                    2,  // Set 2
+                    1,
+                    &model.mesh->getBoneDescriptorSet(),
+                    0, nullptr);
+            }
+            push.isAnimated = true;
+        }
+      }
 
       // Get the material for this specific mesh
         push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
@@ -251,7 +258,7 @@ void RenderSystem::renderGameObjects(NtAstral &astral, FrameInfo &frameInfo)
 //===================================================
 //  Character stylized Pipeline
 //===================================================
-/*if(currentRenderMode != nt::RenderMode::ShadowMap)
+if(!bShadowPass)
     unlitPipeline->bind(frameInfo.commandBuffer);
 
 vkCmdBindDescriptorSets(
@@ -263,16 +270,19 @@ vkCmdBindDescriptorSets(
     0, nullptr);
 
 
-for (auto& kv: frameInfo.gameObjects) {
-    auto& obj = kv.second;
-    if (obj.model == nullptr || obj.pointLight != nullptr || !obj.isCharacter) continue;
+for (auto const& entity : entities)
+  {
+    auto& transform = astral->GetComponent<cTransform>(entity);
+    const auto& model = astral->GetComponent<cModel>(entity);
+
+    if ((bShadowPass && !model.bDropShadow) || !model.bNPRshading) continue;
 
     // Render each mesh with its own material
-    const auto& materials = obj.model->getMaterials();
-    for (uint32_t meshIndex = 0; meshIndex < obj.model->getMeshCount(); ++meshIndex) {
+    const auto& materials = model.mesh->getMaterials();
+    for (uint32_t meshIndex = 0; meshIndex < model.mesh->getMeshCount(); ++meshIndex) {
 
         // Bind the material descriptor set for this specific mesh
-        uint32_t materialIndex = obj.model->getMaterialIndex(meshIndex);
+        uint32_t materialIndex = model.mesh->getMaterialIndex(meshIndex);
         if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
             VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
             vkCmdBindDescriptorSets(
@@ -284,43 +294,34 @@ for (auto& kv: frameInfo.gameObjects) {
                 0, nullptr);
         }
 
-        // Bind bone matrices if animated (binding 2)
-        if (obj.model->getSkeleton()->isAnimated) {
-            if (obj.model->getBoneDescriptorSet() != VK_NULL_HANDLE) {
-                vkCmdBindDescriptorSets(
-                    frameInfo.commandBuffer,
-                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    pipelineLayout,
-                    2,  // Set 2
-                    1,
-                    &obj.model->getBoneDescriptorSet(),
-                    0, nullptr);
+        NtPushConstantData push{};
+        push.modelMatrix = transform.mat4();
+        push.normalMatrix = transform.normalMatrix();
+
+        if (model.mesh->hasSkeleton()) {
+            if (astral->HasComponent<cAnimator>(entity)) {
+                if (model.mesh->getBoneDescriptorSet() != VK_NULL_HANDLE) {
+                    vkCmdBindDescriptorSets(
+                        frameInfo.commandBuffer,
+                        VK_PIPELINE_BIND_POINT_GRAPHICS,
+                        pipelineLayout,
+                        2,  // Set 2
+                        1,
+                        &model.mesh->getBoneDescriptorSet(),
+                        0, nullptr);
+                }
+                push.isAnimated = true;
             }
         }
 
-        NtPushConstantData push{};
-        push.modelMatrix = obj.transform.mat4();
-        push.normalMatrix = obj.transform.normalMatrix();
-        push.isAnimated = obj.animator != nullptr ? 1 : 0;
-
         // Get the material for this specific mesh
-        if (materials.size() > materialIndex) {
-            push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
-            push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
-            push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
-            push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
-            push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
-            push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
-            push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
-        } else {
-            push.uvScale = glm::vec2(1.0f);
-            push.uvOffset = glm::vec2(0.0f);
-            push.uvRotation = 0.0f;
-            push.hasNormalTexture = 0;
-            push.hasMetallicRoughnessTexture = 0;
-            push.metallicFactor = 1.0f;
-            push.roughnessFactor = 1.0f;
-        }
+        push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
+        push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
+        push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
+        push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
+        push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
+        push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
+        push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
 
         vkCmdPushConstants(
         frameInfo.commandBuffer,
@@ -330,54 +331,10 @@ for (auto& kv: frameInfo.gameObjects) {
         sizeof(NtPushConstantData),
         &push);
 
-        obj.model->bind(frameInfo.commandBuffer, meshIndex);
-        obj.model->draw(frameInfo.commandBuffer, meshIndex);
+        model.mesh->bind(frameInfo.commandBuffer, meshIndex);
+        model.mesh->draw(frameInfo.commandBuffer, meshIndex);
     }
-    }*/
-
-//===================================================
-//  Visualize Wireframe ON TOP of regular rendering
-//===================================================
-  // if (currentRenderMode == RenderMode::LitWireframe) {
-  //   wireframePipeline->bind(frameInfo.commandBuffer);
-
-  //   vkCmdBindDescriptorSets(
-  //     frameInfo.commandBuffer,
-  //     VK_PIPELINE_BIND_POINT_GRAPHICS,
-  //     pipelineLayout,
-  //     0, 1,
-  //     &frameInfo.globalDescriptorSet,
-  //     0, nullptr);
-
-  //   for (auto& kv: frameInfo.gameObjects) {
-  //     auto& obj = kv.second;
-  //     if (obj.model == nullptr || obj.pointLight != nullptr) continue;
-
-  //     for (uint32_t meshIndex = 0; meshIndex < obj.model->getMeshCount(); ++meshIndex) {
-
-  //       NtPushConstantData push{};
-  //       push.modelMatrix = obj.transform.mat4();
-
-  //       vkCmdSetDepthBias(
-  //         frameInfo.commandBuffer,
-  //         -0.5f,  // depthBiasConstantFactor
-  //         0.0f,   // depthBiasClamp
-  //         -0.25f   // depthBiasSlopeFactor
-  //       );
-
-  //       vkCmdPushConstants(
-  //         frameInfo.commandBuffer,
-  //         pipelineLayout,
-  //         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-  //         0,
-  //         sizeof(NtPushConstantData),
-  //         &push);
-
-  //       obj.model->bind(frameInfo.commandBuffer, meshIndex);
-  //       obj.model->draw(frameInfo.commandBuffer, meshIndex);
-  //     }
-  //   }
-  // }
+    }
 
 }
 
@@ -431,9 +388,5 @@ for (auto& kv: frameInfo.gameObjects) {
 //     obj.model->drawAll(frameInfo.commandBuffer);
 //   }
 // }
-
-void RenderSystem::switchRenderMode(RenderMode newRenderMode) {
-  currentRenderMode = newRenderMode;
-}
 
 } // namespace nt

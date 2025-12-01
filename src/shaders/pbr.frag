@@ -24,8 +24,6 @@ layout(push_constant) uniform Push {
     int hasMetallicRoughnessTexture;
     float metallicFactor;
     float roughnessFactor;
-    vec3 lightColor;
-    float lightIntensity;
 } push;
 
 layout(location = 0) out vec4 outColor;
@@ -55,12 +53,16 @@ layout(set = 0, binding = 0) uniform GlobalUbo {
 layout(set = 0, binding = 1) uniform sampler2DShadow shadowMap;
 
 float calculateShadow(vec3 fragPosWorld, vec3 normal) {
+    // Check if there's no shadow caster active
+    if (ubo.shadowLightDirection.w < 0.0)
+        return 1.0;
+
     // Check if surface faces away from light - if so, it's in shadow anyway
     vec3 lightDir = normalize(ubo.shadowLightDirection.xyz);
     float NdotL = dot(normal, -lightDir);
 
     // If surface faces away from light, it's in shadow (no need to sample shadow map)
-    if (NdotL >= 0.0) {
+    if ((NdotL <= 0.0)) {
         return 1.0; // Fully shadowed
     }
 
@@ -158,15 +160,20 @@ void main() {
     float shadow = calculateShadow(fragPosWorld, surfaceNormal);
 
     // LIGHTING
-    for (int i = 0; i < ubo.numLights; i++) {
+    for (int i = 0; i < ubo.numLights; i++)
+    {
         PointLight light = ubo.pointLights[i];
 
         vec3 directionToLight;
         float attenuation; // distance squared
         vec3 radiance;
 
+        if (light.color.w == 0) continue;
+
         if (light.lightType == LIGHT_TYPE_DIRECTIONAL) {
-            continue;
+            // Position represents direction (already normalized in CPU)
+            directionToLight = -normalize(light.position.xyz); // Light direction points TOWARD light
+            attenuation = 1.0; // No attenuation
         }
         else {
             // POINT LIGHT (default)
@@ -174,48 +181,48 @@ void main() {
             float distance = length(directionToLight);
             attenuation = 1.0 / (distance * distance);
             directionToLight = normalize(directionToLight);
-            radiance = light.color.xyz * light.color.w * attenuation;
-
-            vec3 halfVector = normalize(directionToLight + viewDirection);
-
-            // Dot products
-            float NdotL = max(dot(surfaceNormal, directionToLight), 0.0);
-            float NdotV = max(dot(surfaceNormal, viewDirection), 0.0);
-            float NdotH = max(dot(surfaceNormal, halfVector), 0.0);
-            float VdotH = max(dot(viewDirection, halfVector), 0.0);
-
-            // SPECULAR
-            // 1. Normal Distribution Function (GGX/Trowbridge-Reitz)
-            float alpha = roughness * roughness;
-            float alphaSquared = alpha * alpha;
-            float denom = NdotH * NdotH * (alphaSquared - 1.0) + 1.0;
-            float D = alphaSquared / (3.14159265359 * denom * denom);
-
-            // 2. Simplified Fresnel (Schlick approximation)
-            vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
-
-            // 3. Geometry function (Smith's Schlick-GGX)
-            float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-            float G_V = NdotV / (NdotV * (1.0 - k) + k);
-            float G_L = NdotL / (NdotL * (1.0 - k) + k);
-            float G = G_V * G_L;
-
-            // 4. Cook-Torrance BRDF
-            vec3 specular = (D * F * G) / max(4.0 * NdotV * NdotL, 0.001);
-
-            // 5. Energy conservation (kD + kS = 1)
-            vec3 kS = F; // Specular contribution
-            vec3 kD = (1.0 - kS) * (1.0 - metallic); // Diffuse contribution (metals = no diffuse)
-
-            // 6. Lambertian diffuse
-            vec3 diffuse = kD * texColor.rgb / 3.14159265359;
-
-            // Combine diffuse and specular
-            vec3 BRDF = diffuse + specular;
-
-            // Add to accumulator
-            diffuseLight += BRDF * radiance * NdotL * shadow;
         }
+        radiance = light.color.xyz * light.color.w * attenuation;
+
+        vec3 halfVector = normalize(directionToLight + viewDirection);
+
+        // Dot products
+        float NdotL = max(dot(surfaceNormal, directionToLight), 0.0);
+        float NdotV = max(dot(surfaceNormal, viewDirection), 0.0);
+        float NdotH = max(dot(surfaceNormal, halfVector), 0.0);
+        float VdotH = max(dot(viewDirection, halfVector), 0.0);
+
+        // SPECULAR
+        // 1. Normal Distribution Function (GGX/Trowbridge-Reitz)
+        float alpha = roughness * roughness;
+        float alphaSquared = alpha * alpha;
+        float denom = NdotH * NdotH * (alphaSquared - 1.0) + 1.0;
+        float D = alphaSquared / (3.14159265359 * denom * denom);
+
+        // 2. Simplified Fresnel (Schlick approximation)
+        vec3 F = F0 + (1.0 - F0) * pow(1.0 - VdotH, 5.0);
+
+        // 3. Geometry function (Smith's Schlick-GGX)
+        float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
+        float G_V = NdotV / (NdotV * (1.0 - k) + k);
+        float G_L = NdotL / (NdotL * (1.0 - k) + k);
+        float G = G_V * G_L;
+
+        // 4. Cook-Torrance BRDF
+        vec3 specular = (D * F * G) / max(4.0 * NdotV * NdotL, 0.001);
+
+        // 5. Energy conservation (kD + kS = 1)
+        vec3 kS = F; // Specular contribution
+        vec3 kD = (1.0 - kS) * (1.0 - metallic); // Diffuse contribution (metals = no diffuse)
+
+        // 6. Lambertian diffuse
+        vec3 diffuse = kD * texColor.rgb / 3.14159265359;
+
+        // Combine diffuse and specular
+        vec3 BRDF = diffuse + specular;
+
+        // Add to accumulator
+        diffuseLight += BRDF * radiance * NdotL * shadow;
     }
 
     // Add ambient lighting

@@ -4,72 +4,66 @@
 namespace nt
 {
 
-void LightSystem::updateLights(NtAstral &astral, FrameInfo &frameInfo, GlobalUbo &ubo, glm::vec3 O_dir, float O_scale, float O_near, float O_far) {
+void LightSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, float O_scale, float O_near, float O_far) {
   int lightIndex = 0;
   for (auto const& entity : entities) {
     assert(lightIndex < MAX_LIGHTS && "Point lights exceed maximum specified!");
 
-    auto& transform = astral.GetComponent<cTransform>(entity);
-    auto& light = astral.GetComponent<cLight>(entity);
+    auto& transform = astral->GetComponent<cTransform>(entity);
+    auto& light = astral->GetComponent<cLight>(entity);
 
     // copy the light to ubo
     if (light.type != eLightType::Directional)
         ubo.pointLights[lightIndex].position = glm::vec4(transform.translation, 1.f);
     else ubo.pointLights[lightIndex].position = glm::vec4(transform.rotation, 1.f); // We only care about the rotation of directional light
     ubo.pointLights[lightIndex].color = glm::vec4(light.color, light.intensity);
-    if (light.type == eLightType::Directional)
-        ubo.pointLights[lightIndex].lightType = 2;
-    else ubo.pointLights[lightIndex].lightType = 0;
-    // ubo.pointLights[lightIndex].lightType = static_cast<int>(light.type);
+    ubo.pointLights[lightIndex].lightType = static_cast<int>(light.type);
 
     // Shadows (computing light space matrix)
-    if (lightIndex == 0) {
-        int shadowCasterIndex = 0;
+    if (light.bCastShadows) {
+        switch(ubo.pointLights[lightIndex].lightType) {
+            case 2: // DIRECTIONAL
+                glm::vec3 lightPos = glm::vec3(ubo.pointLights[lightIndex].position);  // For directional, position represents direction
+                glm::vec3 sceneCenter = glm::vec3(0.0f, 0.0f, 0.0f);
+                glm::vec3 lightDir = glm::normalize(lightPos);
 
-            switch(ubo.pointLights[0].lightType) {
-                case 2: // DIRECTIONAL
-                  glm::vec3 lightPos = glm::vec3(ubo.pointLights[shadowCasterIndex].position);
-                  // glm::vec3 lightDir = glm::normalize(lightPos); // For directional, position represents direction
-                  glm::vec3 sceneCenter = glm::vec3(0.0f, 0.0f, 0.0f);
-                  glm::vec3 lightDir = glm::normalize(O_dir);
+                // Use standard up vector
+                glm::vec3 upVector = glm::vec3(0.0f, 1.0f, 0.0f);
+                // Avoid gimbal lock if light direction is parallel to up
+                if (abs(glm::dot(lightDir, upVector)) > 0.99f) {
+                    upVector = glm::vec3(1.0f, 0.0f, 0.0f);
+                }
 
-                  // Use standard up vector
-                    glm::vec3 upVector = glm::vec3(0.0f, 1.0f, 0.0f);
-                    // Avoid gimbal lock if light direction is parallel to up
-                    if (abs(glm::dot(lightDir, upVector)) > 0.99f) {
-                        upVector = glm::vec3(1.0f, 0.0f, 0.0f);
-                    }
+                // Store light direction for shader
+                ubo.shadowLightDirection = glm::vec4(lightDir, static_cast<float>(eLightType::Directional));
+                glm::mat4 lightViewMatrix = glm::lookAt(lightDir, sceneCenter, upVector);
 
-                  // Store light direction for shader
-                  ubo.shadowLightDirection = glm::vec4(lightDir, static_cast<float>(eLightType::Directional));
+                // Vulcan clip space correction matrix
+                // Converts from OpenGL [-1, 1] to Vulkan [0, 1] depth and flips Y
+                glm::mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
+                                            0.0f,-1.0f, 0.0f, 0.0f,    // Flip Y
+                                            0.0f, 0.0f, 0.5f, 0.0f,    // Scale Z from [-1, 1] to [0, 1]
+                                            0.0f, 0.0f, 0.5f, 1.0f);   // Translate Z
 
-                  glm::mat4 lightViewMatrix = glm::lookAt(lightDir, sceneCenter, upVector);
+                float orthoSize = O_scale;
+                glm::mat4 lightProjection = clip * glm::ortho(
+                    -orthoSize, orthoSize,
+                    -orthoSize, orthoSize,
+                    O_near, O_far
+                );
+                lightProjection[1][1] *= -1;
 
-                  // Vulcan clip space correction matrix
-                  // Converts from OpenGL [-1, 1] to Vulkan [0, 1] depth and flips Y
-                  glm::mat4 clip = glm::mat4(1.0f, 0.0f, 0.0f, 0.0f,
-                                             0.0f,-1.0f, 0.0f, 0.0f,    // Flip Y
-                                             0.0f, 0.0f, 0.5f, 0.0f,    // Scale Z from [-1, 1] to [0, 1]
-                                             0.0f, 0.0f, 0.5f, 1.0f);   // Translate Z
-
-                  float orthoSize = O_scale;
-                  glm::mat4 lightProjection = clip * glm::ortho(
-                      -orthoSize, orthoSize,
-                      -orthoSize, orthoSize,
-                      O_near, O_far
-                  );
-                  lightProjection[1][1] *= -1;
-
-                  ubo.lightSpaceMatrix = lightProjection * lightViewMatrix;
-                break;
+                ubo.lightSpaceMatrix = lightProjection * lightViewMatrix;
+            break;
         }
-
-        }
+    }
+    else {
+         ubo.shadowLightDirection = glm::vec4(0.0f, 0.0f, 0.0f, -1.0f);
+    }
 
     lightIndex += 1;
   }
   ubo.numLights = lightIndex;
-
 }
 
 }

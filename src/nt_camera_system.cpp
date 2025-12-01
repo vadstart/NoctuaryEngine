@@ -102,7 +102,7 @@ void CameraSystem::setViewYXZ(glm::vec3 position, glm::vec3 rotation) {
   inverseViewMatrix[3][2] = position.z;
 }
 
-void CameraSystem::update()
+void CameraSystem::update(glm::mat4 &UBOprojection, glm::mat4 &UBOview, glm::mat4 &UBOinverseView)
 {
     // Only care about the first camera for now
     assert(!entities.empty() && "No entities found in the Camera System");
@@ -118,6 +118,12 @@ void CameraSystem::update()
     glm::vec3 cameraPos = { camera.position.translation.x, camera.position.translation.y, camera.position.translation.z };
     glm::vec3 targetPos = { transform.translation.x + camera.offset.x, transform.translation.y + camera.offset.y, transform.translation.z + camera.offset.z };
     setViewTarget(cameraPos, targetPos);
+
+    UBOprojection = getProjection();
+    UBOview = getView();
+    UBOinverseView = getInverseView();
 }
+
+
 
 }

@@ -291,7 +291,7 @@ public:
 
         // Create a pointer to the system and return it so it can be used externally
         auto system = std::make_shared<T>(std::forward<Args>(args)...);
-        systems.insert({typeIndex,  std::static_pointer_cast<NtSystem>(system)});
+        systems.insert({typeIndex, system});
         return system;
     }
 
@@ -450,7 +450,7 @@ public:
     template<typename T, typename... Args>
     std::shared_ptr<T> RegisterSystem(Args&&... args)
     {
-        return systemManager->RegisterSystem<T>(std::forward<Args>(args)...);
+        return systemManager->RegisterSystem<T>(this, std::forward<Args>(args)...);
     }
 
     template<typename T>

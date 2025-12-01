@@ -47,8 +47,6 @@ layout(push_constant) uniform Push {
     int hasMetallicRoughnessTexture;
     float metallicFactor;
     float roughnessFactor;
-    vec3 lightColor;
-    float lightIntensity;
     float billboardSize;
     int isAnimated;
 } push;
@@ -56,10 +54,7 @@ layout(push_constant) uniform Push {
 void main() {
     vec4 worldPosition;
 
-    if (push.isAnimated < 1) {
-        worldPosition = push.modelMatrix * vec4(position, 1.0);
-    }
-    else {
+    if (push.isAnimated == 1) {
         vec4 animatedPosition = vec4(0.0f);
         mat4 jointTransform = mat4(0.0f);
 
@@ -82,6 +77,9 @@ void main() {
 
         // projection * view * model * position
         worldPosition = push.modelMatrix * animatedPosition;
+    }
+    else {
+        worldPosition = push.modelMatrix * vec4(position, 1.0);
     }
 
     gl_Position = ubo.lightSpaceMatrix * worldPosition;

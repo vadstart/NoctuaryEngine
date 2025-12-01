@@ -227,7 +227,6 @@ NtPipeline::~NtPipeline() {
        configInfo.colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
        configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
        configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_BACK_BIT;
-       configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
        break;
    }
 

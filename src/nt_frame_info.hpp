@@ -1,6 +1,5 @@
 #pragma once
 
-#include "nt_game_object.hpp"
 #include "vulkan/vulkan_core.h"
 
 #include <glm/fwd.hpp>

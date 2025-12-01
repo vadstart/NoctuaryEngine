@@ -41,8 +41,6 @@ layout(push_constant) uniform Push {
     int debugMode;
     float metallicFactor;
     float roughnessFactor;
-    vec3 lightColor;
-    float lightIntensity;
 } push;
 
 vec2 transformUV(vec2 uv, vec2 scale, vec2 offset, float rotation) {

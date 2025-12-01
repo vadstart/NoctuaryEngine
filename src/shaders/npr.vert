@@ -42,6 +42,8 @@ layout(push_constant) uniform Push {
     int hasMetallicRoughnessTexture;
     float metallicFactor;
     float roughnessFactor;
+    float billboardSize;
+    int isAnimated;
 } push;
 
 vec2 transformUV(vec2 uv, vec2 scale, vec2 offset, float rotation) {
@@ -65,43 +67,57 @@ vec2 transformUV(vec2 uv, vec2 scale, vec2 offset, float rotation) {
 }
 
 void main() {
-    vec4 animatedPosition = vec4(0.0f);
-    mat4 jointTransform = mat4(0.0f);
+    vec4 positionWorld;
 
-    for (int i = 0; i < MAX_JOINT_INFLUENCE; i++) {
-        if (boneWeights[i] == 0)
-            continue;
-        if (boneIndices[i] >= MAX_JOINTS) {
-            animatedPosition = vec4(position, 1.0f);
-            jointTransform = mat4(1.0f);
-            break;
+    if (push.isAnimated == 1)
+    {
+        vec4 animatedPosition = vec4(0.0f);
+        mat4 jointTransform = mat4(0.0f);
+
+        for (int i = 0; i < MAX_JOINT_INFLUENCE; i++) {
+            if (boneWeights[i] == 0)
+                continue;
+            if (boneIndices[i] >= MAX_JOINTS) {
+                animatedPosition = vec4(position, 1.0f);
+                jointTransform = mat4(1.0f);
+                break;
+            }
+
+            // retreive joint matrix from ubo
+            mat4 jointMatrix = boneData.bones[boneIndices[i]];
+
+            vec4 localPosition = jointMatrix * vec4(position, 1.0f);
+            animatedPosition += localPosition * boneWeights[i];
+            jointTransform += jointMatrix * boneWeights[i];
         }
 
-        // retreive joint matrix from ubo
-        mat4 jointMatrix = boneData.bones[boneIndices[i]];
-
-        vec4 localPosition = jointMatrix * vec4(position, 1.0f);
-        animatedPosition += localPosition * boneWeights[i];
-        jointTransform += jointMatrix * boneWeights[i];
+        // projection * view * model * position
+        positionWorld = push.modelMatrix * animatedPosition;
+    }
+    else {
+        positionWorld = push.modelMatrix * vec4(position, 1.0);
     }
 
-    // projection * view * model * position
-    vec4 positionWorld = push.modelMatrix * animatedPosition;
-    gl_Position = ubo.projection * ubo.view * positionWorld;
-    fragPosWorld = positionWorld.xyz;
-
-    mat3 normalMatrix = transpose(inverse(mat3(push.normalMatrix) * mat3(jointTransform)));
-    fragNormalWorld = normalize(normalMatrix * normal);
-    // fragTangent = normalize(normalMatrix * normal);
-
     fragTexCoord = uv;
+    gl_Position = ubo.projection * ubo.view * positionWorld;
+
+    // fragPosWorld = positionWorld.xyz;
+
+    // mat3 normalMatrix = transpose(inverse(mat3(push.normalMatrix) * mat3(jointTransform)));
+    // fragNormalWorld = normalize(normalMatrix * normal);
+    // fragTangent = normalze(normalMatrix * normal);
 
     // Visualize bone indices as colors
-    fragColor = vec3(
-            float(boneWeights.x) / 35.0,
-            float(boneWeights.y) / 35.0,
-            float(boneWeights.z) / 35.0
-        );
+    // fragColor = vec3(
+    //         float(boneWeights.x) / 35.0,
+    //         float(boneWeights.y) / 35.0,
+    //         float(boneWeights.z) / 35.0
+    //     );
+
+    // vec4 positionWorld = push.modelMatrix * vec4(position, 1.0);
+    // gl_Position = ubo.projection * ubo.view * positionWorld;
+
+    // fragTexCoord = uv;
 
     // DEBUG: Visualize bone indices
     // fragColor = vec3(float(boneIndices.x) / 19.0, float(boneIndices.y) / 19.0, float(boneIndices.z) / 19.0);

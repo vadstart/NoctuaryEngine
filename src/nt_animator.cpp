@@ -1,4 +1,4 @@
-#include "nt_animation.hpp"
+#include "nt_animator.hpp"
 #include <cmath>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -12,33 +12,32 @@
 
 namespace nt {
 
-NtAnimator::NtAnimator(NtModel& model) : model(model) {
-    if (model.hasSkeleton()) {
-        boneMatrices.resize(model.getBonesCount(), glm::mat4(1.0f));
-    }
-}
-
 void NtAnimator::play(const std::string& animationName, bool loop) {
-    for (const auto& anim : model.getAnimations()) {
-        if (anim.name == animationName) {
-            currentAnimation = &anim;
-            currentTime = 0.0f;
-            isLooping = loop;
-            return;
-        }
-    }
-    std::cerr << "Animation not found: " << animationName << std::endl;
+    currentAnimationName = animationName;
+    currentTime = 0.0f;
+    isLooping = loop;
+    isPlaying = true;
+    cachedDuration = -1.0f;
 }
 
-void NtAnimator::update(float deltaTime) {
-    if (currentAnimation == nullptr || !model.hasSkeleton()) return;
+void NtAnimator::update(NtModel& model, float deltaTime) {
+    if (!isPlaying || !model.hasSkeleton()) return;
+
+    // Find animation by name
+    const NtAnimation* animation = findAnimation(model, currentAnimationName);
+    if (!animation) return;
+
+    // Cache duration on first update
+    if (cachedDuration < 0.0f)
+        cachedDuration = animation->duration;
 
     currentTime += deltaTime;
-    if (currentTime > currentAnimation->duration) {
+
+    if (currentTime > animation->duration) {
         if (isLooping) {
-            currentTime = std::fmod(currentTime, currentAnimation->duration);
+            currentTime = std::fmod(currentTime, animation->duration);
         } else {
-            currentTime = currentAnimation->duration;
+            currentTime = animation->duration;
         }
     }
 
@@ -47,10 +46,10 @@ void NtAnimator::update(float deltaTime) {
     NtModel::Skeleton& skeleton = skeletonOpt.value();
 
     // Update node TRS from animation
-    for (size_t chanIdx = 0; chanIdx < currentAnimation->channels.size(); ++chanIdx) {
-        const auto& channel = currentAnimation->channels[chanIdx];
+    for (size_t chanIdx = 0; chanIdx < animation->channels.size(); ++chanIdx) {
+        const auto& channel = animation->channels[chanIdx];
 
-        if (channel.samplerIndex >= currentAnimation->samplers.size()) {
+        if (channel.samplerIndex >= animation->samplers.size()) {
             std::cerr << "[ANIM ERROR] Invalid sampler index!" << std::endl;
             continue;
         }
@@ -61,7 +60,7 @@ void NtAnimator::update(float deltaTime) {
             continue;
         }
 
-        const NtAnimationSampler& sampler = currentAnimation->samplers[channel.samplerIndex];
+        const NtAnimationSampler& sampler = animation->samplers[channel.samplerIndex];
         glm::vec4 value = interpolateSampler(sampler, currentTime);
 
         NtModel::Bone& targetBone = skeleton.bones[channel.targetNode];
@@ -76,8 +75,8 @@ void NtAnimator::update(float deltaTime) {
             case NtAnimationChannel::SCALE:
                 targetBone.animatedNodeScale = glm::vec3(value);
                 break;
+                }
         }
-    }
 }
 
 glm::vec4 NtAnimator::interpolateSampler(const NtAnimationSampler& sampler, float time) {
@@ -121,4 +120,4 @@ glm::vec4 NtAnimator::interpolateSampler(const NtAnimationSampler& sampler, floa
                     factor);
 }
 
-}
+} // namespace nt

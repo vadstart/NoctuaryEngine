@@ -7,6 +7,7 @@
 #include "nt_input_system.hpp"
 #include "nt_light_system.hpp"
 #include "nt_render_system.hpp"
+#include "nt_anim_system.hpp"
 #include "nt_types.hpp"
 #include "nt_utils.hpp"
 #include "nt_components.hpp"
@@ -119,8 +120,6 @@ AstralApp::~AstralApp() {
 void AstralApp::run()
 {
 //  Buffers and descriptorSets
-
-
     GlobalUbo ubo{};
     std::vector<std::unique_ptr<NtBuffer>> uboBuffers(NtSwapChain::MAX_FRAMES_IN_FLIGHT);
     for (int i = 0; i < uboBuffers.size(); i++) {
@@ -160,6 +159,7 @@ void AstralApp::run()
     Astral.RegisterComponent<cTransform>();
     Astral.RegisterComponent<cLight>();
     Astral.RegisterComponent<cModel>();
+    Astral.RegisterComponent<cAnimator>();
     Astral.RegisterComponent<cCamera>();
     Astral.RegisterComponent<cPlayerController>();
 
@@ -168,6 +168,8 @@ void AstralApp::run()
     NtSignature debugSignature;
     debugSignature.set(Astral.GetComponentType<cMeta>());
     Astral.SetSystemSignature<DebugSystem>(debugSignature);
+
+    auto inputSystem = Astral.RegisterSystem<InputSystem>();
 
     auto renderSystem = Astral.RegisterSystem<RenderSystem>(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
             modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
@@ -180,13 +182,16 @@ void AstralApp::run()
     lightSignature.set(Astral.GetComponentType<cLight>());
     Astral.SetSystemSignature<LightSystem>(lightSignature);
 
-    auto cameraSystem = Astral.RegisterSystem<CameraSystem>(&Astral);
+    auto cameraSystem = Astral.RegisterSystem<CameraSystem>();
     NtSignature cameraSignature;
     cameraSignature.set(Astral.GetComponentType<cCamera>());
     Astral.SetSystemSignature<CameraSystem>(cameraSignature);
 
-    auto inputSystem = Astral.RegisterSystem<InputSystem>(&Astral);
-    // Astral.SetSystemSignature<InputSystem>(cameraSignature);
+    auto animationSystem = Astral.RegisterSystem<AnimationSystem>();
+    NtSignature animationSignature;
+    animationSignature.set(Astral.GetComponentType<cAnimator>());
+    animationSignature.set(Astral.GetComponentType<cModel>());
+    Astral.SetSystemSignature<AnimationSystem>(animationSignature);
 
     // Spawning entities
     auto MoonlitCafe = Astral.CreateEntity();
@@ -199,31 +204,37 @@ void AstralApp::run()
     Cassandra.AddComponent(cMeta{"Cassandra"})
         .AddComponent(cTransform{ glm::vec3(0.0f, -1.5f, 0.0f),
             glm::vec3(glm::radians(90.0f), glm::radians(90.0f), 0.0f) })
-        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true })
+        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true, true })
+        .AddComponent(cAnimator {} )
         .AddComponent(cCamera{ 65.f
             ,ntRenderer.getAspectRatio()
             ,0.1f
             ,1000.f
-            ,glm::vec4(0.0f, -1.0f, 0.0f, 5.0f)
-            ,{ glm::vec3(1.0f) }})
+            ,glm::vec4(1.0f, -2.5f, 0.0f, 15.0f)
+            ,{ glm::vec3(-11.f, -10.2f, -6.5f), glm::vec3(-0.5f, 4.2f, 0.0f) }})
         .AddComponent(cPlayerController{5.0f, 10.0f});
-
-    auto SunShadowCaster = Astral.CreateEntity();
-    SunShadowCaster.AddComponent(cMeta{"Light.Sun"})
-        .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(1.0f, 1.0f, 0.5f) })
-        .AddComponent(cLight{1.0f, glm::vec3(0.5f, 0.35f, 0.33f), eLightType::Directional });
+    Astral.GetComponent<cAnimator>(Cassandra).play("Idle", true);
 
     auto BarLight = Astral.CreateEntity();
     BarLight.AddComponent(cMeta{"Light.Bar"})
         .AddComponent(cTransform{ glm::vec3(3.5f, -7.5f, -7.2f) })
         .AddComponent(cLight{100.0f, glm::vec3(1.0f, 0.65f, 0.33f) });
 
+    auto FireplaceLight = Astral.CreateEntity();
+    FireplaceLight.AddComponent(cMeta{"Light.Fireplace"})
+        .AddComponent(cTransform{ glm::vec3(13.0f, -4.2f, 9.9f) })
+        .AddComponent(cLight{75.0f, glm::vec3(1.0f, 0.3f, 0.03f) });
+
+    auto SunShadowCaster = Astral.CreateEntity();
+    SunShadowCaster.AddComponent(cMeta{"Light.Sun"})
+        .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(-0.68, 0.8f, 0.46f) })
+        .AddComponent(cLight{0.0f, glm::vec3(0.5f, 0.35f, 0.33f), true, eLightType::Directional });
+
 //  Debug stuff
     imguiShadowMapTexture = ImGui_ImplVulkan_AddTexture(
         shadowMap.getShadowDebugSampler(),
         shadowMap.getShadowImageView(),
         VK_IMAGE_LAYOUT_DEPTH_STENCIL_READ_ONLY_OPTIMAL);
-    static glm::vec3 OrthoDir = glm::vec3(0.68, -0.8f, -0.46f);
     static float OrthoScale = 31.0f;
     static float OrthoNear = -30.0f;
     static float OrthoFar = 44.0f;
@@ -252,7 +263,7 @@ void AstralApp::run()
         windowW > 0 ? (float)framebufferW / windowW : 1.0f,
         windowH > 0 ? (float)framebufferH / windowH : 1.0f
     );
-    // io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
 
     if (ntWindow.getShowImGUI())
     {
@@ -296,72 +307,71 @@ void AstralApp::run()
         // ImGui::SetItemTooltip("View mode");
         // genericRenderSystem.switchRenderMode(static_cast<RenderMode>(renderModeCurrent));
 
-        /*if (ImGui::TreeNode("Gamepad")) {
-            if (inputController.gamepadConnected) {
-                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (ID: %d)", inputController.connectedGamepadId);
-                const char* name = glfwGetGamepadName(inputController.connectedGamepadId);
+        if (ImGui::TreeNode("Gamepad")) {
+            if (inputSystem->gamepadConnected) {
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "Connected (ID: %d)", inputSystem->connectedGamepadId);
+                const char* name = glfwGetGamepadName(inputSystem->connectedGamepadId);
                 if (name) {
                     ImGui::Text("Name: %s", name);
                 }
-            } else {
-                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No gamepad detected");
-            }
 
-            // Gamepad configuration
-            if (inputController.gamepadConnected) {
-                float sensitivity = inputController.getGamepadSensitivity();
+                // Gamepad configuration
+                float sensitivity = inputSystem->getGamepadSensitivity();
                 if (ImGui::SliderFloat("Look Sensitivity", &sensitivity, 0.1f, 5.0f, "%.2f")) {
-                    inputController.setGamepadSensitivity(sensitivity);
+                    inputSystem->setGamepadSensitivity(sensitivity);
                 }
 
-                float moveSpeed = inputController.getGamepadMoveSpeed();
+                float moveSpeed = inputSystem->getGamepadMoveSpeed();
                 if (ImGui::SliderFloat("Move Speed", &moveSpeed, 1.0f, 100.0f, "%.1f")) {
-                    inputController.setGamepadMoveSpeed(moveSpeed);
+                    inputSystem->setGamepadMoveSpeed(moveSpeed);
                 }
 
-                float deadzone = inputController.getGamepadDeadzone();
+                float deadzone = inputSystem->getGamepadDeadzone();
                 if (ImGui::SliderFloat("Stick Deadzone", &deadzone, 0.0f, 0.5f, "%.3f")) {
-                    inputController.setGamepadDeadzone(deadzone);
+                    inputSystem->setGamepadDeadzone(deadzone);
                 }
 
-                float zoomSpeed = inputController.getGamepadZoomSpeed();
+                float zoomSpeed = inputSystem->getGamepadZoomSpeed();
                 if (ImGui::SliderFloat("Zoom Speed", &zoomSpeed, 0.1f, 10.0f, "%.2f")) {
-                    inputController.setGamepadZoomSpeed(zoomSpeed);
+                    inputSystem->setGamepadZoomSpeed(zoomSpeed);
                 }
 
                 if (ImGui::Button("Reset to Defaults")) {
-                    inputController.setGamepadSensitivity(2.0f);
-                    inputController.setGamepadMoveSpeed(25.0f);
-                    inputController.setGamepadDeadzone(0.15f);
-                    inputController.setGamepadZoomSpeed(2.0f);
+                    inputSystem->setGamepadSensitivity(2.0f);
+                    inputSystem->setGamepadMoveSpeed(25.0f);
+                    inputSystem->setGamepadDeadzone(0.15f);
+                    inputSystem->setGamepadZoomSpeed(2.0f);
                 }
 
                 // Live input display for debugging
                 if (ImGui::CollapsingHeader("Live Input Debug")) {
-                    float leftX = inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
-                    float leftY = inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
-                    float rightX = inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_X);
-                    float rightY = inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_Y);
+                    float leftX = inputSystem->getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
+                    float leftY = inputSystem->getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
+                    float rightX = inputSystem->getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_X);
+                    float rightY = inputSystem->getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_Y);
 
                     ImGui::Text("Left Stick: (%.3f, %.3f)", leftX, leftY);
                     ImGui::Text("Right Stick: (%.3f, %.3f)", rightX, rightY);
 
                     ImGui::Text("Buttons:");
-                    ImGui::Text("X: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_CROSS) ? "PRESSED" : "released");
-                    ImGui::Text("O: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_CIRCLE) ? "PRESSED" : "released");
-                    ImGui::Text("[]: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_SQUARE) ? "PRESSED" : "released");
-                    ImGui::Text("^: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_TRIANGLE) ? "PRESSED" : "released");
-                    ImGui::Text("Start: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_START) ? "PRESSED" : "released");
-                    ImGui::Text("L1: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_BUMPER) ? "PRESSED" : "released");
-                    ImGui::Text("R1: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER) ? "PRESSED" : "released");
-                    ImGui::Text("L2: %.2f", inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_TRIGGER));
-                    ImGui::Text("R2: %.2f", inputController.getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER));
-                    ImGui::Text("L3: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_THUMB) ? "PRESSED" : "released");
-                    ImGui::Text("R3: %s", inputController.isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_THUMB) ? "PRESSED" : "released");
+                    ImGui::Text("X: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_CROSS) ? "PRESSED" : "released");
+                    ImGui::Text("O: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_CIRCLE) ? "PRESSED" : "released");
+                    ImGui::Text("[]: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_SQUARE) ? "PRESSED" : "released");
+                    ImGui::Text("^: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_TRIANGLE) ? "PRESSED" : "released");
+                    ImGui::Text("Start: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_START) ? "PRESSED" : "released");
+                    ImGui::Text("L1: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_BUMPER) ? "PRESSED" : "released");
+                    ImGui::Text("R1: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_BUMPER) ? "PRESSED" : "released");
+                    ImGui::Text("L2: %.2f", inputSystem->getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_TRIGGER));
+                    ImGui::Text("R2: %.2f", inputSystem->getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER));
+                    ImGui::Text("L3: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_LEFT_THUMB) ? "PRESSED" : "released");
+                    ImGui::Text("R3: %s", inputSystem->isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_RIGHT_THUMB) ? "PRESSED" : "released");
                 }
+            } else {
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "No gamepad detected");
             }
+
             ImGui::TreePop();
-            }*/
+            }
 
         if (ImGui::TreeNode("Lighting"))
         {
@@ -392,7 +402,6 @@ void AstralApp::run()
         ImGui::End();
 
         if (ImGui::Begin("ShadowMap")) {
-            ImGui::DragFloat3("Light Dir", glm::value_ptr(OrthoDir), 0.01f, -5.0f, 5.0f);
             ImGui::SliderFloat("Ortho Scale", &OrthoScale, 1.0f, 200.0f);
             ImGui::SliderFloat("Ortho Near", &OrthoNear, -100.0f, 100.0f);
             ImGui::SliderFloat("Ortho Far", &OrthoFar, 1.0f, 200.0f);
@@ -445,9 +454,6 @@ void AstralApp::run()
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("Position");
                         ImGui::TableSetColumnIndex(1);
-                        // static float vec4a[4] = { 0.10f, 0.20f, 0.30f, 0.44f };
-                        ImGui::PushItemWidth();
-                        ImGui::Indent();
                         ImGui::InputFloat3("##position", (float*)&transform.translation);
                         // ImGui::Text("%.1f, %.1f, %.1f", transform.translation.x, transform.translation.y, transform.translation.z);
 
@@ -479,6 +485,57 @@ void AstralApp::run()
                         ImGui::TextUnformatted("Drop Shadow:");
                         ImGui::TableSetColumnIndex(1);
                         ImGui::Text("%d", model.bDropShadow);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("NPR shading:");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%d", model.bNPRshading);
+
+                        if (model.mesh->hasSkeleton()) {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::TextUnformatted("Skeleton bones:");
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::Text("%d", model.mesh->getBonesCount());
+                        }
+                        if (model.mesh->getAnimations().size() > 0) {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::TextUnformatted("Animations:");
+                            ImGui::TableSetColumnIndex(1);
+                            std::string animationList = join (
+                                model.mesh->getAnimations(),
+                                ", ",
+                                [](const NtAnimation& anim) { return anim.name; }
+                            );
+                            ImGui::Text("%s", animationList.c_str());
+                        }
+                        ImGui::EndTable();
+                    }
+                    ImGui::Spacing();
+                }
+
+                if (Astral.HasComponent<cAnimator>(selectedEntityID)) {
+                    auto& animatorComp = Astral.GetComponent<cAnimator>(selectedEntityID);
+                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Animator");
+                    if (ImGui::BeginTable("AnimatorComponent", 2, flags)) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Playing:");
+                        ImGui::TableSetColumnIndex(1);
+                        std::string animName = (animatorComp.animator->getIsPlaying() &&
+                                                !animatorComp.animator->getCurrentAnimationName().empty())
+                                    ? animatorComp.animator->getCurrentAnimationName()
+                                    : "-";
+                        ImGui::Text("%s", animName.c_str());
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Time:");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.2f / %.2f", animatorComp.animator->getCurrentTime(), animatorComp.animator->getDuration());
+
                         ImGui::EndTable();
                     }
                     ImGui::Spacing();
@@ -505,15 +562,20 @@ void AstralApp::run()
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("Intensity");
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%f", light.intensity);
+                        ImGui::InputFloat("##intensity", &light.intensity);
+
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("Color");
                         ImGui::TableSetColumnIndex(1);
-                        static ImVec4 light_color = { light.color.x, light.color.y, light.color.z, 1.0f };
-                        ImGui::ColorButton("MyColor", light_color, ImGuiColorEditFlags_NoTooltip);
-                        ImGui::SameLine();
-                        ImGui::Text("%.2f, %.2f, %.2f", light.color.x, light.color.y, light.color.z);
+                        ImGui::ColorEdit3("##lightcolor", (float*)&light.color);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Cast Shadows");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Checkbox("checkbox", &light.bCastShadows);
+
                         ImGui::EndTable();
                     }
                     ImGui::Spacing();
@@ -545,7 +607,7 @@ void AstralApp::run()
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("FOV");
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%f", camera.fov);
+                        ImGui::Text("%.1f", camera.fov);
 
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
@@ -571,10 +633,10 @@ void AstralApp::run()
     // ---
 
 // Input update
-    inputSystem->update(&ntWindow, deltaTime, io.MouseWheel, cameraSystem->getActiveCamera());
+    inputSystem->update(&ntWindow, deltaTime, io.MouseWheel, cameraSystem->getActiveCamera(), Cassandra);
 
 // Camera update
-    cameraSystem->update();
+    cameraSystem->update(ubo.projection, ubo.view, ubo.inverseView);
 
 // EVERY FRAME
     if (auto commandBuffer = ntRenderer.beginFrame()) {
@@ -587,42 +649,31 @@ void AstralApp::run()
       };
 
     // UBO
-      // Update the camera
-      ubo.projection = cameraSystem->getProjection();
-      ubo.view = cameraSystem->getView();
-      ubo.inverseView = cameraSystem->getInverseView();
       // Lighting
-      lightSystem->updateLights(Astral, frameInfo, ubo, OrthoDir, OrthoScale, OrthoNear, OrthoFar);
+      lightSystem->updateLights(frameInfo, ubo, OrthoScale, OrthoNear, OrthoFar);
 
+      // Write the UBOs
       uboBuffers[frameIndex]->writeToBuffer(&ubo);
       uboBuffers[frameIndex]->flush();
       // ---
 
-    // ANIMATION
-      // for (auto& kv : frameInfo.gameObjects) {
-      //     auto& obj = kv.second;
-      //     if (obj.animator && obj.model && obj.model->hasSkeleton()) {
-      //       obj.animator->update(deltaTime);
-      //       obj.model->updateSkeleton();
-      //     }
-      // }
+// ANIMATION
+    animationSystem->update(deltaTime);
       // ---
 
     // RENDERING
       // PASS 1: Render shadow map
       ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
 
-        renderSystem->switchRenderMode(RenderMode::ShadowMap);
         vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
-        renderSystem->renderGameObjects(Astral, frameInfo);
+        renderSystem->renderGameObjects(frameInfo, true);
 
       ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
 
       // PASS 2: Sample from it and render main scene
       ntRenderer.beginMainRendering(commandBuffer);
 
-        renderSystem->switchRenderMode(RenderMode::Lit);
-        renderSystem->renderGameObjects(Astral, frameInfo);
+        renderSystem->renderGameObjects(frameInfo);
         // genericRenderSystem.renderLightBillboards(frameInfo);
 
         if (ntWindow.getShowImGUI()) {

@@ -2,6 +2,7 @@
 
 #include "nt_model.hpp"
 #include "nt_types.hpp"
+#include "nt_animator.hpp"
 
 #include <glm/glm.hpp>
 #include <cstddef>
@@ -76,6 +77,29 @@ struct cTransform {
           },
       };
     };
+
+    glm::vec3 getForward() const {
+        // Forward vector from rotation
+        glm::vec3 forward;
+        forward.x = cos(rotation.y) * cos(rotation.x);
+        forward.y = sin(rotation.x);
+        forward.z = sin(rotation.y) * cos(rotation.x);
+        return glm::normalize(forward);
+    }
+
+    glm::vec3 getRight() const {
+        // Right vector is perpendicular to forward and world up
+        glm::vec3 forward = getForward();
+        glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+        return glm::normalize(glm::cross(forward, worldUp));
+    }
+
+    glm::vec3 getUp() const {
+        // Up vector is perpendicular to forward and right
+        glm::vec3 forward = getForward();
+        glm::vec3 right = getRight();
+        return glm::normalize(glm::cross(right, forward));
+    }
 };
 
 struct cCamera {
@@ -93,23 +117,31 @@ struct cCamera {
 struct cLight {
     float intensity{1.0f};
     glm::vec3 color{1.0f};
+    bool bCastShadows{false};
     eLightType type{eLightType::Point};
 };
 
 struct cModel {
     std::shared_ptr<NtModel> mesh;
     bool bDropShadow = false;
+    bool bNPRshading = false;
 };
+
+struct cAnimator {
+    std::shared_ptr<NtAnimator> animator = std::make_shared<NtAnimator>();
+
+    // Helper
+    void play(const std::string& animationName, bool loop = false) {
+        animator->play(animationName, loop);
+    }
+};
+
 
 //------------------------------
 
 struct cPlayerController {
     float moveSpeed = 5.0f;
     float rotationSpeed = 10.0f;
-};
-
-struct cAnimator {
-    //NtAnimator animator = std::make_unique<NtAnimator>(*go_Cassandra.model);
 };
 
 struct cCollider {
