@@ -1,3 +1,5 @@
+imgui.ini
+
 # === Assets (may be too big for github) ===
 #.assets/
 
@@ -52,4 +54,3 @@ cmake-build-*/
 *.swp
 *.bak
 *.tmp
-

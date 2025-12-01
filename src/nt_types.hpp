@@ -12,8 +12,8 @@ enum class CameraControlType {
 };
 
 enum class RenderMode {
-  Lit,
-  Unlit,
+  PBR,
+  NPR,
   ShadowMap,
   Billboard
 };

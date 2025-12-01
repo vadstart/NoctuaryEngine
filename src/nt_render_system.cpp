@@ -107,78 +107,78 @@ void RenderSystem::createPipelines(NtSwapChain &swapChain) {
         "shaders/shadowmap.vert.spv",
         "shaders/shadowmap.frag.spv");
 
-    // LIT
-    PipelineConfigInfo litConfig{};
-    NtPipeline::defaultPipelineConfigInfo(litConfig, nt::RenderMode::Lit, ntDevice);
-    litConfig.pipelineLayout = pipelineLayout;
+    // PBR
+    PipelineConfigInfo pbrConfig{};
+    NtPipeline::defaultPipelineConfigInfo(pbrConfig, nt::RenderMode::PBR, ntDevice);
+    pbrConfig.pipelineLayout = pipelineLayout;
 
-    litConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
-    litConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    pbrConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+    pbrConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
 
-    VkPipelineRenderingCreateInfo litPipelineRenderingInfo{};
-     litPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-     litPipelineRenderingInfo.colorAttachmentCount = 1;
-     litPipelineRenderingInfo.pColorAttachmentFormats = &litConfig.colorAttachmentFormat;
-     litPipelineRenderingInfo.depthAttachmentFormat = litConfig.depthAttachmentFormat;
-     litPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    VkPipelineRenderingCreateInfo pbrPipelineRenderingInfo{};
+     pbrPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+     pbrPipelineRenderingInfo.colorAttachmentCount = 1;
+     pbrPipelineRenderingInfo.pColorAttachmentFormats = &pbrConfig.colorAttachmentFormat;
+     pbrPipelineRenderingInfo.depthAttachmentFormat = pbrConfig.depthAttachmentFormat;
+     pbrPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
-    litPipeline = std::make_unique<NtPipeline>(
+    pbrPipeline = std::make_unique<NtPipeline>(
         ntDevice,
-        litConfig,
-        litPipelineRenderingInfo,
+        pbrConfig,
+        pbrPipelineRenderingInfo,
         "shaders/pbr.vert.spv",
         "shaders/pbr.frag.spv");
 
-    // UNLIT
-    PipelineConfigInfo unlitConfig{};
-    NtPipeline::defaultPipelineConfigInfo(unlitConfig, nt::RenderMode::Unlit, ntDevice);
-    unlitConfig.pipelineLayout = pipelineLayout;
+    // NPR
+    PipelineConfigInfo nprConfig{};
+    NtPipeline::defaultPipelineConfigInfo(nprConfig, nt::RenderMode::NPR, ntDevice);
+    nprConfig.pipelineLayout = pipelineLayout;
 
-    unlitConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
-    unlitConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    nprConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+    nprConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
 
-    VkPipelineRenderingCreateInfo unlitPipelineRenderingInfo{};
-     unlitPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-     unlitPipelineRenderingInfo.colorAttachmentCount = 1;
-     unlitPipelineRenderingInfo.pColorAttachmentFormats = &unlitConfig.colorAttachmentFormat;
-     unlitPipelineRenderingInfo.depthAttachmentFormat = unlitConfig.depthAttachmentFormat;
-     unlitPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    VkPipelineRenderingCreateInfo nprPipelineRenderingInfo{};
+     nprPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+     nprPipelineRenderingInfo.colorAttachmentCount = 1;
+     nprPipelineRenderingInfo.pColorAttachmentFormats = &nprConfig.colorAttachmentFormat;
+     nprPipelineRenderingInfo.depthAttachmentFormat = nprConfig.depthAttachmentFormat;
+     nprPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
-    unlitPipeline = std::make_unique<NtPipeline>(
+    nprPipeline = std::make_unique<NtPipeline>(
         ntDevice,
-        unlitConfig,
-        unlitPipelineRenderingInfo,
+        nprConfig,
+        nprPipelineRenderingInfo,
         "shaders/npr.vert.spv",
         "shaders/npr.frag.spv");
 
     // BILLBOARDS
-    PipelineConfigInfo billboardPipelineConfig{};
-    NtPipeline::defaultPipelineConfigInfo(billboardPipelineConfig, nt::RenderMode::Billboard, ntDevice);
-    billboardPipelineConfig.pipelineLayout = pipelineLayout;
+    // PipelineConfigInfo billboardPipelineConfig{};
+    // NtPipeline::defaultPipelineConfigInfo(billboardPipelineConfig, nt::RenderMode::Billboard, ntDevice);
+    // billboardPipelineConfig.pipelineLayout = pipelineLayout;
 
-    billboardPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
-    billboardPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
+    // billboardPipelineConfig.colorAttachmentFormat = swapChain.getSwapChainImageFormat();
+    // billboardPipelineConfig.depthAttachmentFormat = swapChain.getSwapChainDepthFormat();
 
-    VkPipelineRenderingCreateInfo billPipelineRenderingInfo{};
-     billPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-     billPipelineRenderingInfo.colorAttachmentCount = 1;
-     billPipelineRenderingInfo.pColorAttachmentFormats = &billboardPipelineConfig.colorAttachmentFormat;
-     billPipelineRenderingInfo.depthAttachmentFormat = billboardPipelineConfig.depthAttachmentFormat;
-     billPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    // VkPipelineRenderingCreateInfo billPipelineRenderingInfo{};
+    //  billPipelineRenderingInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+    //  billPipelineRenderingInfo.colorAttachmentCount = 1;
+    //  billPipelineRenderingInfo.pColorAttachmentFormats = &billboardPipelineConfig.colorAttachmentFormat;
+    //  billPipelineRenderingInfo.depthAttachmentFormat = billboardPipelineConfig.depthAttachmentFormat;
+    //  billPipelineRenderingInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
-    billboardPipeline = std::make_unique<NtPipeline>(
-        ntDevice,
-        billboardPipelineConfig,
-        billPipelineRenderingInfo,
-        "shaders/billboard.vert.spv",
-        "shaders/billboard.frag.spv");
+    // billboardPipeline = std::make_unique<NtPipeline>(
+    //     ntDevice,
+    //     billboardPipelineConfig,
+    //     billPipelineRenderingInfo,
+    //     "shaders/billboard.vert.spv",
+    //     "shaders/billboard.frag.spv");
 }
 
 void RenderSystem::renderGameObjects(FrameInfo &frameInfo, bool bShadowPass)
 {
     if (bShadowPass)
         shadowMapPipeline->bind(frameInfo.commandBuffer);
-    else litPipeline->bind(frameInfo.commandBuffer);
+    else pbrPipeline->bind(frameInfo.commandBuffer);
 
   vkCmdBindDescriptorSets(
     frameInfo.commandBuffer,
@@ -259,7 +259,7 @@ void RenderSystem::renderGameObjects(FrameInfo &frameInfo, bool bShadowPass)
 //  Character stylized Pipeline
 //===================================================
 if(!bShadowPass)
-    unlitPipeline->bind(frameInfo.commandBuffer);
+    nprPipeline->bind(frameInfo.commandBuffer);
 
 vkCmdBindDescriptorSets(
     frameInfo.commandBuffer,

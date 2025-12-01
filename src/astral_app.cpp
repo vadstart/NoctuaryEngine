@@ -210,7 +210,7 @@ void AstralApp::run()
             ,ntRenderer.getAspectRatio()
             ,0.1f
             ,1000.f
-            ,glm::vec4(1.0f, -2.5f, 0.0f, 15.0f)
+            ,glm::vec4(0.0f, -2.5f, 0.0f, 14.1f)
             ,{ glm::vec3(-11.f, -10.2f, -6.5f), glm::vec3(-0.5f, 4.2f, 0.0f) }})
         .AddComponent(cPlayerController{5.0f, 10.0f});
     Astral.GetComponent<cAnimator>(Cassandra).play("Idle", true);

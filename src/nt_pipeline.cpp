@@ -200,7 +200,7 @@ NtPipeline::~NtPipeline() {
        configInfo.colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
        break;
 
-     case nt::RenderMode::Unlit:
+     case nt::RenderMode::NPR:
         configInfo.rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
      break;
 

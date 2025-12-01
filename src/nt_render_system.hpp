@@ -40,12 +40,9 @@ private:
     NtAstral* astral;
 
     std::unique_ptr<NtPipeline> shadowMapPipeline;
-    std::unique_ptr<NtPipeline> litPipeline;
-    std::unique_ptr<NtPipeline> unlitPipeline;
-    std::unique_ptr<NtPipeline> wireframePipeline;
-    std::unique_ptr<NtPipeline> normalsPipeline;
-    std::unique_ptr<NtPipeline> depthPipeline;
-    std::unique_ptr<NtPipeline> billboardPipeline;
+    std::unique_ptr<NtPipeline> pbrPipeline;
+    std::unique_ptr<NtPipeline> nprPipeline;
+    // std::unique_ptr<NtPipeline> billboardPipeline;
     VkPipelineLayout pipelineLayout;
 
 
