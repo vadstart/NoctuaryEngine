@@ -1,4 +1,5 @@
 #include "astral_app.hpp"
+#include "nt_log.hpp"
 #include "nt_camera_system.hpp"
 #include "nt_buffer.hpp"
 #include "nt_descriptors.hpp"
@@ -239,6 +240,8 @@ void AstralApp::run()
     static float OrthoNear = -30.0f;
     static float OrthoFar = 44.0f;
     static int selectedEntityID = -1;
+
+    NT_LOG_INFO(Core, "Engine initialized successfully");
 
   // ENGINE LOOP
   while (!ntWindow.shouldClose()) {

@@ -1,4 +1,5 @@
 #include "astral_app.hpp"
+#include "nt_log.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -51,6 +52,18 @@ void setWorkingDirectory() {
 
 int main()
 {
+    // Initialize logger
+    // nt::Logger.Init("logs/engine.log", true");
+
+    // Configure categories
+    using namespace nt::LogCategories;
+
+    // Disable verbose asset loading logs after initial development
+    // nt::Logger.SetCategoryEnabled(AssetLoading, false);
+
+    // Only show warnings and above for rendering
+    // nt::Logger.SetCategoryThreshold(Rendering, nt::LogLevel::Warning);
+
   setWorkingDirectory();
 
   nt::AstralApp app{};
