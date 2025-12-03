@@ -1,5 +1,8 @@
 #pragma once
 
+#define FMT_HEADER_ONLY
+#include "fmt/format.h"
+
 #include <ctime>
 #include <filesystem>
 #include <mutex>
@@ -160,40 +163,9 @@ inline void SetCategoryThreshold(LogCategory& category, LogLevel threshold) {
 // Macros
 // ========
 
-// C++20 std::format version
-#if __cplusplus >= 202002L
-
 #define NT_LOG(Category, Level, Format, ...) \
     nt::Log(Category, nt::LogLevel::Level, \
-        std::format(Format, ##__VA_ARGS__), __FILE__, __LINE__)
-
-#else
-
-// C++17 fallback using variadic template helper
-namespace nt {
-namespace detail {
-    // Helper for string formatting
-    inline std::string FormatString(const char* format) {
-        return std::string(format);
-    }
-
-    template<typename... Args>
-    inline std::string FormatString(const char* format, Args&&... args) {
-        int size = std::snprintf(nullptr, 0, format, std::forward<Args>(args)...) + 1;
-        if (size <= 0) return "";
-
-        std::unique_ptr<char[]> buf(new char[size]);
-        std::snprintf(buf.get(), size, format, std::forward<Args>(args)...);
-        return std::string(buf.get(), buf.get() + size - 1);
-    }
-} // namespace detail
-} // namespace nt
-
-#define NT_LOG(Category, Level, Format, ...) \
-    nt::Log(Category, nt::LogLevel::Level, \
-        nt::detail::FormatString(Format, ##__VA_ARGS__), __FILE__, __LINE__)
-
-#endif
+    fmt::format(Format, ##__VA_ARGS__), __FILE__, __LINE__)
 
 // Shorthand macros
 #define NT_LOG_VERBOSE(Category, Format, ...) NT_LOG(Category, Verbose, Format, ##__VA_ARGS__)

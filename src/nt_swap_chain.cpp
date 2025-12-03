@@ -1,4 +1,5 @@
 #include "nt_swap_chain.hpp"
+#include "nt_log.hpp"
 
 // std
 #include <array>
@@ -308,6 +309,7 @@ void NtSwapChain::createSyncObjects() {
         vkCreateSemaphore(device.device(), &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) !=
             VK_SUCCESS ||
         vkCreateFence(device.device(), &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS) {
+            NT_LOG_ERROR(LogRendering, "failed to create synchronization objects for a frame!");
       throw std::runtime_error("failed to create synchronization objects for a frame!");
     }
   }

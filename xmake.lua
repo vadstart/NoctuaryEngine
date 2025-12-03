@@ -30,6 +30,9 @@ target("NoctuaryEngine")
         set_runtimes("MD")
         add_cxxflags("/std:c++20")
 
+        set_encodings("utf-8")
+        set_encodings("source:utf-8", "target:utf-8")
+
         -- Vulkan paths
         local vk = "C:/VulkanSDK"
         add_includedirs(vk .. "/Include")

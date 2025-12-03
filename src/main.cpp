@@ -31,7 +31,7 @@ void setWorkingDirectory() {
         // std::filesystem::path path = std::filesystem::path(exePath).parent_path();
         std::filesystem::path path = "C:\\Users\\vadsama\\Documents\\Projects\\NoctuaryEngine";
         std::filesystem::current_path(path);
-        NT_LOG_VERBOSE(nt::LogCore, "Working directory set to: {}", std::filesystem::current_path().c_str());
+        NT_LOG_VERBOSE(nt::LogCore, "Working directory set to: {}", std::filesystem::current_path().string());
     } else {
         NT_LOG_ERROR(nt::LogCore, "Failed to get executable path on Windows.");
     }
@@ -53,6 +53,8 @@ void setWorkingDirectory() {
 int main()
 {
   nt::LogInit("engine.log", true);
+  // Only show warnings and above for rendering
+  nt::SetCategoryThreshold(nt::LogAssets, nt::LogLevel::Verbose);
 
   setWorkingDirectory();
 

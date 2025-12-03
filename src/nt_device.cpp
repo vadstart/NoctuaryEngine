@@ -131,7 +131,7 @@ void NtDevice::pickPhysicalDevice() {
     throw std::runtime_error("failed to find GPUs with Vulkan support!");
   }
 
-  NT_LOG_INFO(LogCore, "Device count: ", deviceCount);
+  NT_LOG_INFO(LogCore, "Device count: {}", deviceCount);
   std::vector<VkPhysicalDevice> devices(deviceCount);
   vkEnumeratePhysicalDevices(instance_, &deviceCount, devices.data());
 
@@ -139,7 +139,7 @@ void NtDevice::pickPhysicalDevice() {
     if (isDeviceSuitable(device)) {
       physicalDevice_ = device;
       msaaSamples = getMaxUsableSampleCount();
-      NT_LOG_INFO(LogCore, "Max MSAA samples: ", msaaSamples);
+      NT_LOG_INFO(LogCore, "Max MSAA samples: {}", static_cast<uint32_t>(msaaSamples));
       break;
     }
   }
