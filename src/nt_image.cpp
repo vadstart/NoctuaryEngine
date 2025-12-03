@@ -1,4 +1,5 @@
 #include "nt_image.hpp"
+#include "nt_log.hpp"
 #include <algorithm>
 #include <iostream>
 #include <stdexcept>
@@ -153,7 +154,7 @@ std::unique_ptr<NtImage> NtImage::createTextureFromMemory(NtDevice &device, cons
   stbi_uc* pixels = nullptr;
   bool isRawData = false;
 
-  // std::cout << "    Attempting to load embedded texture from memory, size: " << size << " bytes" << std::endl;
+  // NT_LOG_VERBOSE(LogAssets, "Attempting to load embedded texture from memory, size: {} bytes", size);
 
   // First, try to load as compressed image (JPEG/PNG)
   stbi_set_flip_vertically_on_load(false);  // Temporarily disable flipping to test UV issues
@@ -167,6 +168,7 @@ std::unique_ptr<NtImage> NtImage::createTextureFromMemory(NtDevice &device, cons
 
     for (size_t dim : possibleSizes) {
       if (size == dim * dim * pixelSize) {
+           NT_LOG_VERBOSE(LogAssets, "Attempting to load embedded texture from memory, size: {} bytes", size);
         // std::cout << "    Detected raw pixel data: " << dim << "x" << dim << " RGBA" << std::endl;
         texWidth = static_cast<int>(dim);
         texHeight = static_cast<int>(dim);
@@ -179,18 +181,17 @@ std::unique_ptr<NtImage> NtImage::createTextureFromMemory(NtDevice &device, cons
 
     if (!isRawData) {
       const char* error = stbi_failure_reason();
-      std::cerr << "    STB_Image error: " << (error ? error : "unknown") << std::endl;
-      std::cerr << "    Data size: " << size << " bytes" << std::endl;
-      std::cerr << "    First few bytes: ";
+      NT_LOG_ERROR(LogAssets, "STB_Image error: {}\n Data size: {} bytes\n First few bytes:", (error ? error : "unknown"), size);
       const unsigned char* bytes = static_cast<const unsigned char*>(data);
       for (size_t i = 0; i < std::min(size, static_cast<size_t>(16)); ++i) {
-        std::cerr << std::hex << static_cast<int>(bytes[i]) << " ";
+          NT_LOG_ERROR(LogAssets, "{} {}", std::hex, static_cast<int>(bytes[i]));
       }
-      std::cerr << std::dec << std::endl;
+      NT_LOG_ERROR(LogAssets, "{}", std::dec);
+      NT_LOG_ERROR(LogAssets, "Failed to load texture image from memory!");
       throw std::runtime_error("failed to load texture image from memory!");
     }
   } else {
-    // std::cout << "    Successfully decoded compressed texture: " << texWidth << "x" << texHeight << " channels: " << texChannels << std::endl;
+      NT_LOG_VERBOSE(LogAssets, "Successfully decoded compressed texture: {} x {} channels: {}", texWidth, texHeight, texChannels);
   }
 
   VkDeviceSize imageSize = texWidth * texHeight * 4;

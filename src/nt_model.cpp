@@ -183,7 +183,7 @@ void NtModel::createBoneBuffer() {
 
 void NtModel::updateBoneBuffer(VkDescriptorSetLayout boneLayout, VkDescriptorPool bonePool) {
     if (!boneBuffer) {
-        std::cerr << "Cannot update bone buffer: buffer doesn't exist!" << std::endl;
+        NT_LOG_ERROR(LogAssets, "Cannot update bone buffer: buffer doesn't exist!");
         return;
     }
 

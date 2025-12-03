@@ -53,8 +53,8 @@ void setWorkingDirectory() {
 int main()
 {
   nt::LogInit("engine.log", true);
-  // Only show warnings and above for rendering
   nt::SetCategoryThreshold(nt::LogAssets, nt::LogLevel::Verbose);
+  nt::SetCategoryThreshold(nt::LogCore, nt::LogLevel::Warning);
 
   setWorkingDirectory();
 

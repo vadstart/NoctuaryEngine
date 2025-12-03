@@ -8,13 +8,13 @@ namespace nt
 class AnimationSystem : public NtSystem
 {
 public:
-    AnimationSystem(NtAstral* astral_ptr) : astral(astral_ptr) {};
+    AnimationSystem(NtNexus* nexus_ptr) : nexus(nexus_ptr) {};
     ~AnimationSystem() {};
 
     void update(float dt);
 
 private:
-    NtAstral* astral;
+    NtNexus* nexus;
 };
 
 }

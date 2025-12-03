@@ -47,9 +47,9 @@ struct NtPushConstantData {
   alignas(4) int isAnimated{0};
 };
 
-RenderSystem::RenderSystem(NtAstral* astral_ptr, NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
+RenderSystem::RenderSystem(NtNexus* nexus_ptr, NtDevice &device, NtSwapChain &swapChain, VkDescriptorSetLayout globalSetLayout,
     VkDescriptorSetLayout modelSetLayout, VkDescriptorSetLayout boneSetLayout) : ntDevice{device} {
-  astral = astral_ptr;
+  nexus = nexus_ptr;
   createPipelineLayout(globalSetLayout, modelSetLayout, boneSetLayout);
   createPipelines(swapChain);
 }
@@ -190,8 +190,8 @@ void RenderSystem::renderGameObjects(FrameInfo &frameInfo, bool bShadowPass)
 
   for (auto const& entity : entities)
   {
-    auto& transform = astral->GetComponent<cTransform>(entity);
-    const auto& model = astral->GetComponent<cModel>(entity);
+    auto& transform = nexus->GetComponent<cTransform>(entity);
+    const auto& model = nexus->GetComponent<cModel>(entity);
 
     if ((bShadowPass && !model.bDropShadow) || model.bNPRshading) continue;
 
@@ -218,7 +218,7 @@ void RenderSystem::renderGameObjects(FrameInfo &frameInfo, bool bShadowPass)
 
       // Bind bone matrices if animated (binding 2)
       if (model.mesh->hasSkeleton()) {
-        if (astral->HasComponent<cAnimator>(entity)) {
+        if (nexus->HasComponent<cAnimator>(entity)) {
             if (model.mesh->getBoneDescriptorSet() != VK_NULL_HANDLE) {
                 vkCmdBindDescriptorSets(
                     frameInfo.commandBuffer,
@@ -272,8 +272,8 @@ vkCmdBindDescriptorSets(
 
 for (auto const& entity : entities)
   {
-    auto& transform = astral->GetComponent<cTransform>(entity);
-    const auto& model = astral->GetComponent<cModel>(entity);
+    auto& transform = nexus->GetComponent<cTransform>(entity);
+    const auto& model = nexus->GetComponent<cModel>(entity);
 
     if ((bShadowPass && !model.bDropShadow) || !model.bNPRshading) continue;
 
@@ -299,7 +299,7 @@ for (auto const& entity : entities)
         push.normalMatrix = transform.normalMatrix();
 
         if (model.mesh->hasSkeleton()) {
-            if (astral->HasComponent<cAnimator>(entity)) {
+            if (nexus->HasComponent<cAnimator>(entity)) {
                 if (model.mesh->getBoneDescriptorSet() != VK_NULL_HANDLE) {
                     vkCmdBindDescriptorSets(
                         frameInfo.commandBuffer,

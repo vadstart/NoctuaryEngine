@@ -17,7 +17,7 @@ namespace nt
 class RenderSystem : public NtSystem
 {
 public:
-    RenderSystem(NtAstral* astral_ptr, NtDevice &device,
+    RenderSystem(NtNexus* nexus_ptr, NtDevice &device,
                         NtSwapChain &swapChain,
                         VkDescriptorSetLayout globalSetLayout,
                         VkDescriptorSetLayout modelSetLayout,
@@ -37,7 +37,7 @@ private:
     void createPipelines(NtSwapChain &swapChain);
 
     NtDevice &ntDevice;
-    NtAstral* astral;
+    NtNexus* nexus;
 
     std::unique_ptr<NtPipeline> shadowMapPipeline;
     std::unique_ptr<NtPipeline> pbrPipeline;

@@ -347,13 +347,13 @@ private:
 };
 
 // Forward declaration
-class NtAstral;
+class NtNexus;
 //==============================
 // Entity Handle Forward Declaration (for readable access)
 //==============================
 class NtEntityHandle {
 public:
-    NtEntityHandle(NtEntity id, NtAstral* astral) : entity(id), astral(astral) {}
+    NtEntityHandle(NtEntity id, NtNexus* nexus) : entity(id), nexus(nexus) {}
 
     template<typename T>
     NtEntityHandle& AddComponent(T component);
@@ -370,13 +370,13 @@ public:
 
 private:
     NtEntity entity;
-    NtAstral* astral;
+    NtNexus* nexus;
 };
 
 //==============================
 // Main ECS controller
 //==============================
-class NtAstral
+class NtNexus
 {
 public:
     void Init()
@@ -470,18 +470,18 @@ private:
 //==============================
 template<typename T>
 NtEntityHandle& NtEntityHandle::AddComponent(T component) {
-    astral->AddComponent<T>(entity, component);
+    nexus->AddComponent<T>(entity, component);
     return *this;
 }
 
 template<typename T>
 void NtEntityHandle::RemoveComponent() {
-    astral->RemoveComponent<T>(entity);
+    nexus->RemoveComponent<T>(entity);
 }
 
 template<typename T>
 T& NtEntityHandle::GetComponent() {
-    return astral->GetComponent<T>(entity);
+    return nexus->GetComponent<T>(entity);
 }
 
 }

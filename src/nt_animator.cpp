@@ -1,4 +1,5 @@
 #include "nt_animator.hpp"
+#include "nt_log.hpp"
 #include <cmath>
 #include <glm/ext/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
@@ -50,13 +51,12 @@ void NtAnimator::update(NtModel& model, float deltaTime) {
         const auto& channel = animation->channels[chanIdx];
 
         if (channel.samplerIndex >= animation->samplers.size()) {
-            std::cerr << "[ANIM ERROR] Invalid sampler index!" << std::endl;
+            NT_LOG_ERROR(LogAnimation, "[ANIM ERROR] Invalid sampler index!");
             continue;
         }
 
         if (channel.targetNode >= static_cast<int>(skeleton.bones.size())) {
-            std::cerr << "[ANIM ERROR] Target node " << channel.targetNode
-                      << " out of range (joints size: " << skeleton.bones.size() << ")" << std::endl;
+            NT_LOG_ERROR(LogAnimation, "[ANIM ERROR] Target node {} out of range (joints size: {})", channel.targetNode, skeleton.bones.size());
             continue;
         }
 

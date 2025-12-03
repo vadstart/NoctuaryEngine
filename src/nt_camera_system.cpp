@@ -8,7 +8,7 @@
 namespace nt {
 
 void CameraSystem::setPerspectiveProjection() {
-    auto const& camera = astral->GetComponent<cCamera>(*entities.begin());
+    auto const& camera = nexus->GetComponent<cCamera>(*entities.begin());
 
     assert(glm::abs(camera.aspect - std::numeric_limits<float>::epsilon()) && "Camera aspect ratio must be non-zero and finite");
     const float tanHalfFovy = tan(glm::radians(camera.fov) / 2.f);
@@ -107,8 +107,8 @@ void CameraSystem::update(glm::mat4 &UBOprojection, glm::mat4 &UBOview, glm::mat
     // Only care about the first camera for now
     assert(!entities.empty() && "No entities found in the Camera System");
 
-    auto const& transform = astral->GetComponent<cTransform>(*entities.begin());
-    auto& camera = astral->GetComponent<cCamera>(*entities.begin());
+    auto const& transform = nexus->GetComponent<cTransform>(*entities.begin());
+    auto& camera = nexus->GetComponent<cCamera>(*entities.begin());
 
     if (camera.projectionDirty) {
         setPerspectiveProjection();

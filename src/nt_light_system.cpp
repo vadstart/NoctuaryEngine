@@ -9,8 +9,8 @@ void LightSystem::updateLights(FrameInfo &frameInfo, GlobalUbo &ubo, float O_sca
   for (auto const& entity : entities) {
     assert(lightIndex < MAX_LIGHTS && "Point lights exceed maximum specified!");
 
-    auto& transform = astral->GetComponent<cTransform>(entity);
-    auto& light = astral->GetComponent<cLight>(entity);
+    auto& transform = nexus->GetComponent<cTransform>(entity);
+    auto& light = nexus->GetComponent<cLight>(entity);
 
     // copy the light to ubo
     if (light.type != eLightType::Directional)

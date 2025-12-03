@@ -10,7 +10,7 @@ namespace nt {
 class InputSystem : public NtSystem
 {
   public:
-    InputSystem(NtAstral* astral_ptr) : astral(astral_ptr) {};
+    InputSystem(NtNexus* nexus_ptr) : nexus(nexus_ptr) {};
     ~InputSystem() {};
       struct KeyMappings {
         int moveLeft = GLFW_KEY_A;
@@ -81,7 +81,7 @@ private:
   float gamepadDeadzone { 0.15f };
   float gamepadZoomSpeed { 2.0f };
 
-  NtAstral* astral;
+  NtNexus* nexus;
 };
 
 }

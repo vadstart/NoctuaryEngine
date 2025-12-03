@@ -153,55 +153,55 @@ void AstralApp::run()
     auto currentTime = std::chrono::high_resolution_clock::now();
 
 // ECS
-    Astral.Init();
+    Nexus.Init();
 
     // Component Types setup
-    Astral.RegisterComponent<cMeta>();
-    Astral.RegisterComponent<cTransform>();
-    Astral.RegisterComponent<cLight>();
-    Astral.RegisterComponent<cModel>();
-    Astral.RegisterComponent<cAnimator>();
-    Astral.RegisterComponent<cCamera>();
-    Astral.RegisterComponent<cPlayerController>();
+    Nexus.RegisterComponent<cMeta>();
+    Nexus.RegisterComponent<cTransform>();
+    Nexus.RegisterComponent<cLight>();
+    Nexus.RegisterComponent<cModel>();
+    Nexus.RegisterComponent<cAnimator>();
+    Nexus.RegisterComponent<cCamera>();
+    Nexus.RegisterComponent<cPlayerController>();
 
     // System setup
-    auto debugSystem = Astral.RegisterSystem<DebugSystem>();
+    auto debugSystem = Nexus.RegisterSystem<DebugSystem>();
     NtSignature debugSignature;
-    debugSignature.set(Astral.GetComponentType<cMeta>());
-    Astral.SetSystemSignature<DebugSystem>(debugSignature);
+    debugSignature.set(Nexus.GetComponentType<cMeta>());
+    Nexus.SetSystemSignature<DebugSystem>(debugSignature);
 
-    auto inputSystem = Astral.RegisterSystem<InputSystem>();
+    auto inputSystem = Nexus.RegisterSystem<InputSystem>();
 
-    auto renderSystem = Astral.RegisterSystem<RenderSystem>(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
+    auto renderSystem = Nexus.RegisterSystem<RenderSystem>(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
             modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
     NtSignature renderSignature;
-    renderSignature.set(Astral.GetComponentType<cModel>());
-    Astral.SetSystemSignature<RenderSystem>(renderSignature);
+    renderSignature.set(Nexus.GetComponentType<cModel>());
+    Nexus.SetSystemSignature<RenderSystem>(renderSignature);
 
-    auto lightSystem = Astral.RegisterSystem<LightSystem>();
+    auto lightSystem = Nexus.RegisterSystem<LightSystem>();
     NtSignature lightSignature;
-    lightSignature.set(Astral.GetComponentType<cLight>());
-    Astral.SetSystemSignature<LightSystem>(lightSignature);
+    lightSignature.set(Nexus.GetComponentType<cLight>());
+    Nexus.SetSystemSignature<LightSystem>(lightSignature);
 
-    auto cameraSystem = Astral.RegisterSystem<CameraSystem>();
+    auto cameraSystem = Nexus.RegisterSystem<CameraSystem>();
     NtSignature cameraSignature;
-    cameraSignature.set(Astral.GetComponentType<cCamera>());
-    Astral.SetSystemSignature<CameraSystem>(cameraSignature);
+    cameraSignature.set(Nexus.GetComponentType<cCamera>());
+    Nexus.SetSystemSignature<CameraSystem>(cameraSignature);
 
-    auto animationSystem = Astral.RegisterSystem<AnimationSystem>();
+    auto animationSystem = Nexus.RegisterSystem<AnimationSystem>();
     NtSignature animationSignature;
-    animationSignature.set(Astral.GetComponentType<cAnimator>());
-    animationSignature.set(Astral.GetComponentType<cModel>());
-    Astral.SetSystemSignature<AnimationSystem>(animationSignature);
+    animationSignature.set(Nexus.GetComponentType<cAnimator>());
+    animationSignature.set(Nexus.GetComponentType<cModel>());
+    Nexus.SetSystemSignature<AnimationSystem>(animationSignature);
 
     // Spawning entities
-    auto MoonlitCafe = Astral.CreateEntity();
+    auto MoonlitCafe = Nexus.CreateEntity();
     MoonlitCafe.AddComponent(cMeta{"MoonlitCafe"})
         .AddComponent(cTransform{ glm::vec3(0.0f),
             glm::vec3(glm::radians(90.0f), 0.0f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf")) });
 
-    auto Cassandra = Astral.CreateEntity();
+    auto Cassandra = Nexus.CreateEntity();
     Cassandra.AddComponent(cMeta{"Cassandra"})
         .AddComponent(cTransform{ glm::vec3(0.0f, -1.5f, 0.0f),
             glm::vec3(glm::radians(90.0f), glm::radians(90.0f), 0.0f) })
@@ -214,19 +214,19 @@ void AstralApp::run()
             ,glm::vec4(0.0f, -2.5f, 0.0f, 14.1f)
             ,{ glm::vec3(-11.f, -10.2f, -6.5f), glm::vec3(-0.5f, 4.2f, 0.0f) }})
         .AddComponent(cPlayerController{5.0f, 10.0f});
-    Astral.GetComponent<cAnimator>(Cassandra).play("Idle", true);
+    Nexus.GetComponent<cAnimator>(Cassandra).play("Idle", true);
 
-    auto BarLight = Astral.CreateEntity();
+    auto BarLight = Nexus.CreateEntity();
     BarLight.AddComponent(cMeta{"Light.Bar"})
         .AddComponent(cTransform{ glm::vec3(3.5f, -7.5f, -7.2f) })
         .AddComponent(cLight{100.0f, glm::vec3(1.0f, 0.65f, 0.33f) });
 
-    auto FireplaceLight = Astral.CreateEntity();
+    auto FireplaceLight = Nexus.CreateEntity();
     FireplaceLight.AddComponent(cMeta{"Light.Fireplace"})
         .AddComponent(cTransform{ glm::vec3(13.0f, -4.2f, 9.9f) })
         .AddComponent(cLight{75.0f, glm::vec3(1.0f, 0.3f, 0.03f) });
 
-    auto SunShadowCaster = Astral.CreateEntity();
+    auto SunShadowCaster = Nexus.CreateEntity();
     SunShadowCaster.AddComponent(cMeta{"Light.Sun"})
         .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(-0.68, 0.8f, 0.46f) })
         .AddComponent(cLight{0.0f, glm::vec3(0.5f, 0.35f, 0.33f), true, eLightType::Directional });
@@ -416,7 +416,7 @@ void AstralApp::run()
             filter.Draw("##");
             for (auto const& entity : debugSystem->entities )
             {
-                std::string displayName = Astral.GetComponent<cMeta>(entity).name + " (id=" + std::to_string(entity) + ")";
+                std::string displayName = Nexus.GetComponent<cMeta>(entity).name + " (id=" + std::to_string(entity) + ")";
                 if (filter.PassFilter(displayName.c_str())) {
                     if (ImGui::Selectable(displayName.c_str(), selectedEntityID == entity))
                         selectedEntityID = entity;
@@ -433,8 +433,8 @@ void AstralApp::run()
                 static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg;
 
                 // Check and display each component type
-                if (Astral.HasComponent<cMeta>(selectedEntityID)) {
-                    auto& meta = Astral.GetComponent<cMeta>(selectedEntityID);
+                if (Nexus.HasComponent<cMeta>(selectedEntityID)) {
+                    auto& meta = Nexus.GetComponent<cMeta>(selectedEntityID);
                     ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Meta");
                     if (ImGui::BeginTable("MetaComponent", 2, flags)) {
                         ImGui::TableNextRow();
@@ -447,8 +447,8 @@ void AstralApp::run()
                     ImGui::Spacing();
                 }
 
-                if (Astral.HasComponent<cTransform>(selectedEntityID)) {
-                    auto& transform = Astral.GetComponent<cTransform>(selectedEntityID);
+                if (Nexus.HasComponent<cTransform>(selectedEntityID)) {
+                    auto& transform = Nexus.GetComponent<cTransform>(selectedEntityID);
                     ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Transform");
                     if (ImGui::BeginTable("TransformComponent", 2, flags)) {
                         ImGui::TableNextRow();
@@ -477,8 +477,8 @@ void AstralApp::run()
                     ImGui::Spacing();
                 }
 
-                if (Astral.HasComponent<cModel>(selectedEntityID)) {
-                    auto& model = Astral.GetComponent<cModel>(selectedEntityID);
+                if (Nexus.HasComponent<cModel>(selectedEntityID)) {
+                    auto& model = Nexus.GetComponent<cModel>(selectedEntityID);
                     ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Model");
                     if (ImGui::BeginTable("ModelComponent", 2, flags)) {
                         ImGui::TableNextRow();
@@ -517,8 +517,8 @@ void AstralApp::run()
                     ImGui::Spacing();
                 }
 
-                if (Astral.HasComponent<cAnimator>(selectedEntityID)) {
-                    auto& animatorComp = Astral.GetComponent<cAnimator>(selectedEntityID);
+                if (Nexus.HasComponent<cAnimator>(selectedEntityID)) {
+                    auto& animatorComp = Nexus.GetComponent<cAnimator>(selectedEntityID);
                     ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Animator");
                     if (ImGui::BeginTable("AnimatorComponent", 2, flags)) {
                         ImGui::TableNextRow();
@@ -542,8 +542,8 @@ void AstralApp::run()
                     ImGui::Spacing();
                 }
 
-                if (Astral.HasComponent<cLight>(selectedEntityID)) {
-                    auto& light = Astral.GetComponent<cLight>(selectedEntityID);
+                if (Nexus.HasComponent<cLight>(selectedEntityID)) {
+                    auto& light = Nexus.GetComponent<cLight>(selectedEntityID);
                     ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Light");
                     if (ImGui::BeginTable("LightComponent", 2, flags)) {
                         ImGui::TableNextRow();
@@ -582,8 +582,8 @@ void AstralApp::run()
                     ImGui::Spacing();
                 }
 
-                if (Astral.HasComponent<cCamera>(selectedEntityID)) {
-                    auto& camera = Astral.GetComponent<cCamera>(selectedEntityID);
+                if (Nexus.HasComponent<cCamera>(selectedEntityID)) {
+                    auto& camera = Nexus.GetComponent<cCamera>(selectedEntityID);
                     ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Camera");
                     if (ImGui::BeginTable("CameraComponent", 2, flags)) {
                         ImGui::TableNextRow();

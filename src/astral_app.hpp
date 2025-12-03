@@ -17,10 +17,10 @@ namespace nt
     class DebugSystem : public NtSystem
     {
         public:
-        DebugSystem(NtAstral* astral_ptr) : astral(astral_ptr) {};
+        DebugSystem(NtNexus* nexus_ptr) : nexus(nexus_ptr) {};
 
         private:
-            NtAstral* astral;
+            NtNexus* nexus;
     };
 
 	class AstralApp
@@ -64,6 +64,6 @@ namespace nt
     NtShadowMap shadowMap{ntDevice, 1024, 1024};
     VkDescriptorSet imguiShadowMapTexture = VK_NULL_HANDLE;
 
-    NtAstral Astral;
+    NtNexus Nexus;
 	};
 }

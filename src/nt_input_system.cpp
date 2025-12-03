@@ -31,14 +31,14 @@ void InputSystem::update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEnt
     float y = -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
 
     // Move in camera direction
-    auto& camera = astral->GetComponent<cCamera>(camEntity);
+    auto& camera = nexus->GetComponent<cCamera>(camEntity);
     glm::vec3 forward = camera.position.getForward();
     glm::vec3 right = camera.position.getRight();
     forward.y = 0.0f; right.y = 0.0f;
     forward = glm::normalize(forward);
     right = glm::normalize(right);
 
-    auto& playerPos = astral->GetComponent<cTransform>(camEntity);
+    auto& playerPos = nexus->GetComponent<cTransform>(camEntity);
     glm::vec3 moveDirection = (forward * y + right * x);
     playerPos.translation += moveDirection * 5.0f * dt;
 
@@ -131,8 +131,8 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
     bool alt = glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS;;
     bool shift = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
 
-    auto& transform = astral->GetComponent<cTransform>(camEntity);
-    auto& camera = astral->GetComponent<cCamera>(camEntity);
+    auto& transform = nexus->GetComponent<cTransform>(camEntity);
+    auto& camera = nexus->GetComponent<cCamera>(camEntity);
 
     if (middleMouse || alt)
     {
@@ -259,8 +259,8 @@ void InputSystem::updateCamOrbitGamepad(float dt, NtEntity camEntity) {
     bool orbitMode = isGamepadButtonPressed(gamepad.orbitModifier);
     // bool panMode = isGamepadButtonPressed(gamepad.panModifier);
 
-    auto& transform = astral->GetComponent<cTransform>(camEntity);
-    auto& camera = astral->GetComponent<cCamera>(camEntity);
+    auto& transform = nexus->GetComponent<cTransform>(camEntity);
+    auto& camera = nexus->GetComponent<cCamera>(camEntity);
 
     if (std::abs(rightStickX) > 0.0f || std::abs(rightStickY) > 0.0f) {
             // Orbit around the target

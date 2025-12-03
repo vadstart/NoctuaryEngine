@@ -10,13 +10,13 @@ namespace nt
 class LightSystem : public NtSystem
 {
 public:
-    LightSystem(NtAstral* astral_ptr) : astral(astral_ptr) {};
+    LightSystem(NtNexus* nexus_ptr) : nexus(nexus_ptr) {};
 
     void updateLights(FrameInfo &frameInfo, GlobalUbo &ubo,
                     float O_scale, float O_near, float O_far);
 
 private:
-    NtAstral* astral;
+    NtNexus* nexus;
 };
 
 }

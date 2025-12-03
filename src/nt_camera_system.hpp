@@ -11,7 +11,7 @@ namespace nt {
 class CameraSystem : public NtSystem
 {
 public:
-  CameraSystem(NtAstral* astral_ptr) : astral(astral_ptr) {};
+  CameraSystem(NtNexus* nexus_ptr) : nexus(nexus_ptr) {};
   ~CameraSystem() {};
 
   void setPerspectiveProjection();
@@ -31,7 +31,7 @@ private:
   glm::mat4 viewMatrix{1.f};
   glm::mat4 inverseViewMatrix{1.f};
 
-  NtAstral *astral;
+  NtNexus *nexus;
 };
 
 

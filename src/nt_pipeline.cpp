@@ -1,4 +1,5 @@
 #include "nt_pipeline.hpp"
+#include "nt_log.hpp"
 #include "nt_model.hpp"
 #include "nt_types.hpp"
 #include "vulkan/vulkan_core.h"
@@ -30,8 +31,8 @@ NtPipeline::~NtPipeline() {
    std::ifstream file{filepath, std::ios::ate | std::ios::binary};
 
    if (!file.is_open()) {
-     std::cout << "failed to open file: " + filepath << std::endl;
-     throw std::runtime_error("failed to open file: " + filepath);
+       NT_LOG_ERROR(LogRendering, "failed to open shader file: {}", filepath);
+     throw std::runtime_error("failed to open shader file: " + filepath);
    }
 
    size_t fileSize = static_cast<size_t>(file.tellg());
