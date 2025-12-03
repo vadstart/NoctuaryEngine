@@ -1,4 +1,5 @@
 #include "astral_app.hpp"
+#include "nt_log.hpp"
 
 #include <cstdlib>
 #include <iostream>
@@ -21,18 +22,18 @@ void setWorkingDirectory() {
     if (_NSGetExecutablePath(exePath, &size) == 0) {
         std::filesystem::path path = std::filesystem::path(exePath).parent_path();
         std::filesystem::current_path(path);
-        std::cout << "Working directory set to: " << std::filesystem::current_path() << std::endl;
+        NT_LOG_VERBOSE(LogCore, "Working directory set to: {}", std::filesystem::current_path().c_str());
     } else {
-        std::cerr << "Failed to get executable path on macOS." << std::endl;
+        NT_LOG_ERROR(LogCore, "Failed to get executable path on macOS.");
     }
 #elif defined(_WIN32)
     if (GetModuleFileNameA(NULL, exePath, sizeof(exePath))) {
         // std::filesystem::path path = std::filesystem::path(exePath).parent_path();
         std::filesystem::path path = "C:\\Users\\vadsama\\Documents\\Projects\\NoctuaryEngine";
         std::filesystem::current_path(path);
-        std::cout << "Working directory set to: " << std::filesystem::current_path() << std::endl;
+        NT_LOG_VERBOSE(LogCore, "Working directory set to: {}", std::filesystem::current_path().c_str());
     } else {
-        std::cerr << "Failed to get executable path on Windows." << std::endl;
+        NT_LOG_ERROR(LogCore, "Failed to get executable path on Windows.");
     }
 #elif defined(__linux__)
     ssize_t count = readlink("/proc/self/exe", exePath, sizeof(exePath));
@@ -40,17 +41,19 @@ void setWorkingDirectory() {
         exePath[count] = '\0';
         std::filesystem::path path = std::filesystem::path(exePath).parent_path();
         std::filesystem::current_path(path);
-        std::cout << "Working directory set to: " << std::filesystem::current_path() << std::endl;
+        NT_LOG_VERBOSE(LogCore, "Working directory set to: {}", std::filesystem::current_path().c_str());
     } else {
-        std::cerr << "Failed to get executable path on Linux." << std::endl;
+        NT_LOG_ERROR(LogCore, "Failed to get executable path on Linux.");
     }
 #else
-    std::cerr << "Unsupported platform." << std::endl;
+    NT_LOG_FATAL(LogCore, "Unsupported platform.");
 #endif
 }
 
 int main()
 {
+  nt::LogInit("engine.log", true);
+
   setWorkingDirectory();
 
   nt::AstralApp app{};
@@ -61,7 +64,7 @@ int main()
 		app.run();
 	}
 	catch (const std::exception& e) {
-		std::cerr << e.what() << std::endl;
+	    NT_LOG_FATAL(LogCore, "Application crashed: {}", e.what());
 		return EXIT_FAILURE;
 	}
 

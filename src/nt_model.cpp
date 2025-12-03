@@ -1,13 +1,12 @@
 #include "nt_model.hpp"
 #include "imgui.h"
 #include "nt_descriptors.hpp"
+#include "nt_log.hpp"
 #include "nt_utils.hpp"
 #include <memory>
 #include <ostream>
 #include <stdexcept>
 
-#define TINYOBJLOADER_IMPLEMENTATION
-#include "tinyobjloader/tiny_obj_loader.h"
 #define TINYGLTF_IMPLEMENTATION
 #define TINYGLTF_NO_STB_IMAGE_WRITE
 #include "tinygltf/tiny_gltf.h"
@@ -68,10 +67,9 @@ std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const st
 
   if (extension == "gltf" || extension == "glb") {
     builder.loadGltfModel(filepath);
-  } else if (extension == "obj") {
-    builder.loadObjModel(filepath);
   } else {
-    throw std::runtime_error("Unsupported file format: " + extension + ". Supported formats are: .obj, .gltf, .glb");
+    LOG_ERROR(LogAssets, "Unsupported file format: " + extension + ". Supported formats are: .gltf, .glb");
+    throw std::runtime_error("Unsupported file format: " + extension + ". Supported formats are: .gltf, .glb");
   }
 
   // Initialize material descriptor sets for all loaded materials
@@ -269,165 +267,6 @@ std::vector<VkVertexInputAttributeDescription> NtModel::Vertex::getAttributeDesc
   return attributeDescriptions;
 }
 
-void NtModel::Builder::loadObjModel(const std::string &filepath) {
-  tinyobj::attrib_t attrib;
-  std::vector<tinyobj::shape_t> shapes;
-  std::vector<tinyobj::material_t> materials;
-  std::string warn, err;
-
-  // Extract directory path for relative texture paths
-  std::string baseDir = filepath.substr(0, filepath.find_last_of('/') + 1);
-
-  if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, filepath.c_str(), baseDir.c_str())) {
-    throw std::runtime_error(warn + err);
-  }
-
-  l_meshes.clear();
-
-  // Convert tinyobj materials to NtMaterials
-  std::cout << "  Loading " << materials.size() << " materials from OBJ" << std::endl;
-  for (size_t i = 0; i < materials.size(); ++i) {
-    const auto& objMaterial = materials[i];
-    NtMaterial::MaterialData materialData;
-
-    materialData.name = objMaterial.name.empty() ? ("Material_" + std::to_string(i)) : objMaterial.name;
-    std::cout << "    Loading material: " << materialData.name << std::endl;
-
-    // Basic PBR conversion from OBJ material
-    materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(
-      objMaterial.diffuse[0], objMaterial.diffuse[1], objMaterial.diffuse[2], 1.0f);
-
-    // Approximate roughness and metallic from OBJ shininess
-    materialData.pbrMetallicRoughness.roughnessFactor = 1.0f - (objMaterial.shininess / 1000.0f);
-    materialData.pbrMetallicRoughness.metallicFactor = 0.0f; // OBJ doesn't have metallic
-
-    // Load diffuse texture as base color
-    if (!objMaterial.diffuse_texname.empty()) {
-      std::string texturePath;
-      // Check if path is absolute (starts with /) or relative
-      if (objMaterial.diffuse_texname[0] == '/') {
-        texturePath = objMaterial.diffuse_texname;
-      } else {
-        texturePath = baseDir + objMaterial.diffuse_texname;
-      }
-      std::cout << "      Loading diffuse texture: " << texturePath << std::endl;
-      try {
-        materialData.pbrMetallicRoughness.baseColorTexture =
-          NtImage::createTextureFromFile(ntDevice, texturePath);
-      } catch (const std::exception& e) {
-        std::cerr << "      Failed to load diffuse texture: " << e.what() << std::endl;
-      }
-    }
-
-    // Load normal map
-    if (!objMaterial.normal_texname.empty()) {
-      std::string texturePath;
-      // Check if path is absolute (starts with /) or relative
-      if (objMaterial.normal_texname[0] == '/') {
-        texturePath = objMaterial.normal_texname;
-      } else {
-        texturePath = baseDir + objMaterial.normal_texname;
-      }
-      std::cout << "      Loading normal texture: " << texturePath << std::endl;
-      try {
-        materialData.normalTexture = NtImage::createTextureFromFile(ntDevice, texturePath);
-      } catch (const std::exception& e) {
-        std::cerr << "      Failed to load normal texture: " << e.what() << std::endl;
-      }
-    }
-
-    l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, materialData));
-  }
-
-  // If no materials found, create a default material
-  if (l_materials.empty()) {
-    std::cout << "    No materials found, creating default material" << std::endl;
-    NtMaterial::MaterialData defaultMaterial;
-    defaultMaterial.name = "DefaultMaterial";
-    defaultMaterial.pbrMetallicRoughness.baseColorFactor = glm::vec4(0.8f, 0.8f, 0.8f, 1.0f);
-    l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, defaultMaterial));
-  }
-
-  // Create meshes per shape/material combination
-  for (size_t s = 0; s < shapes.size(); ++s) {
-    const auto &shape = shapes[s];
-
-    // Group faces by material
-    std::map<int, std::vector<tinyobj::index_t>> materialGroups;
-    for (size_t f = 0; f < shape.mesh.material_ids.size(); ++f) {
-      int materialId = shape.mesh.material_ids[f];
-      if (materialId < 0) materialId = 0; // Use first material for faces without material
-
-      // Add the 3 indices for this face
-      materialGroups[materialId].push_back(shape.mesh.indices[3 * f + 0]);
-      materialGroups[materialId].push_back(shape.mesh.indices[3 * f + 1]);
-      materialGroups[materialId].push_back(shape.mesh.indices[3 * f + 2]);
-    }
-
-    // Create a mesh for each material group
-    for (const auto& [materialId, indices] : materialGroups) {
-      Mesh mesh;
-      mesh.name = shape.name.empty() ? ("Shape_" + std::to_string(s)) : shape.name;
-      if (materialGroups.size() > 1) {
-        mesh.name += "_Mat" + std::to_string(materialId);
-      }
-      mesh.materialIndex = std::min(static_cast<uint32_t>(materialId), static_cast<uint32_t>(l_materials.size() - 1));
-
-      std::unordered_map<Vertex, uint32_t> uniqueVertices{};
-      for (const auto &index : indices) {
-      Vertex vertex{};
-
-      if (index.vertex_index >= 0) {
-        vertex.position = {
-          attrib.vertices[3 * index.vertex_index + 0],
-          attrib.vertices[3 * index.vertex_index + 1],
-          attrib.vertices[3 * index.vertex_index + 2],
-        };
-
-        vertex.color = {
-          attrib.colors[3 * index.vertex_index + 0],
-          attrib.colors[3 * index.vertex_index + 1],
-          attrib.colors[3 * index.vertex_index + 2],
-        };
-      }
-
-      if (index.normal_index >= 0) {
-        vertex.normal = {
-          attrib.normals[3 * index.normal_index + 0],
-          attrib.normals[3 * index.normal_index + 1],
-          attrib.normals[3 * index.normal_index + 2],
-        };
-      }
-
-      if (index.texcoord_index >= 0) {
-        vertex.uv = {
-          attrib.texcoords[2 * index.texcoord_index + 0],
-          attrib.texcoords[2 * index.texcoord_index + 1],
-        };
-      }
-
-      // Default tangent for OBJ files
-      vertex.tangent = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f);
-
-        if (uniqueVertices.count(vertex) == 0) {
-          uniqueVertices[vertex] = static_cast<uint32_t>(mesh.vertices.size());
-          mesh.vertices.push_back(vertex);
-        }
-        mesh.indices.push_back(uniqueVertices[vertex]);
-      }
-
-      // Calculate tangents for OBJ models that don't have them
-      if (!mesh.indices.empty()) {
-        calculateTangents(mesh.vertices, mesh.indices);
-      }
-
-      l_meshes.push_back(mesh);
-    }
-  }
-
-  std::cout << "  Loaded " << l_meshes.size()-1 << " mesh(es) with " << l_materials.size() << " material(s)" << std::endl;
-}
-
 void NtModel::Builder::loadGltfModel(const std::string &filepath) {
   tinygltf::Model model;
   tinygltf::TinyGLTF loader;
@@ -445,22 +284,20 @@ void NtModel::Builder::loadGltfModel(const std::string &filepath) {
   }
 
   if (!warn.empty()) {
-    std::cout << "Warn: " << warn << std::endl;
+    NT_LOG_WARN(LogAssets, "glTF loader warning: {}", warn);
   }
 
   if (!err.empty()) {
-    std::cerr << "Err: " << err << std::endl;
+    NT_LOG_ERROR(LogAssets, "glTF loader error: {}", err);
   }
 
   if (!ret) {
+    NT_LOG_ERROR(LogAssets, "Failed to parse glTF file {}", filepath);
     throw std::runtime_error("Failed to parse glTF file");
   }
 
-  std::cout << "Successfully loaded glTF file: " << filepath << std::endl;
-  std::cout << "  Meshes: " << model.meshes.size() << std::endl;
-  std::cout << "  Materials: " << model.materials.size() << std::endl;
-  std::cout << "  Textures: " << model.textures.size() << std::endl;
-  std::cout << "  Animations: " << model.animations.size() << std::endl;
+  NT_LOG_VERBOSE(LogAssets, "Successfully loaded glTF file: {}\n   Meshes: {}\n   Materials: {}\n   Textures: {}\n   Animations:{}"
+     ,filepath, model.meshes.size(), model.materials.size(), model.textures.size(), animations.size());
 
   // Load materials first
   loadGltfMaterials(model, filepath);
@@ -486,7 +323,7 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
     NtMaterial::MaterialData materialData;
     materialData.name = material.name;
 
-    std::cout << "  Loading material: " << (material.name.empty() ? "<unnamed>" : material.name) << std::endl;
+    NT_LOG_VERBOSE(LogAssets, "Loading material: {}", (material.name.empty() ? "<unnamed>" : material.name));
 
     // PBR Metallic Roughness
     const auto &pbr = material.pbrMetallicRoughness;
@@ -504,25 +341,22 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
 
       if (!image.uri.empty()) {
         std::string texturePath = baseDir + image.uri;
-        std::cout << "    Loading base color texture: " << texturePath << std::endl;
+        NT_LOG_VERBOSE(LogAssets, "Loading base color texture: {}", texturePath);
         try {
           materialData.pbrMetallicRoughness.baseColorTexture =
             NtImage::createTextureFromFile(ntDevice, texturePath);
           materialData.pbrMetallicRoughness.baseColorTexCoord = pbr.baseColorTexture.texCoord;
         } catch (const std::exception& e) {
-          std::cerr << "    Failed to load base color texture: " << e.what() << std::endl;
+            NT_LOG_ERROR(LogAssets, "Failed to load base color texture: {}", e.what());
         }
       } else if (!image.image.empty()) {
           // Embedded texture - so let's create texture from memory
-          // std::cout << "    Loading embedded base color texture, size: " << image.image.size() << " bytes" << std::endl;
-          // std::cout << "    Image format: " << image.mimeType << std::endl;
-          // std::cout << "    Texture coord index: " << materialData.pbrMetallicRoughness.baseColorTexCoord << std::endl;
           try {
             materialData.pbrMetallicRoughness.baseColorTexture =
               NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
             materialData.pbrMetallicRoughness.baseColorTexCoord = pbr.baseColorTexture.texCoord;
           } catch (const std::exception& e) {
-            std::cerr << "    Failed to load embedded base color texture: " << e.what() << std::endl;
+              NT_LOG_ERROR(LogAssets, "Failed to load base embedded color texture: {}", e.what());
           }
       }
 
@@ -536,8 +370,7 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
                 if (scaleArray.size() >= 2) {
                     materialData.uvScale.x = scaleArray[0].GetNumberAsDouble();
                     materialData.uvScale.y = scaleArray[1].GetNumberAsDouble();
-                    std::cout << "    UV Scale: " << materialData.uvScale.x << ", "
-                            << materialData.uvScale.y << std::endl;
+                    NT_LOG_VERBOSE(LogAssets, "UV Scale: {} {}", materialData.uvScale.x, materialData.uvScale.y);
                 }
             }
 
@@ -547,15 +380,14 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
                 if (offsetArray.size() >= 2) {
                     materialData.uvOffset.x = offsetArray[0].GetNumberAsDouble();
                     materialData.uvOffset.y = offsetArray[1].GetNumberAsDouble();
-                    std::cout << "    UV Offset: " << materialData.uvOffset.x << ", "
-                            << materialData.uvOffset.y << std::endl;
+                    NT_LOG_VERBOSE(LogAssets, "UV Offset: {} {}", materialData.uvOffset.x, materialData.uvOffset.y);
                 }
             }
 
             // Parse rotation
             if (transform.Has("rotation")) {
                 materialData.uvRotation = transform.Get("rotation").GetNumberAsDouble();
-                std::cout << "    UV Rotation: " << materialData.uvRotation << " radians" << std::endl;
+                NT_LOG_VERBOSE(LogAssets, "UV Rotation: {} radians", materialData.uvRotation);
             }
         }
     }
@@ -567,13 +399,13 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
 
       if (!image.uri.empty()) {
         std::string texturePath = baseDir + image.uri;
-        std::cout << "    Loading metallic-roughness texture: " << texturePath << std::endl;
+        NT_LOG_VERBOSE(LogAssets, "Loading metallic-roughness texture: {}", texturePath);
         try {
           materialData.pbrMetallicRoughness.metallicRoughnessTexture =
             NtImage::createTextureFromFile(ntDevice, texturePath, true);
           materialData.pbrMetallicRoughness.metallicRoughnessTexCoord = pbr.metallicRoughnessTexture.texCoord;
         } catch (const std::exception& e) {
-          std::cerr << "    Failed to load metallic-roughness texture: " << e.what() << std::endl;
+            NT_LOG_ERROR(LogAssets, "Failed to load metallic-roughness texture: {}", e.what());
         }
       } else if (!image.image.empty()) {
         // Embedded texture - so let's create texture from memory
@@ -590,13 +422,13 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
 
       if (!image.uri.empty()) {
         std::string texturePath = baseDir + image.uri;
-        std::cout << "    Loading normal texture: " << texturePath << std::endl;
+        NT_LOG_VERBOSE("Loading normal texture: {}", texturePath);
         try {
           materialData.normalTexture = NtImage::createTextureFromFile(ntDevice, texturePath, true);
           materialData.normalScale = material.normalTexture.scale;
           materialData.normalTexCoord = material.normalTexture.texCoord;
         } catch (const std::exception& e) {
-          std::cerr << "    Failed to load normal texture: " << e.what() << std::endl;
+            NT_LOG_ERROR("Failed to load normal texture: {}", e.what());
         }
       } else if (!image.image.empty()) {
         // Embedded texture - so let's create texture from memory
@@ -606,57 +438,6 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
         materialData.normalTexCoord = material.normalTexture.texCoord;
     }
     }
-
-    // Load occlusion texture
-    // if (material.occlusionTexture.index >= 0) {
-    //   const auto &texture = model.textures[material.occlusionTexture.index];
-    //   const auto &image = model.images[texture.source];
-
-    //   if (!image.uri.empty()) {
-    //     std::string texturePath = baseDir + image.uri;
-    //     std::cout << "    Loading occlusion texture: " << texturePath << std::endl;
-    //     try {
-    //       materialData.occlusionTexture = NtImage::createTextureFromFile(ntDevice, texturePath);
-    //       materialData.occlusionStrength = material.occlusionTexture.strength;
-    //       materialData.occlusionTexCoord = material.occlusionTexture.texCoord;
-    //     } catch (const std::exception& e) {
-    //       std::cerr << "    Failed to load occlusion texture: " << e.what() << std::endl;
-    //     }
-    //   } else if (!image.image.empty()) {
-    //     // Embedded texture - so let's create texture from memory
-    //     materialData.occlusionTexture =
-    //         NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
-    //     materialData.occlusionStrength = material.occlusionTexture.strength;
-    //     materialData.occlusionTexCoord = pbr.baseColorTexture.texCoord;
-    // }
-    // }
-
-    // Load emissive texture
-    // if (material.emissiveTexture.index >= 0) {
-    //   const auto &texture = model.textures[material.emissiveTexture.index];
-    //   const auto &image = model.images[texture.source];
-
-    //   if (!image.uri.empty()) {
-    //     std::string texturePath = baseDir + image.uri;
-    //     std::cout << "    Loading emissive texture: " << texturePath << std::endl;
-    //     try {
-    //       materialData.emissiveTexture = NtImage::createTextureFromFile(ntDevice, texturePath);
-    //       materialData.emissiveTexCoord = material.emissiveTexture.texCoord;
-    //     } catch (const std::exception& e) {
-    //       std::cerr << "    Failed to load emissive texture: " << e.what() << std::endl;
-    //     }
-    //   } else if (!image.image.empty()) {
-    //         // Embedded texture - so let's create texture from memory
-    //         materialData.emissiveTexture =
-    //             NtImage::createTextureFromMemory(ntDevice, image.image.data(), image.image.size());
-    //         materialData.emissiveTexCoord = material.emissiveTexture.texCoord;
-    //     }
-    // }
-
-    // // Emissive factor
-    // materialData.emissiveFactor = glm::vec3(
-    //   material.emissiveFactor[0], material.emissiveFactor[1], material.emissiveFactor[2]
-    // );
 
     // Alpha mode
     if (material.alphaMode == "OPAQUE") {
@@ -675,7 +456,7 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
 
   // Create a default material if none exist
   if (l_materials.empty()) {
-    std::cout << "    No materials found, creating default material" << std::endl;
+    NT_LOG_WARNING(LogAssets, "No materials found, creating default material")
     NtMaterial::MaterialData defaultMaterial;
     defaultMaterial.name = "Default";
     l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, defaultMaterial));
@@ -838,7 +619,7 @@ void NtModel::Builder::loadGltfSkeleton(const tinygltf::Model &model) {
         return;
 
     if (numSkeletons > 1)
-        std::cout << "A model should only have a single skin/armature/skeleton. Using skin 0.";
+        NT_LOG_VERBOSE(LogAssets, "A model should only have a single skin/armature/skeleton. Using skin 0.");
 
     l_skeleton = Skeleton();
 
@@ -855,7 +636,7 @@ void NtModel::Builder::loadGltfSkeleton(const tinygltf::Model &model) {
             // TODO: resize shaderdata_finalbonematrices
 
             l_skeleton->name = skin.name;
-            std::cout << "  Loading skeleton: " << l_skeleton->name << std::endl;
+            NT_LOG_VERBOSE(LogAssets, "Loading skeleton: {}", l_skeleton->name);
 
             // Get array of inverse bind matrices for all bones
             // First retrieve raw data
@@ -911,8 +692,7 @@ void NtModel::Builder::loadGltfSkeleton(const tinygltf::Model &model) {
     // Initialize the shader data vector
     l_skeleton->m_ShaderData.m_FinalJointsMatrices.resize(l_skeleton->bones.size(), glm::mat4(1.0f));
 
-
-    std::cout << "    Bones: " << l_skeleton->bones.size() << std::endl;
+    NT_LOG_VERBOSE(LogAssets, "Bones: {}", l_skeleton->bones.size());
 }
 
 void NtModel::Builder::loadGltfBone(const tinygltf::Model &model, int globalGltfNodeIndex, int parentBone) {
@@ -1016,12 +796,12 @@ void NtModel::Builder::loadGltfAnimation(const tinygltf::Model &model, const tin
     }
 
     l_animations.push_back(animation);
-    std::cout << "  Animation: " << animation.name << " (" << animation.duration << "s)\n";
+    NT_LOG_VERBOSE(LogAssets, "Animation: {} ({}s)", animation.name, animation.duration);
 }
 
 void NtModel::Skeleton::Traverse()
 {
-    std::cout << "skeleton: " << name << std::endl;
+    NT_LOG_VERBOSE(LogAssets, "Skeleton: {}", name);
     uint32_t indent = 0;
     std::string indentStr(indent, ' ');
     auto& joint = bones[0]; // root joint
@@ -1032,12 +812,13 @@ void NtModel::Skeleton::Traverse(Bone const& bone, uint32_t indent)
 {
     std::string indentStr(indent, ' ');
     size_t numberOfChildren = bone.childrenIndices.size();
-    std::cout << indentStr <<" Name: " << bone.name << " Parent: " << bone.parentIndex << " Children: " << numberOfChildren << std::endl;
+    NT_LOG_VERBOSE(LogAssets, "Bone: {} Parent: {}  Children: {})", bone.name, bone.parentIndex, numberOfChildren);
 
     for (size_t childIndex = 0; childIndex < numberOfChildren; ++childIndex)
     {
         int jointIndex = bone.childrenIndices[childIndex];
-        std::cout << indentStr <<" Child: " << childIndex << " Index: " << jointIndex << std::endl;
+
+        NT_LOG_VERBOSE(LogAssets, "Child: {} Index: {}", childIndex, jointIndex);
     }
 
     for (size_t childIndex = 0; childIndex < numberOfChildren; ++childIndex)
@@ -1104,19 +885,19 @@ void NtModel::Skeleton::UpdateBone(int16_t boneIndex)
 
 void NtModel::updateSkeleton() {
     if (!skeleton.has_value()) {
-        std::cout << "[DEBUG] No skeleton" << std::endl;
+        NT_LOG_WARNING(LogAssets, "No skeleton");
         return;
     }
 
     if (!boneBuffer) {
-        std::cout << "[DEBUG] No bone buffer" << std::endl;
+        NT_LOG_WARNING(LogAssets, "No bone buffer");
         return;
     }
 
     skeleton->Update();
 
     if (skeleton->m_ShaderData.m_FinalJointsMatrices.empty()) {
-        std::cout << "[DEBUG] Warning: m_FinalJointsMatrices is empty!" << std::endl;
+        NT_LOG_WARNING(LogAssets, "m_FinalJointsMatrices is empty!");
         return;
     }
 
@@ -1191,7 +972,6 @@ void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const st
     }
   }
 }
-
 
 // Helper functions
 /*std::unique_ptr<NtModel> NtModel::createGOPlane(float size) {

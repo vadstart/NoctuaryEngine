@@ -1,4 +1,5 @@
 #include "astral_app.hpp"
+#include "nt_log.hpp"
 #include "nt_camera_system.hpp"
 #include "nt_buffer.hpp"
 #include "nt_descriptors.hpp"
@@ -694,6 +695,9 @@ void AstralApp::run()
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
+
+  // Log Cleanup
+  nt::LogShutdown();
 }
 
 }

@@ -134,19 +134,13 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
     auto& transform = astral->GetComponent<cTransform>(camEntity);
     auto& camera = astral->GetComponent<cCamera>(camEntity);
 
-    if (middleMouse || alt) {
-        // if (shift) {
-        // // Pan the target point
-        // glm::vec3 right = glm::vec3{glm::cos(cameraObject.transform.rotation.y), 0, -glm::sin(cameraObject.transform.rotation.y)};
-        // glm::vec3 up = glm::vec3{0, 1, 0};
-        // targetObject.transform.translation -= -right * deltaX * panSpeed + up * deltaY * panSpeed;
-        // } else {
+    if (middleMouse || alt)
+    {
         // Orbit around the target
         camera.position.rotation.y += deltaX * orbitSpeed;
         camera.position.rotation.y = glm::mod(camera.position.rotation.y, glm::two_pi<float>());
         camera.position.rotation.x -= deltaY * orbitSpeed;
         camera.position.rotation.x = glm::clamp(camera.position.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
-        // }
     }
 
     // Zoom (scroll wheel)
@@ -269,12 +263,6 @@ void InputSystem::updateCamOrbitGamepad(float dt, NtEntity camEntity) {
     auto& camera = astral->GetComponent<cCamera>(camEntity);
 
     if (std::abs(rightStickX) > 0.0f || std::abs(rightStickY) > 0.0f) {
-        // if (panMode) {
-        //     // Pan the target point
-        //     glm::vec3 right = glm::vec3{glm::cos(cameraObject.transform.rotation.y), 0, -glm::sin(cameraObject.transform.rotation.y)};
-        //     glm::vec3 up = glm::vec3{0, 1, 0};
-        //     targetObject.transform.translation -= -right * rightStickX * gamepadSensitivity * 10.0f * dt + up * rightStickY * panSpeed * 10.0f * dt;
-        // } else if (orbitMode || (!panMode && !orbitMode)) { // Default to orbit if no modifier pressed
             // Orbit around the target
             camera.position.rotation.y += rightStickX * gamepadSensitivity * dt;
             camera.position.rotation.y = glm::mod(camera.position.rotation.y, glm::two_pi<float>());
