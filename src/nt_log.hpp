@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ctime>
+#include <filesystem>
 #include <mutex>
 #include <ostream>
 #include <string>
@@ -24,8 +25,8 @@ struct LogCategory {
     }
 
     std::string name;
-    LogLevel threshold;
-    bool enabled;
+    LogLevel threshold = LogLevel::Log;
+    bool enabled = true;
 };
 
 // Predefined categories
@@ -41,125 +42,129 @@ namespace LogCategories {
     inline LogCategory UI{"UI"};
 }
 
-struct Logger {
-    static Logger& Get() {
-            static Logger instance;
-            return instance;
+// Internal state
+namespace detail {
+    inline std::mutex logMutex;
+    inline std::ofstream logFile;
+    inline bool logToConsole = true;
+    inline bool initialized = false;
+}
+
+inline void LogInit(const std::string& logFilePath = "", bool shouldLogToConsole = true) {
+    std::lock_guard<std::mutex> lock(detail::logMutex);
+
+    detail::logToConsole = shouldLogToConsole;
+
+    if (!logFilePath.empty()) {
+        // Create parent directory if it doesn't exist
+        std::filesystem::path filePath(logFilePath);
+        if (filePath.has_parent_path()) {
+            std::filesystem::create_directories(filePath.parent_path());
         }
 
-    void Init(const std::string& logFilePath = "", bool shouldLogToConsole = true) {
-        std::lock_guard<std::mutex> lock(mutex);
-
-        logToConsole = shouldLogToConsole;
-
-        if (!logFilePath.empty()) {
-            logFile.open(logFilePath, std::ios::out | std::ios::app);
-            if (!logFile.is_open()) {
-                std::cerr << "Failed to open log file: " << logFilePath << std::endl;
-            }
-        }
-
-        initialized = true;
-    }
-
-    void Shutdown() {
-        std::lock_guard<std::mutex> lock(mutex);
-        if (logFile.is_open()) {
-            logFile.close();
-        }
-        initialized = false;
-    }
-
-    void Log(LogCategory& category, LogLevel level, const std::string& message,
-        const char* file = nullptr, int line = -1) {
-            if (!category.shouldLog(level)) return;
-
-            std::lock_guard<std::mutex> lock(mutex);
-
-            std::string formattedMessage = FormatMessage(category, level, message, file, line);
-
-            if (logToConsole) {
-                std::cout << GetColorCode(level) << formattedMessage << "\033[0m" << std::endl;
-            }
-
-            if (logFile.is_open()) {
-                logFile << formattedMessage << std::endl;
-                logFile.flush(); // Write immediately
-            }
-    }
-
-    void SetCategoryEnabled(LogCategory& category, bool enabled) {
-        category.enabled = enabled;
-    }
-
-    void SetCategoryThreshold(LogCategory& category, LogLevel threshold) {
-        category.threshold = threshold;
-    }
-
-    std::string FormatMessage(LogCategory& category, LogLevel level,
-                                const std::string& message,
-                                const char* file, int line) {
-        std::stringstream ss;
-
-        // Timestamp
-        auto now = std::chrono::system_clock::now();
-        auto time = std::chrono::system_clock::to_time_t(now);
-        auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-            now.time_since_epoch()) % 1000;
-
-        ss << "[" << std::put_time(std::localtime(&time), "%H:%M:%S")
-        << "." << std::setfill('0') << std::setw(3) << ms.count() << "] ";
-
-        ss << "[" << LevelToString(level) << "] ";
-
-        ss << "[" << category.name << "] ";
-
-        ss << message;
-
-        // File and line
-        if (file && line >= 0 && (level == LogLevel::Warning ||
-                                    level == LogLevel::Error ||
-                                    level == LogLevel::Fatal)) {
-            ss << " (" << file << ":" << line << ")";
-        }
-
-        return ss.str();
-    }
-
-    const char* GetColorCode(LogLevel level) {
-        switch (level) {
-            case LogLevel::Verbose: return "\033[90m";   // Gray
-            case LogLevel::Log: return "\033[37m";       // White
-            case LogLevel::Warning: return "\033[33m";   // Yellow
-            case LogLevel::Error: return "\033[31m";     // Red
-            case LogLevel::Fatal: return "\033[91m";     // Bright Red
-            default: return "\033[90m";   // Gray
+        detail::logFile.open(logFilePath, std::ios::out | std::ios::app);
+        if (!detail::logFile.is_open()) {
+            std::cerr << "Failed to open log file: " << logFilePath << std::endl;
         }
     }
 
-    const char* LevelToString(LogLevel level) {
-        switch (level) {
-            case LogLevel::Verbose: return "VERBOSE";
-            case LogLevel::Log:     return "LOG";
-            case LogLevel::Warning: return "WARNING";
-            case LogLevel::Error:   return "ERROR";
-            case LogLevel::Fatal:   return "FATAL";
-            default:                return "VERBOSE";
-        }
+    detail::initialized = true;
+}
+
+inline void LogShutdown() {
+    std::lock_guard<std::mutex> lock(detail::logMutex);
+    if (detail::logFile.is_open()) {
+        detail::logFile.close();
+    }
+    detail::initialized = false;
+}
+
+inline const char* LogGetColorCode(LogLevel level) {
+    switch (level) {
+        case LogLevel::Verbose: return "\033[90m";   // Gray
+        case LogLevel::Log: return "\033[37m";       // White
+        case LogLevel::Warning: return "\033[33m";   // Yellow
+        case LogLevel::Error: return "\033[31m";     // Red
+        case LogLevel::Fatal: return "\033[91m";     // Bright Red
+        default: return "\033[90m";   // Gray
+    }
+}
+
+inline const char* LogLevelToString(LogLevel level) {
+    switch (level) {
+        case LogLevel::Verbose: return "VERBOSE";
+        case LogLevel::Log:     return "LOG";
+        case LogLevel::Warning: return "WARNING";
+        case LogLevel::Error:   return "ERROR";
+        case LogLevel::Fatal:   return "FATAL";
+        default:                return "VERBOSE";
+    }
+}
+
+inline std::string LogFormatMessage(LogCategory& category, LogLevel level,
+                            const std::string& message,
+                            const char* file, int line) {
+    std::stringstream ss;
+
+    // Timestamp
+    auto now = std::chrono::system_clock::now();
+    auto time = std::chrono::system_clock::to_time_t(now);
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
+        now.time_since_epoch()) % 1000;
+
+    ss << "[" << std::put_time(std::localtime(&time), "%H:%M:%S")
+    << "." << std::setfill('0') << std::setw(3) << ms.count() << "] ";
+
+    ss << "[" << LogLevelToString(level) << "] ";
+
+    ss << "[" << category.name << "] ";
+
+    ss << message;
+
+    // File and line
+    if (file && line >= 0 && (level == LogLevel::Warning ||
+                                level == LogLevel::Error ||
+                                level == LogLevel::Fatal)) {
+        ss << " (" << file << ":" << line << ")";
     }
 
-    std::mutex mutex;
-    std::ofstream logFile;
-    bool logToConsole = true;
-    bool initialized = false;
-};
+    return ss.str();
+}
+
+inline void Log(LogCategory& category, LogLevel level, const std::string& message,
+    const char* file = nullptr, int line = -1) {
+        if (!category.shouldLog(level)) return;
+
+        std::lock_guard<std::mutex> lock(detail::logMutex);
+
+        std::string formattedMessage = LogFormatMessage(category, level, message, file, line);
+
+        if (detail::logToConsole) {
+            std::cout << LogGetColorCode(level) << formattedMessage << "\033[0m" << std::endl;
+        }
+
+        if (detail::logFile.is_open()) {
+            detail::logFile << formattedMessage << std::endl;
+            detail::logFile.flush(); // Write immediately
+        }
+}
+
+inline void SetCategoryEnabled(LogCategory& category, bool enabled) {
+    category.enabled = enabled;
+}
+
+inline void SetCategoryThreshold(LogCategory& category, LogLevel threshold) {
+    category.threshold = threshold;
+}
+
+} // namespace nt
 
 // Macros
 // ========
 
 // C++20 std::format version
 #define NT_LOG(Category, Level, Format, ...) \
-    nt::Logger::Get().Log(Category, nt::LogLevel::Level, \
+    nt::Log(Category, nt::LogLevel::Level, \
         std::format(Format, ##__VA_ARGS__), __FILE__, __LINE__)
 
 // Shorthand macros
@@ -170,9 +175,13 @@ struct Logger {
 #define NT_LOG_FATAL(Category, Format, ...) NT_LOG(Category, Fatal, Format, ##__VA_ARGS__)
 
 // Strip logs in release builds
-#ifndef NDEBUG
+#ifdef NDEBUG
     #undef NT_LOG_VERBOSE
     #define NT_LOG_VERBOSE(Category, Format, ...) ((void)0)
 #endif
 
-}
+// Disable verbose asset loading logs after initial development
+// nt::Logger.SetCategoryEnabled(AssetLoading, false);
+
+// Only show warnings and above for rendering
+// nt::Logger.SetCategoryThreshold(Rendering, nt::LogLevel::Warning);

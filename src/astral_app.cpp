@@ -244,9 +244,9 @@ void AstralApp::run()
     static int selectedEntityID = -1;
 
     // Initialize logger
-    nt::Logger::Get().Init();
-    NT_LOG_INFO(Core, "Engine initialized successfully");
-    NT_LOG_INFO(Core, "Dewrp");
+    // nt::Logger::Get().Init();
+    // NT_LOG_INFO(Core, "Engine initialized successfully");
+    // NT_LOG_INFO(Core, "Dewrp");
 
 
   // ENGINE LOOP
@@ -703,6 +703,9 @@ void AstralApp::run()
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
+
+  // Log Cleanup
+  nt::LogShutdown();
 }
 
 }

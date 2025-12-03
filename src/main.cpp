@@ -24,18 +24,18 @@ void setWorkingDirectory() {
     if (_NSGetExecutablePath(exePath, &size) == 0) {
         std::filesystem::path path = std::filesystem::path(exePath).parent_path();
         std::filesystem::current_path(path);
-        std::cout << "Working directory set to: " << std::filesystem::current_path() << std::endl;
+        NT_LOG_VERBOSE(Core, "Working directory set to: {}", std::filesystem::current_path().c_str());
     } else {
-        std::cerr << "Failed to get executable path on macOS." << std::endl;
+        NT_LOG_ERROR(Core, "Failed to get executable path on macOS.");
     }
 #elif defined(_WIN32)
     if (GetModuleFileNameA(NULL, exePath, sizeof(exePath))) {
         // std::filesystem::path path = std::filesystem::path(exePath).parent_path();
         std::filesystem::path path = "C:\\Users\\vadsama\\Documents\\Projects\\NoctuaryEngine";
         std::filesystem::current_path(path);
-        std::cout << "Working directory set to: " << std::filesystem::current_path() << std::endl;
+        NT_LOG_VERBOSE(Core, "Working directory set to: {}", std::filesystem::current_path().c_str());
     } else {
-        std::cerr << "Failed to get executable path on Windows." << std::endl;
+        NT_LOG_ERROR(Core, "Failed to get executable path on Windows.");
     }
 #elif defined(__linux__)
     ssize_t count = readlink("/proc/self/exe", exePath, sizeof(exePath));
@@ -43,9 +43,9 @@ void setWorkingDirectory() {
         exePath[count] = '\0';
         std::filesystem::path path = std::filesystem::path(exePath).parent_path();
         std::filesystem::current_path(path);
-        std::cout << "Working directory set to: " << std::filesystem::current_path() << std::endl;
+        NT_LOG_VERBOSE(Core, "Working directory set to: {}", std::filesystem::current_path().c_str());
     } else {
-        std::cerr << "Failed to get executable path on Linux." << std::endl;
+        NT_LOG_ERROR(Core, "Failed to get executable path on Linux.");
     }
 #else
     std::cerr << "Unsupported platform." << std::endl;
@@ -54,12 +54,7 @@ void setWorkingDirectory() {
 
 int main()
 {
-
-    // Disable verbose asset loading logs after initial development
-    // nt::Logger.SetCategoryEnabled(AssetLoading, false);
-
-    // Only show warnings and above for rendering
-    // nt::Logger.SetCategoryThreshold(Rendering, nt::LogLevel::Warning);
+  nt::LogInit("engine.log", true);
 
   setWorkingDirectory();
 
