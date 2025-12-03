@@ -30,17 +30,15 @@ struct LogCategory {
 };
 
 // Predefined categories
-namespace LogCategories {
-    inline LogCategory Core{"Core"};
-    inline LogCategory Rendering{"Rendering"};
-    inline LogCategory AssetLoading{"AssetLoading"};
-    inline LogCategory Animation{"Animation"};
-    inline LogCategory Physics{"Physics"};
-    inline LogCategory AI{"AI"};
-    inline LogCategory Input{"Input"};
-    inline LogCategory Audio{"Audio"};
-    inline LogCategory UI{"UI"};
-}
+inline LogCategory LogCore{"Core"};
+inline LogCategory LogRendering{"Rendering"};
+inline LogCategory LogAssets{"Assets"};
+inline LogCategory LogAnimation{"Animation"};
+inline LogCategory LogPhysics{"Physics"};
+inline LogCategory LogAI{"AI"};
+inline LogCategory LogInput{"Input"};
+inline LogCategory LogAudio{"Audio"};
+inline LogCategory LogUI{"UI"};
 
 // Internal state
 namespace detail {
@@ -163,9 +161,39 @@ inline void SetCategoryThreshold(LogCategory& category, LogLevel threshold) {
 // ========
 
 // C++20 std::format version
+#if __cplusplus >= 202002L
+
 #define NT_LOG(Category, Level, Format, ...) \
     nt::Log(Category, nt::LogLevel::Level, \
         std::format(Format, ##__VA_ARGS__), __FILE__, __LINE__)
+
+#else
+
+// C++17 fallback using variadic template helper
+namespace nt {
+namespace detail {
+    // Helper for string formatting
+    inline std::string FormatString(const char* format) {
+        return std::string(format);
+    }
+
+    template<typename... Args>
+    inline std::string FormatString(const char* format, Args&&... args) {
+        int size = std::snprintf(nullptr, 0, format, std::forward<Args>(args)...) + 1;
+        if (size <= 0) return "";
+
+        std::unique_ptr<char[]> buf(new char[size]);
+        std::snprintf(buf.get(), size, format, std::forward<Args>(args)...);
+        return std::string(buf.get(), buf.get() + size - 1);
+    }
+} // namespace detail
+} // namespace nt
+
+#define NT_LOG(Category, Level, Format, ...) \
+    nt::Logger::Get().Log(Category, nt::LogLevel::Level, \
+        nt::detail::FormatString(Format, ##__VA_ARGS__), __FILE__, __LINE__)
+
+#endif
 
 // Shorthand macros
 #define NT_LOG_VERBOSE(Category, Format, ...) NT_LOG(Category, Verbose, Format, ##__VA_ARGS__)

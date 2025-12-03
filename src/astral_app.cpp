@@ -35,8 +35,6 @@
 #include <cassert>
 #include <memory>
 
-using namespace nt::LogCategories;
-
 namespace nt
 {
 
@@ -242,12 +240,6 @@ void AstralApp::run()
     static float OrthoNear = -30.0f;
     static float OrthoFar = 44.0f;
     static int selectedEntityID = -1;
-
-    // Initialize logger
-    // nt::Logger::Get().Init();
-    // NT_LOG_INFO(Core, "Engine initialized successfully");
-    // NT_LOG_INFO(Core, "Dewrp");
-
 
   // ENGINE LOOP
   while (!ntWindow.shouldClose()) {

@@ -1,4 +1,5 @@
 #include "nt_device.hpp"
+#include "nt_log.hpp"
 #include "glm/gtc/constants.hpp"
 
 // std headers
@@ -16,9 +17,9 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
     VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT *pCallbackData,
     void *pUserData) {
-  std::cerr << "validation layer: " << pCallbackData->pMessage << std::endl;
+        NT_LOG_ERROR(LogCore, "validation layer: {}", pCallbackData->pMessage);
 
-  return VK_FALSE;
+        return VK_FALSE;
 }
 
 VkResult CreateDebugUtilsMessengerEXT(
@@ -72,6 +73,7 @@ NtDevice::~NtDevice() {
 
 void NtDevice::createInstance() {
   if (enableValidationLayers && !checkValidationLayerSupport()) {
+      NT_LOG_ERROR(LogCore, "validation layers requested, but not available!");
     throw std::runtime_error("validation layers requested, but not available!");
   }
 
@@ -114,6 +116,7 @@ void NtDevice::createInstance() {
   }
 
   if (vkCreateInstance(&createInfo, nullptr, &instance_) != VK_SUCCESS) {
+      NT_LOG_ERROR(LogCore, "failed to create instance!");
     throw std::runtime_error("failed to create instance!");
   }
 
@@ -124,9 +127,11 @@ void NtDevice::pickPhysicalDevice() {
   uint32_t deviceCount = 0;
   vkEnumeratePhysicalDevices(instance_, &deviceCount, nullptr);
   if (deviceCount == 0) {
+      NT_LOG_ERROR(LogCore, "failed to find GPUs with Vulkan support!");
     throw std::runtime_error("failed to find GPUs with Vulkan support!");
   }
-  std::cout << "Device count: " << deviceCount << std::endl;
+
+  NT_LOG_INFO(LogCore, "Device count: ", deviceCount);
   std::vector<VkPhysicalDevice> devices(deviceCount);
   vkEnumeratePhysicalDevices(instance_, &deviceCount, devices.data());
 
@@ -134,17 +139,18 @@ void NtDevice::pickPhysicalDevice() {
     if (isDeviceSuitable(device)) {
       physicalDevice_ = device;
       msaaSamples = getMaxUsableSampleCount();
-      std::cout << "Max MSAA samples: " << msaaSamples << std::endl;
+      NT_LOG_INFO(LogCore, "Max MSAA samples: ", msaaSamples);
       break;
     }
   }
 
   if (physicalDevice_ == VK_NULL_HANDLE) {
+      NT_LOG_ERROR(LogCore, "failed to find a suitable GPU!");
     throw std::runtime_error("failed to find a suitable GPU!");
   }
 
   vkGetPhysicalDeviceProperties(physicalDevice_, &properties);
-  std::cout << "physical device: " << properties.deviceName << std::endl;
+  NT_LOG_INFO(LogCore, "Physical device name: {}", properties.deviceName);
 }
 
 void NtDevice::createLogicalDevice() {
@@ -168,9 +174,9 @@ void NtDevice::createLogicalDevice() {
   if (!isInstance_1_3_plus || isDyReExtensionNeeded) {
     if (isExtensionSupported(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME)) {
         deviceExtensions.push_back(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
-        std::cout << "Enabling VK_KHR_dynamic_rendering for dynamic rendering support" << std::endl;
+        NT_LOG_VERBOSE(LogCore, "Enabling VK_KHR_dynamic_rendering for dynamic rendering support");
     } else {
-        std::cerr << "[ERROR] The system does not support dynamic rendering" << std::endl;
+        NT_LOG_ERROR(LogCore, "The system does not support dynamic rendering");
     }
   }
 
@@ -201,6 +207,7 @@ void NtDevice::createLogicalDevice() {
   }
 
   if (vkCreateDevice(physicalDevice_, &createInfo, nullptr, &device_) != VK_SUCCESS) {
+      NT_LOG_ERROR(LogCore, "failed to create logical device!");
     throw std::runtime_error("failed to create logical device!");
   }
 
@@ -222,6 +229,7 @@ void NtDevice::createLogicalDevice() {
     }
 
     if (vkCmdBeginRendering == nullptr || vkCmdEndRendering == nullptr) {
+        NT_LOG_ERROR(LogCore, "Failed to load dynamic rendering functions!");
       throw std::runtime_error("Failed to load dynamic rendering functions!");
     }
 }
@@ -236,6 +244,7 @@ void NtDevice::createCommandPool() {
       VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
 
   if (vkCreateCommandPool(device_, &poolInfo, nullptr, &commandPool) != VK_SUCCESS) {
+      NT_LOG_ERROR(LogCore, "failed to create command pool!");
     throw std::runtime_error("failed to create command pool!");
   }
 }
@@ -277,6 +286,7 @@ void NtDevice::setupDebugMessenger() {
   VkDebugUtilsMessengerCreateInfoEXT createInfo;
   populateDebugMessengerCreateInfo(createInfo);
   if (CreateDebugUtilsMessengerEXT(instance_, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS) {
+      NT_LOG_ERROR(LogCore, "failed to set up debug messenger!");
     throw std::runtime_error("failed to set up debug messenger!");
   }
 }
@@ -325,18 +335,19 @@ void NtDevice::hasGflwRequiredInstanceExtensions() {
   std::vector<VkExtensionProperties> extensions(extensionCount);
   vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
-  std::cout << "available extensions:" << std::endl;
+  NT_LOG_INFO("available extensions:");
   std::unordered_set<std::string> available;
   for (const auto &extension : extensions) {
-    std::cout << "\t" << extension.extensionName << std::endl;
+    NT_LOG_INFO("\t{}", extension.extensionName);
     available.insert(extension.extensionName);
   }
 
-  std::cout << "required extensions:" << std::endl;
+  NT_LOG_INFO("required extensions:");
   auto requiredExtensions = getRequiredExtensions();
   for (const auto &required : requiredExtensions) {
-    std::cout << "\t" << required << std::endl;
+      NT_LOG_INFO("\t{}", required);
     if (available.find(required) == available.end()) {
+        NT_LOG_ERROR("Missing required glfw extension");
       throw std::runtime_error("Missing required glfw extension");
     }
   }
@@ -450,6 +461,7 @@ VkFormat NtDevice::findSupportedFormat(
       return format;
     }
   }
+  NT_LOG_ERROR("failed to find supported format!");
   throw std::runtime_error("failed to find supported format!");
 }
 
@@ -463,6 +475,7 @@ uint32_t NtDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags pro
     }
   }
 
+  NT_LOG_ERROR("failed to find suitable memory type!");
   throw std::runtime_error("failed to find suitable memory type!");
 }
 
@@ -479,6 +492,7 @@ void NtDevice::createBuffer(
   bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   if (vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
+      NT_LOG_ERROR("failed to create vertex buffer!");
     throw std::runtime_error("failed to create vertex buffer!");
   }
 
@@ -491,6 +505,7 @@ void NtDevice::createBuffer(
   allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
   if (vkAllocateMemory(device_, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
+      NT_LOG_ERROR("failed to allocate vertex buffer memory!");
     throw std::runtime_error("failed to allocate vertex buffer memory!");
   }
 
@@ -574,6 +589,7 @@ void NtDevice::createImageWithInfo(
     VkImage &image,
     VkDeviceMemory &imageMemory) {
   if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
+      NT_LOG_ERROR("failed to create image!");
     throw std::runtime_error("failed to create image!");
   }
 
@@ -586,10 +602,12 @@ void NtDevice::createImageWithInfo(
   allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
   if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
+      NT_LOG_ERROR("failed to allocate image memory!");
     throw std::runtime_error("failed to allocate image memory!");
   }
 
   if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
+      NT_LOG_ERROR("failed to bind image memory!");
     throw std::runtime_error("failed to bind image memory!");
   }
 }
@@ -615,6 +633,7 @@ void NtDevice::getInstanceVersion() {
 
     VkResult res = vkEnumerateInstanceVersion(&apiVersion);
     if (res != VK_SUCCESS) {
+        NT_LOG_ERROR("failed to get instance version!");
         throw std::runtime_error("failed to get instance version!");
     }
 
@@ -622,7 +641,7 @@ void NtDevice::getInstanceVersion() {
     instanceVersion.Minor = VK_VERSION_MINOR(apiVersion);
     instanceVersion.Patch = VK_VERSION_PATCH(apiVersion);
 
-    printf("Vulkan Instance Version: %d.%d.%d\n", instanceVersion.Major, instanceVersion.Minor, instanceVersion.Patch);
+    NT_LOG_INFO(LogCore, "Vulkan Instance Version: {}.{}.{}", instanceVersion.Major, instanceVersion.Minor, instanceVersion.Patch);
 }
 
 }

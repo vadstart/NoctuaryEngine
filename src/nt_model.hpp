@@ -116,7 +116,6 @@ class NtModel {
 
           ~Builder() {}
 
-          void loadObjModel(const std::string &filepath);
           void loadGltfModel(const std::string &filepath);
 
         private:
