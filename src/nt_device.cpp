@@ -335,19 +335,19 @@ void NtDevice::hasGflwRequiredInstanceExtensions() {
   std::vector<VkExtensionProperties> extensions(extensionCount);
   vkEnumerateInstanceExtensionProperties(nullptr, &extensionCount, extensions.data());
 
-  NT_LOG_INFO("available extensions:");
+  NT_LOG_INFO(LogCore, "available extensions:");
   std::unordered_set<std::string> available;
   for (const auto &extension : extensions) {
-    NT_LOG_INFO("\t{}", extension.extensionName);
+    NT_LOG_INFO(LogCore, "\t{}", extension.extensionName);
     available.insert(extension.extensionName);
   }
 
-  NT_LOG_INFO("required extensions:");
+  NT_LOG_INFO(LogCore, "required extensions:");
   auto requiredExtensions = getRequiredExtensions();
   for (const auto &required : requiredExtensions) {
-      NT_LOG_INFO("\t{}", required);
+      NT_LOG_INFO(LogCore, "\t{}", required);
     if (available.find(required) == available.end()) {
-        NT_LOG_ERROR("Missing required glfw extension");
+        NT_LOG_ERROR(LogCore, "Missing required glfw extension");
       throw std::runtime_error("Missing required glfw extension");
     }
   }
@@ -461,7 +461,7 @@ VkFormat NtDevice::findSupportedFormat(
       return format;
     }
   }
-  NT_LOG_ERROR("failed to find supported format!");
+  NT_LOG_ERROR(LogCore, "failed to find supported format!");
   throw std::runtime_error("failed to find supported format!");
 }
 
@@ -475,7 +475,7 @@ uint32_t NtDevice::findMemoryType(uint32_t typeFilter, VkMemoryPropertyFlags pro
     }
   }
 
-  NT_LOG_ERROR("failed to find suitable memory type!");
+  NT_LOG_ERROR(LogCore, "failed to find suitable memory type!");
   throw std::runtime_error("failed to find suitable memory type!");
 }
 
@@ -492,7 +492,7 @@ void NtDevice::createBuffer(
   bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   if (vkCreateBuffer(device_, &bufferInfo, nullptr, &buffer) != VK_SUCCESS) {
-      NT_LOG_ERROR("failed to create vertex buffer!");
+      NT_LOG_ERROR(LogCore, "failed to create vertex buffer!");
     throw std::runtime_error("failed to create vertex buffer!");
   }
 
@@ -505,7 +505,7 @@ void NtDevice::createBuffer(
   allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
   if (vkAllocateMemory(device_, &allocInfo, nullptr, &bufferMemory) != VK_SUCCESS) {
-      NT_LOG_ERROR("failed to allocate vertex buffer memory!");
+      NT_LOG_ERROR(LogCore, "failed to allocate vertex buffer memory!");
     throw std::runtime_error("failed to allocate vertex buffer memory!");
   }
 
@@ -589,7 +589,7 @@ void NtDevice::createImageWithInfo(
     VkImage &image,
     VkDeviceMemory &imageMemory) {
   if (vkCreateImage(device_, &imageInfo, nullptr, &image) != VK_SUCCESS) {
-      NT_LOG_ERROR("failed to create image!");
+      NT_LOG_ERROR(LogCore, "failed to create image!");
     throw std::runtime_error("failed to create image!");
   }
 
@@ -602,12 +602,12 @@ void NtDevice::createImageWithInfo(
   allocInfo.memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties);
 
   if (vkAllocateMemory(device_, &allocInfo, nullptr, &imageMemory) != VK_SUCCESS) {
-      NT_LOG_ERROR("failed to allocate image memory!");
+      NT_LOG_ERROR(LogCore, "failed to allocate image memory!");
     throw std::runtime_error("failed to allocate image memory!");
   }
 
   if (vkBindImageMemory(device_, image, imageMemory, 0) != VK_SUCCESS) {
-      NT_LOG_ERROR("failed to bind image memory!");
+      NT_LOG_ERROR(LogCore, "failed to bind image memory!");
     throw std::runtime_error("failed to bind image memory!");
   }
 }
@@ -633,7 +633,7 @@ void NtDevice::getInstanceVersion() {
 
     VkResult res = vkEnumerateInstanceVersion(&apiVersion);
     if (res != VK_SUCCESS) {
-        NT_LOG_ERROR("failed to get instance version!");
+        NT_LOG_ERROR(LogCore, "failed to get instance version!");
         throw std::runtime_error("failed to get instance version!");
     }
 

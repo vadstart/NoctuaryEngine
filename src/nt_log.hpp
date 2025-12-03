@@ -190,7 +190,7 @@ namespace detail {
 } // namespace nt
 
 #define NT_LOG(Category, Level, Format, ...) \
-    nt::Logger::Get().Log(Category, nt::LogLevel::Level, \
+    nt::Log(Category, nt::LogLevel::Level, \
         nt::detail::FormatString(Format, ##__VA_ARGS__), __FILE__, __LINE__)
 
 #endif

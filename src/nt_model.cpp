@@ -68,7 +68,7 @@ std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const st
   if (extension == "gltf" || extension == "glb") {
     builder.loadGltfModel(filepath);
   } else {
-    LOG_ERROR(LogAssets, "Unsupported file format: " + extension + ". Supported formats are: .gltf, .glb");
+    NT_LOG_ERROR(LogAssets, "Unsupported file format: {} - Supported formats are: .gltf, .glb", extension);
     throw std::runtime_error("Unsupported file format: " + extension + ". Supported formats are: .gltf, .glb");
   }
 
@@ -297,7 +297,7 @@ void NtModel::Builder::loadGltfModel(const std::string &filepath) {
   }
 
   NT_LOG_VERBOSE(LogAssets, "Successfully loaded glTF file: {}\n   Meshes: {}\n   Materials: {}\n   Textures: {}\n   Animations:{}"
-     ,filepath, model.meshes.size(), model.materials.size(), model.textures.size(), animations.size());
+     ,filepath, model.meshes.size(), model.materials.size(), model.textures.size(), model.animations.size());
 
   // Load materials first
   loadGltfMaterials(model, filepath);
@@ -422,13 +422,13 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
 
       if (!image.uri.empty()) {
         std::string texturePath = baseDir + image.uri;
-        NT_LOG_VERBOSE("Loading normal texture: {}", texturePath);
+        NT_LOG_VERBOSE(LogAssets, "Loading normal texture: {}", texturePath);
         try {
           materialData.normalTexture = NtImage::createTextureFromFile(ntDevice, texturePath, true);
           materialData.normalScale = material.normalTexture.scale;
           materialData.normalTexCoord = material.normalTexture.texCoord;
         } catch (const std::exception& e) {
-            NT_LOG_ERROR("Failed to load normal texture: {}", e.what());
+            NT_LOG_ERROR(LogAssets, "Failed to load normal texture: {}", e.what());
         }
       } else if (!image.image.empty()) {
         // Embedded texture - so let's create texture from memory
@@ -456,7 +456,7 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
 
   // Create a default material if none exist
   if (l_materials.empty()) {
-    NT_LOG_WARNING(LogAssets, "No materials found, creating default material")
+    NT_LOG_WARN(LogAssets, "No materials found, creating default material");
     NtMaterial::MaterialData defaultMaterial;
     defaultMaterial.name = "Default";
     l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, defaultMaterial));
@@ -885,19 +885,19 @@ void NtModel::Skeleton::UpdateBone(int16_t boneIndex)
 
 void NtModel::updateSkeleton() {
     if (!skeleton.has_value()) {
-        NT_LOG_WARNING(LogAssets, "No skeleton");
+        NT_LOG_WARN(LogAssets, "No skeleton");
         return;
     }
 
     if (!boneBuffer) {
-        NT_LOG_WARNING(LogAssets, "No bone buffer");
+        NT_LOG_WARN(LogAssets, "No bone buffer");
         return;
     }
 
     skeleton->Update();
 
     if (skeleton->m_ShaderData.m_FinalJointsMatrices.empty()) {
-        NT_LOG_WARNING(LogAssets, "m_FinalJointsMatrices is empty!");
+        NT_LOG_WARN(LogAssets, "m_FinalJointsMatrices is empty!");
         return;
     }
 
