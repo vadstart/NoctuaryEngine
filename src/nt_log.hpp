@@ -42,6 +42,11 @@ namespace LogCategories {
 }
 
 struct Logger {
+    static Logger& Get() {
+            static Logger instance;
+            return instance;
+        }
+
     void Init(const std::string& logFilePath = "", bool shouldLogToConsole = true) {
         std::lock_guard<std::mutex> lock(mutex);
 
@@ -154,7 +159,7 @@ struct Logger {
 
 // C++20 std::format version
 #define NT_LOG(Category, Level, Format, ...) \
-    nt::Logger.Log(Category, nt::LogLevel::Level, \
+    nt::Logger::Get().Log(Category, nt::LogLevel::Level, \
         std::format(Format, ##__VA_ARGS__), __FILE__, __LINE__)
 
 // Shorthand macros

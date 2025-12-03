@@ -14,6 +14,8 @@
 #include <limits.h>
 #endif
 
+using namespace nt::LogCategories;
+
 void setWorkingDirectory() {
     char exePath[1024];
 
@@ -52,11 +54,6 @@ void setWorkingDirectory() {
 
 int main()
 {
-    // Initialize logger
-    // nt::Logger.Init("logs/engine.log", true");
-
-    // Configure categories
-    using namespace nt::LogCategories;
 
     // Disable verbose asset loading logs after initial development
     // nt::Logger.SetCategoryEnabled(AssetLoading, false);
