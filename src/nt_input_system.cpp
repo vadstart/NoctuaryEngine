@@ -75,7 +75,7 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
     // {
         zoomInput = zoomInput * zoomSpeed * dt;
         camera.offset.w -= zoomInput;
-        camera.offset.w = glm::clamp(camera.offset.w, 0.5f, 100.0f);
+        camera.offset.w = glm::clamp(camera.offset.w, 2.0f, 25.0f);
 
         // Convert spherical to Cartesian coordinates
         camera.position.translation.x = (transform.translation.x + camera.offset.x) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::sin(camera.position.rotation.y);
@@ -124,7 +124,7 @@ void InputSystem::updatePlayerPosition(NtWindow* ntWindow, float dt, NtEntity pl
 
     // Calculate movement direction based on input
     glm::vec3 moveDirection = (forward * y + right * x);
-    playerTransform.translation += moveDirection * 5.0f * dt;
+    playerTransform.translation += moveDirection * 7.0f * dt;
 
     // Rotate player to face movement direction
     if (glm::length(moveDirection) > 0.001f) {

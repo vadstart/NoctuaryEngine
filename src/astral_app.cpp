@@ -217,6 +217,14 @@ void AstralApp::run()
         .AddComponent(cPlayerController{5.0f, 10.0f});
     Nexus.GetComponent<cAnimator>(Cassandra).play("Idle", true);
 
+    auto Mildred = Nexus.CreateEntity();
+    Mildred.AddComponent(cMeta{"Mildred"})
+        .AddComponent(cTransform{ glm::vec3(-2.5f, -1.5f, 18.0f),
+            glm::vec3(1.5f, 0.0f, 0.0f) })
+        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true, true })
+        .AddComponent(cAnimator {} );
+    Nexus.GetComponent<cAnimator>(Mildred).play("Idle", true);
+
     auto BarLight = Nexus.CreateEntity();
     BarLight.AddComponent(cMeta{"Light.Bar"})
         .AddComponent(cTransform{ glm::vec3(3.5f, -7.5f, -7.2f) })
@@ -558,7 +566,7 @@ void AstralApp::run()
                         ImGui::TableSetColumnIndex(0);
                         ImGui::TextUnformatted("Cast Shadows");
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Checkbox("checkbox", &light.bCastShadows);
+                        ImGui::Checkbox("##castshadows", &light.bCastShadows);
 
                         ImGui::EndTable();
                     }
@@ -649,8 +657,8 @@ void AstralApp::run()
       // PASS 1: Render shadow map
       ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
 
-        // vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
-        // renderSystem->renderGameObjects(frameInfo, true);
+        vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
+        renderSystem->renderGameObjects(frameInfo, true);
 
       ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
 
