@@ -19,8 +19,43 @@ layout(push_constant) uniform Push {
     float roughnessFactor;
 } push;
 
+struct PointLight {
+    vec4 position;
+    vec4 color;
+    int lightType;
+    float spotInnerConeAngle; // Cosine of inner cone angle (precomputed on CPU)
+    float spotOuterConeAngle; // Cosine of outer cone angle (precomputed on CPU)
+    float padding3; // 4 bytes
+};
+
+layout(set = 0, binding = 0) uniform GlobalUbo {
+    mat4 projection;
+    mat4 view;
+
+    mat4 inverseView;
+    vec4 ambientLightColor;
+    mat4 lightSpaceMatrix;
+    vec4 shadowLightDirection;
+
+    PointLight pointLights[10];
+    int numLights;
+} ubo;
+
 void main() {
-    vec4 texColor = texture(diffuseTexSampler, fragTexCoord);
     // vec4 texColor = vec4(fragColor, 1.0);
-    outColor = vec4(texColor.rgb, texColor.a);
+    float uFogStart = 20.0f;
+    float uFogEnd = 70.0f;
+    vec3 uFogColor = vec3(0.0f, 0.0f, 0.0f);
+
+    vec3 camWorldPos = ubo.inverseView[3].xyz;
+    float dist = distance(camWorldPos, fragPosWorld);
+    float fogFactor = (uFogEnd - dist) / (uFogEnd - uFogStart);
+    fogFactor = clamp(fogFactor, 0.0, 1.0);
+
+    if (fogFactor == 0.0) discard;
+
+    vec4 texColor = texture(diffuseTexSampler, fragTexCoord);
+    vec3 finalColor = mix(uFogColor, texColor.rgb, fogFactor);
+
+    outColor = vec4(finalColor.rgb, texColor.a);
 }

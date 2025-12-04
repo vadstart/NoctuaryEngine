@@ -104,6 +104,17 @@ float calculateShadow(vec3 fragPosWorld, vec3 normal) {
 }
 
 void main() {
+    float uFogStart = 20.0f;
+    float uFogEnd = 70.0f;
+    vec3 uFogColor = vec3(0.0f, 0.0f, 0.0f);
+
+    vec3 camWorldPos = ubo.inverseView[3].xyz;
+    float dist = distance(camWorldPos, fragPosWorld);
+    float fogFactor = (uFogEnd - dist) / (uFogEnd - uFogStart);
+    fogFactor = clamp(fogFactor, 0.0, 1.0);
+
+    if (fogFactor == 0.0) discard;
+
     vec3 diffuseLight = vec3(0.0);
     vec3 specularLight = vec3(0.0);
 
@@ -147,7 +158,6 @@ void main() {
     // Clamp to prevent artifacts
     roughness = clamp(roughness, 0.04, 1.0);
 
-    vec3 camWorldPos = ubo.inverseView[3].xyz;
     vec3 viewDirection = normalize(camWorldPos - fragPosWorld);
 
     // Sample base color texture
@@ -228,6 +238,8 @@ void main() {
     // Add ambient lighting
     vec3 ambient = ubo.ambientLightColor.xyz * ubo.ambientLightColor.w * texColor.rgb;
     vec3 finalColor = ambient + diffuseLight;
+
+    finalColor = mix(uFogColor, finalColor, fogFactor);
 
     outColor = vec4(finalColor * fragColor, texColor.a);
 }

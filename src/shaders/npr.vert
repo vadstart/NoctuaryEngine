@@ -101,7 +101,7 @@ void main() {
     fragTexCoord = uv;
     gl_Position = ubo.projection * ubo.view * positionWorld;
 
-    // fragPosWorld = positionWorld.xyz;
+    fragPosWorld = positionWorld.xyz;
 
     // mat3 normalMatrix = transpose(inverse(mat3(push.normalMatrix) * mat3(jointTransform)));
     // fragNormalWorld = normalize(normalMatrix * normal);
