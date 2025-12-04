@@ -40,27 +40,24 @@ class InputSystem : public NtSystem
     int connectedGamepadId{-1};
 
     void update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity, NtEntity playerEntity);
-    // void updateCamFPS(NtWindow* ntWindow, NtGameObject& cameraObject, float dt);
     void updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity);
-    void updatePlayerPosition(float dt, NtEntity playerEntity, NtEntity camEntity);
+    void updatePlayerPosition(NtWindow* ntWindow, float dt, NtEntity playerEntity, NtEntity camEntity);
 
     // Gamepad methods
     void checkGamepadConnection();
     bool isGamepadButtonPressed(int button);
     float getGamepadAxis(int axis);
-    // void updateCamFPSGamepad(NtGameObject& cameraObject, float dt);
-    void updateCamOrbitGamepad(float dt, NtEntity camEntity);
 
     // Runtime configuration methods
-    void setGamepadSensitivity(float sensitivity) { gamepadSensitivity = sensitivity; }
-    void setGamepadMoveSpeed(float speed) { gamepadMoveSpeed = speed; }
+    // void setGamepadSensitivity(float sensitivity) { gamepadSensitivity = sensitivity; }
+    // void setGamepadMoveSpeed(float speed) { gamepadMoveSpeed = speed; }
     void setGamepadDeadzone(float deadzone) { gamepadDeadzone = deadzone; }
-    void setGamepadZoomSpeed(float speed) { gamepadZoomSpeed = speed; }
+    // void setGamepadZoomSpeed(float speed) { gamepadZoomSpeed = speed; }
 
-    float getGamepadSensitivity() const { return gamepadSensitivity; }
-    float getGamepadMoveSpeed() const { return gamepadMoveSpeed; }
+    // float getGamepadSensitivity() const { return gamepadSensitivity; }
+    // float getGamepadMoveSpeed() const { return gamepadMoveSpeed; }
     float getGamepadDeadzone() const { return gamepadDeadzone; }
-    float getGamepadZoomSpeed() const { return gamepadZoomSpeed; }
+    // float getGamepadZoomSpeed() const { return gamepadZoomSpeed; }
 
 private:
   KeyMappings keys{};
@@ -71,16 +68,16 @@ private:
   float moveSpeed{25.0f};
   float lookSpeed{1.5f};
 
-  const float sensitivity { 0.002f };
-  const float zoomSpeed { .3f };
-  const float orbitSpeed { 0.005f };
-  const float panSpeed = { 0.005f };
+  // const float sensitivity { 0.002f };
+  const float zoomSpeed { 1.5f };
+  const float orbitSpeed { 0.5f };
+  // const float panSpeed = { 0.005f };
 
   // Gamepad settings (configurable at runtime)
-  float gamepadSensitivity { 2.0f };
-  float gamepadMoveSpeed { 25.0f };
+  // float gamepadSensitivity { 2.0f };
+  // float gamepadMoveSpeed { 25.0f };
   float gamepadDeadzone { 0.15f };
-  float gamepadZoomSpeed { 2.0f };
+  // float gamepadZoomSpeed { 2.0f };
 
   NtNexus* nexus;
 };

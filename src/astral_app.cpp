@@ -268,11 +268,14 @@ void AstralApp::run()
     int framebufferW, framebufferH;
     glfwGetWindowSize(ntWindow.getGLFWwindow(), &windowW, &windowH);
     glfwGetFramebufferSize(ntWindow.getGLFWwindow(), &framebufferW, &framebufferH);
-    ImVec2 scale = ImVec2(
-        windowW > 0 ? (float)framebufferW / windowW : 1.0f,
-        windowH > 0 ? (float)framebufferH / windowH : 1.0f
-    );
-    io.DisplayFramebufferScale = ImVec2(1.0f, 1.0f);
+    ImVec2 winScale{1.0f, 1.0f};
+    #if defined(__APPLE__)
+        winScale = ImVec2(
+            windowW > 0 ? (float)framebufferW / windowW : 1.0f,
+            windowH > 0 ? (float)framebufferH / windowH : 1.0f
+        );
+    #endif
+    io.DisplayFramebufferScale = ImVec2(winScale.x, winScale.y);
 
     if (ntWindow.getShowImGUI())
     {
@@ -322,34 +325,6 @@ void AstralApp::run()
                 const char* name = glfwGetGamepadName(inputSystem->connectedGamepadId);
                 if (name) {
                     ImGui::Text("Name: %s", name);
-                }
-
-                // Gamepad configuration
-                float sensitivity = inputSystem->getGamepadSensitivity();
-                if (ImGui::SliderFloat("Look Sensitivity", &sensitivity, 0.1f, 5.0f, "%.2f")) {
-                    inputSystem->setGamepadSensitivity(sensitivity);
-                }
-
-                float moveSpeed = inputSystem->getGamepadMoveSpeed();
-                if (ImGui::SliderFloat("Move Speed", &moveSpeed, 1.0f, 100.0f, "%.1f")) {
-                    inputSystem->setGamepadMoveSpeed(moveSpeed);
-                }
-
-                float deadzone = inputSystem->getGamepadDeadzone();
-                if (ImGui::SliderFloat("Stick Deadzone", &deadzone, 0.0f, 0.5f, "%.3f")) {
-                    inputSystem->setGamepadDeadzone(deadzone);
-                }
-
-                float zoomSpeed = inputSystem->getGamepadZoomSpeed();
-                if (ImGui::SliderFloat("Zoom Speed", &zoomSpeed, 0.1f, 10.0f, "%.2f")) {
-                    inputSystem->setGamepadZoomSpeed(zoomSpeed);
-                }
-
-                if (ImGui::Button("Reset to Defaults")) {
-                    inputSystem->setGamepadSensitivity(2.0f);
-                    inputSystem->setGamepadMoveSpeed(25.0f);
-                    inputSystem->setGamepadDeadzone(0.15f);
-                    inputSystem->setGamepadZoomSpeed(2.0f);
                 }
 
                 // Live input display for debugging
