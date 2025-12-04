@@ -151,6 +151,13 @@ void RenderSystem::createPipelines(NtSwapChain &swapChain) {
         "shaders/npr.vert.spv",
         "shaders/npr.frag.spv");
 
+    // billboardPipeline = std::make_unique<NtPipeline>(
+    //     ntDevice,
+    //     billboardPipelineConfig,
+    //     billPipelineRenderingInfo,
+    //     "shaders/billboard.vert.spv",
+    //     "shaders/billboard.frag.spv");
+
     // BILLBOARDS
     // PipelineConfigInfo billboardPipelineConfig{};
     // NtPipeline::defaultPipelineConfigInfo(billboardPipelineConfig, nt::RenderMode::Billboard, ntDevice);

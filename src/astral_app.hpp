@@ -6,6 +6,7 @@
 #include "nt_device.hpp"
 #include "nt_renderer.hpp"
 #include "nt_descriptors.hpp"
+#include "nt_debugline_system.hpp"
 
 #include <filesystem>
 #include <memory>
@@ -63,6 +64,7 @@ namespace nt
 
     NtShadowMap shadowMap{ntDevice, 1024, 1024};
     VkDescriptorSet imguiShadowMapTexture = VK_NULL_HANDLE;
+    std::unique_ptr<NtLineRenderSystem> debugLineSystem;
 
     NtNexus Nexus;
 	};

@@ -25,43 +25,7 @@ void InputSystem::update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEnt
     }
     // }
 
-    // PLAYER
-    // Get input
-    float x = -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
-    float y = -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
-
-    // Move in camera direction
-    auto& camera = nexus->GetComponent<cCamera>(camEntity);
-    glm::vec3 forward = camera.position.getForward();
-    glm::vec3 right = camera.position.getRight();
-    forward.y = 0.0f; right.y = 0.0f;
-    forward = glm::normalize(forward);
-    right = glm::normalize(right);
-
-    auto& playerPos = nexus->GetComponent<cTransform>(camEntity);
-    glm::vec3 moveDirection = (forward * y + right * x);
-    playerPos.translation += moveDirection * 5.0f * dt;
-
-    // Rotate player to face movement direction
-    if (glm::length(moveDirection) > 0.001f) {
-        float targetAngle = std::atan2(-moveDirection.x, -moveDirection.z);
-
-        // Smooth rotation (lerp)
-        float currentAngle = playerPos.rotation.y;
-        float angleDiff = targetAngle - currentAngle;
-
-        // Normalize angle difference to [-PI, PI]
-        while (angleDiff > glm::pi<float>()) angleDiff -= 2.0f * glm::pi<float>();
-        while (angleDiff < -glm::pi<float>()) angleDiff += 2.0f * glm::pi<float>();
-
-        // Apply smooth rotation
-        float rotationStep = 5.0f * dt;
-        if (std::abs(angleDiff) < rotationStep) {
-            playerPos.rotation.y = targetAngle;
-        } else {
-            playerPos.rotation.y += std::copysign(rotationStep, angleDiff);
-        }
-    }
+    updatePlayerPosition(dt, playerEntity, camEntity);
 }
 
 /*
@@ -153,6 +117,65 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
     camera.position.translation.z = (transform.translation.z + camera.offset.z) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::cos(camera.position.rotation.y);
 }
 
+void InputSystem::updatePlayerPosition(float dt, NtEntity playerEntity, NtEntity camEntity) {
+    // PLAYER
+    // Get input
+    float x = -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
+    float y = -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
+
+    // Skip if no input
+    if (std::abs(x) < 0.001f && std::abs(y) < 0.001f) return;
+
+    // Get camera to calculate movement direction
+    auto& camera = nexus->GetComponent<cCamera>(camEntity);
+    // For orbital camera, calculate forward as direction FROM camera TO player
+    auto& playerTransform = nexus->GetComponent<cTransform>(playerEntity);
+    glm::vec3 cameraToPlayer = glm::normalize(playerTransform.translation - camera.position.translation);
+
+    // Project onto horizontal plane
+    glm::vec3 forward = glm::vec3(cameraToPlayer.x, 0.0f, cameraToPlayer.z);
+    forward = glm::normalize(forward);
+
+    // Right vector is perpendicular to forward on horizontal plane
+    glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)));
+
+    // Calculate movement direction based on input
+    glm::vec3 moveDirection = (forward * y + right * x);
+    playerTransform.translation += moveDirection * 5.0f * dt;
+
+    // Move in camera direction
+    // auto& camera = nexus->GetComponent<cCamera>(camEntity);
+    // glm::vec3 forward = camera.position.getForward();
+    // glm::vec3 right = camera.position.getRight();
+    // forward.y = 0.0f; right.y = 0.0f;
+    // forward = glm::normalize(forward);
+    // right = glm::normalize(right);
+
+    // auto& playerPos = nexus->GetComponent<cTransform>(playerEntity);
+    // glm::vec3 moveDirection = (forward * y + right * x);
+    // playerPos.translation += moveDirection * 5.0f * dt;
+
+    // Rotate player to face movement direction
+    if (glm::length(moveDirection) > 0.001f) {
+        float targetAngle = std::atan2(-moveDirection.x, -moveDirection.z);
+
+        // Smooth rotation (lerp)
+        float currentAngle = playerTransform.rotation.y;
+        float angleDiff = targetAngle - currentAngle;
+
+        // Normalize angle difference to [-PI, PI]
+        while (angleDiff > glm::pi<float>()) angleDiff -= 2.0f * glm::pi<float>();
+        while (angleDiff < -glm::pi<float>()) angleDiff += 2.0f * glm::pi<float>();
+
+        // Apply smooth rotation
+        float rotationStep = 5.0f * dt;
+        if (std::abs(angleDiff) < rotationStep) {
+            playerTransform.rotation.y = targetAngle;
+        } else {
+            playerTransform.rotation.y += std::copysign(rotationStep, angleDiff);
+        }
+    }
+}
 
 void InputSystem::checkGamepadConnection() {
     gamepadConnected = false;

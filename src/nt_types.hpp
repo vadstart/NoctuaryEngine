@@ -15,6 +15,7 @@ enum class RenderMode {
   PBR,
   NPR,
   ShadowMap,
+  Wireframe,
   Billboard
 };
 

@@ -42,6 +42,7 @@ class InputSystem : public NtSystem
     void update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity, NtEntity playerEntity);
     // void updateCamFPS(NtWindow* ntWindow, NtGameObject& cameraObject, float dt);
     void updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity);
+    void updatePlayerPosition(float dt, NtEntity playerEntity, NtEntity camEntity);
 
     // Gamepad methods
     void checkGamepadConnection();

@@ -1,4 +1,5 @@
 #include "astral_app.hpp"
+#include "nt_debugline_system.hpp"
 #include "nt_log.hpp"
 #include "nt_camera_system.hpp"
 #include "nt_buffer.hpp"
@@ -240,6 +241,13 @@ void AstralApp::run()
     static float OrthoNear = -30.0f;
     static float OrthoFar = 44.0f;
     static int selectedEntityID = -1;
+
+    debugLineSystem = std::make_unique<NtLineRenderSystem>(
+        &Nexus,
+        ntDevice,
+        *ntRenderer.getSwapChain(),
+        globalSetLayout->getDescriptorSetLayout()
+    );
 
   // ENGINE LOOP
   while (!ntWindow.shouldClose()) {
@@ -666,8 +674,8 @@ void AstralApp::run()
       // PASS 1: Render shadow map
       ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
 
-        vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
-        renderSystem->renderGameObjects(frameInfo, true);
+        // vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
+        // renderSystem->renderGameObjects(frameInfo, true);
 
       ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
 
@@ -681,6 +689,70 @@ void AstralApp::run()
             ImGui::Render();
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
         }
+
+        // PASS 3: Debug visualization
+        // Clear previous frame's debug lines
+        debugLineSystem->clearLines();
+
+        // Draw Cassandra's forward direction
+        if (Nexus.HasComponent<cTransform>(Cassandra)) {
+            auto& cassandraTransform = Nexus.GetComponent<cTransform>(Cassandra);
+
+            // Calculate forward direction from rotation
+            float yaw = cassandraTransform.rotation.y;
+            glm::vec3 forward = glm::vec3(
+                sin(yaw),
+                0.0f,
+                cos(yaw)
+            );
+
+            // Draw a red line showing Cassandra's forward direction
+            debugLineSystem->addDirectionLine(
+                glm::vec3(cassandraTransform.translation.x, -0.4f, cassandraTransform.translation.z),
+                -forward,
+                2.0f,  // 2 units long
+                glm::vec3(1.0f, 0.0f, 0.0f)  // Red color
+            );
+        }
+
+        // Draw camera direction
+        auto cameraEntity = cameraSystem->getActiveCamera();
+        if (cameraEntity != -1 && Nexus.HasComponent<cCamera>(cameraEntity) && Nexus.HasComponent<cTransform>(Cassandra)) {
+            auto& camera = Nexus.GetComponent<cCamera>(cameraEntity);
+            auto& cameraTransform = camera.position;
+            // auto& cassandraTransform = Nexus.GetComponent<cTransform>(Cassandra);
+
+            // // For an orbital camera, calculate the forward direction as pointing FROM camera TO target
+            // glm::vec3 cameraForward = glm::normalize(cassandraTransform.translation - cameraTransform.translation);
+
+            // // Project the forward direction onto the XZ plane (ground)
+            // glm::vec3 forwardFlat = glm::vec3(cameraForward.x, 0.0f, cameraForward.z);
+
+            float yaw = cameraTransform.rotation.y;
+            glm::vec3 forward = glm::vec3(
+                sin(yaw),
+                0.0f,
+                cos(yaw)
+            );
+            if (glm::length(forward) > 0.001f) {
+                forward = glm::normalize(forward);
+            }
+
+            // Draw a blue line showing camera direction on the ground
+            // Start from Cassandra's position (the orbit center), not the camera's position
+            glm::vec3 startPos = glm::vec3(cameraTransform.translation.x, -1.0f, cameraTransform.translation.z);
+
+            debugLineSystem->addDirectionLine(
+                startPos,
+                forward,  // Use the flattened, normalized direction
+                5.0f,  // 5 units long
+                glm::vec3(0.0f, 0.0f, 1.0f)  // Blue color
+            );
+        }
+
+        // Render the debug lines
+        debugLineSystem->render(frameInfo);
+        // ---
 
       ntRenderer.endMainRendering(commandBuffer);
       // ---
