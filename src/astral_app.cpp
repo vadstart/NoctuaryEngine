@@ -215,7 +215,7 @@ void AstralApp::run()
             ,glm::vec4(0.0f, -2.5f, 0.0f, 14.1f)
             ,{ glm::vec3(-11.f, -10.2f, -6.5f), glm::vec3(-0.5f, 4.2f, 0.0f) }})
         .AddComponent(cPlayerController{5.0f, 10.0f});
-    Nexus.GetComponent<cAnimator>(Cassandra).play("Idle", true);
+    Cassandra.GetComponent<cAnimator>().play("Idle", true);
 
     auto Mildred = Nexus.CreateEntity();
     Mildred.AddComponent(cMeta{"Mildred"})
@@ -223,7 +223,7 @@ void AstralApp::run()
             glm::vec3(1.5f, 0.0f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true, true })
         .AddComponent(cAnimator {} );
-    Nexus.GetComponent<cAnimator>(Mildred).play("Idle", true);
+    Mildred.GetComponent<cAnimator>().play("Idle", true);
 
     auto BarLight = Nexus.CreateEntity();
     BarLight.AddComponent(cMeta{"Light.Bar"})
