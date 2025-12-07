@@ -2,23 +2,49 @@
 #include "nt_components.hpp"
 #include "nt_log.hpp"
 #include "nt_types.hpp"
+#include <GLFW/glfw3.h>
 #include <glm/geometric.hpp>
 #include <iostream>
 #include <limits>
 #include <cmath>
+#include <vulkan/vulkan_core.h>
 
 namespace nt {
 
-void InputSystem::update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity, NtEntity playerEntity)
+void InputSystem::update(float dt, float mouseScrollY)
 {
+    assert (*entities.begin() && "[ERROR] No appropriate entities in the InputSystem");
+
     checkGamepadConnection();
 
-    // CAMERA
-    updateCamOrbit(ntWindow, dt, mouseScrollY, camEntity);
-    updatePlayerPosition(ntWindow, dt, playerEntity, camEntity);
+    updateCamControl(dt, mouseScrollY);
+    updatePlayerControl(dt);
 }
 
-void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity) {
+void InputSystem::windowKeyCallback(int key, int scancode, int action, int mods)
+{
+    auto window = ntWindow->getGLFWwindow();
+
+    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+    		glfwSetWindowShouldClose(window, GLFW_TRUE);
+    else if (key == GLFW_KEY_GRAVE_ACCENT && action == GLFW_PRESS && (mods & GLFW_MOD_SHIFT)) {
+        if (bShowImGUI) {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            if (glfwRawMouseMotionSupported())
+                glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+            bShowImGUI = false;
+        }
+        else {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+            if (glfwRawMouseMotionSupported())
+                glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
+            bShowImGUI = true;
+        }
+    }
+}
+
+void InputSystem::updateCamControl(float dt, float mouseScrollY) {
+    NtEntity camEntity = *entities.begin();
     GLFWwindow* window = ntWindow->getGLFWwindow();
     // ROTATION
     // - Mouse
@@ -34,7 +60,7 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
     float zoomInput = mouseScrollY;
 
     bool middleMouse = glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_MIDDLE) == GLFW_PRESS;
-    bool alt = glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS;;
+    bool alt = glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS;
     bool shift = glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS;
     bool bRightStick = false;
 
@@ -44,8 +70,8 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
         float rightStickY = getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_Y);
 
         if (std::abs(rightStickX) > 0.0f || std::abs(rightStickY) > 0.0f) {
-            deltaX = rightStickX * 2;
-            deltaY = rightStickY * 2;
+            deltaX = rightStickX;
+            deltaY = rightStickY;
             bRightStick = true;
         }
 
@@ -54,9 +80,9 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
         float rightTrigger = getGamepadAxis(GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER);
 
         if (std::abs(rightTrigger - leftTrigger) > 0.0f) {
-            zoomInput = (rightTrigger - leftTrigger) * 2;
+            zoomInput = (rightTrigger - leftTrigger) * dt;
         }
-        }
+    }
 
     auto& transform = nexus->GetComponent<cTransform>(camEntity);
     auto& camera = nexus->GetComponent<cCamera>(camEntity);
@@ -64,27 +90,45 @@ void InputSystem::updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScroll
     if (middleMouse || alt || bRightStick)
     {
         // Orbit around the target
-        camera.position.rotation.y += deltaX * orbitSpeed * dt;
+        camera.position.rotation.y -= deltaX * orbitSpeed * dt;
         camera.position.rotation.y = glm::mod(camera.position.rotation.y, glm::two_pi<float>());
-        camera.position.rotation.x -= deltaY * orbitSpeed * dt;
+        camera.position.rotation.x += deltaY * orbitSpeed * dt;
         camera.position.rotation.x = glm::clamp(camera.position.rotation.x, -glm::half_pi<float>() + 0.01f, glm::half_pi<float>() - 0.01f);
     }
 
     // Zoom (scroll wheel)
-    // if (std::abs(zoomInput) > 0.0f)
-    // {
-        zoomInput = zoomInput * zoomSpeed * dt;
-        camera.offset.w -= zoomInput;
-        camera.offset.w = glm::clamp(camera.offset.w, 2.0f, 25.0f);
+    zoomInput = zoomInput * zoomSpeed;
+    camera.offset.w -= zoomInput;
+    camera.offset.w = glm::clamp(camera.offset.w, 2.0f, 25.0f);
 
-        // Convert spherical to Cartesian coordinates
-        camera.position.translation.x = (transform.translation.x + camera.offset.x) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::sin(camera.position.rotation.y);
-        camera.position.translation.y = (transform.translation.y + camera.offset.y) + camera.offset.w * glm::sin(camera.position.rotation.x);
-        camera.position.translation.z = (transform.translation.z + camera.offset.z) + camera.offset.w * glm::cos(camera.position.rotation.x) * glm::cos(camera.position.rotation.y);
-    // }
+    // Calculate camera orientation vectors
+    float yaw = camera.position.rotation.y;
+    float pitch = camera.position.rotation.x;
+
+    // Camera right vector (for X offset)
+    glm::vec3 right = glm::vec3(glm::cos(yaw), 0.0f, -glm::sin(yaw));
+
+    // Camera up vector (for Y offset) - always world up for orbital cameras
+    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+
+    // Camera forward vector (for Z offset)
+    glm::vec3 forward = glm::vec3(glm::sin(yaw), 0.0f, glm::cos(yaw));
+
+    // Transform offset from camera space to world space
+    glm::vec3 worldOffset = right * camera.offset.x + up * camera.offset.y + forward * camera.offset.z;
+
+    // Calculate target position with offset in camera space
+    glm::vec3 targetPos = transform.translation + worldOffset;
+
+    // Convert spherical to Cartesian coordinates around the offset target
+    camera.position.translation.x = targetPos.x + camera.offset.w * glm::cos(pitch) * glm::sin(yaw);
+    camera.position.translation.y = targetPos.y + camera.offset.w * glm::sin(pitch);
+    camera.position.translation.z = targetPos.z + camera.offset.w * glm::cos(pitch) * glm::cos(yaw);
+
 }
 
-void InputSystem::updatePlayerPosition(NtWindow* ntWindow, float dt, NtEntity playerEntity, NtEntity camEntity) {
+void InputSystem::updatePlayerControl(float dt) {
+    NtEntity camEntity = *entities.begin();
     GLFWwindow* window = ntWindow->getGLFWwindow();
 
     // PLAYER
@@ -92,17 +136,19 @@ void InputSystem::updatePlayerPosition(NtWindow* ntWindow, float dt, NtEntity pl
     float x{0.0f};
     float y{0.0f};
 
+    auto& playerController = nexus->GetComponent<cPlayerController>(camEntity);
+
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        x = 1.0f;
-    else if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         x = -1.0f;
+    else if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        x = 1.0f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         y = 1.0f;
     else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         y = -1.0f;
 
     if (gamepadConnected) {
-        x += -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
+        x += getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
         y += -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
     }
 
@@ -112,7 +158,7 @@ void InputSystem::updatePlayerPosition(NtWindow* ntWindow, float dt, NtEntity pl
     // Get camera to calculate movement direction
     auto& camera = nexus->GetComponent<cCamera>(camEntity);
     // For orbital camera, calculate forward as direction FROM camera TO player
-    auto& playerTransform = nexus->GetComponent<cTransform>(playerEntity);
+    auto& playerTransform = nexus->GetComponent<cTransform>(camEntity);
     glm::vec3 cameraToPlayer = glm::normalize(playerTransform.translation - camera.position.translation);
 
     // Project onto horizontal plane
@@ -124,11 +170,11 @@ void InputSystem::updatePlayerPosition(NtWindow* ntWindow, float dt, NtEntity pl
 
     // Calculate movement direction based on input
     glm::vec3 moveDirection = (forward * y + right * x);
-    playerTransform.translation += moveDirection * 7.0f * dt;
+    playerTransform.translation += moveDirection * playerController.moveSpeed * dt;
 
     // Rotate player to face movement direction
     if (glm::length(moveDirection) > 0.001f) {
-        float targetAngle = std::atan2(-moveDirection.x, -moveDirection.z);
+        float targetAngle = std::atan2(moveDirection.x, moveDirection.z);
 
         // Smooth rotation (lerp)
         float currentAngle = playerTransform.rotation.y;
@@ -139,7 +185,7 @@ void InputSystem::updatePlayerPosition(NtWindow* ntWindow, float dt, NtEntity pl
         while (angleDiff < -glm::pi<float>()) angleDiff += 2.0f * glm::pi<float>();
 
         // Apply smooth rotation
-        float rotationStep = 5.0f * dt;
+        float rotationStep = playerController.rotationSpeed * dt;
         if (std::abs(angleDiff) < rotationStep) {
             playerTransform.rotation.y = targetAngle;
         } else {

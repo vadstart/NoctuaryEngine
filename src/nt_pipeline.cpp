@@ -185,6 +185,8 @@ NtPipeline::~NtPipeline() {
    configInfo.depthStencilInfo.back = {}; // Optional
    configInfo.rasterizationInfo.lineWidth = 1.0f;
 
+   configInfo.rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+
    switch (pipeRenderMode) {
      case nt::RenderMode::Billboard:
        configInfo.rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;

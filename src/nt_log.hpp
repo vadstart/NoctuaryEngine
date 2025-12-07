@@ -63,7 +63,7 @@ inline void LogInit(const std::string& logFilePath = "", bool shouldLogToConsole
             std::filesystem::create_directories(filePath.parent_path());
         }
 
-        detail::logFile.open(logFilePath, std::ios::out | std::ios::app);
+        detail::logFile.open(logFilePath, std::ios::out | std::ios::trunc);
         if (!detail::logFile.is_open()) {
             std::cerr << "Failed to open log file: " << logFilePath << std::endl;
         }

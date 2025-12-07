@@ -1,5 +1,6 @@
 #pragma once
 
+#include "astral_app.hpp"
 #include "nt_ecs.hpp"
 #include "nt_window.hpp"
 #include "nt_types.hpp"
@@ -10,7 +11,17 @@ namespace nt {
 class InputSystem : public NtSystem
 {
   public:
-    InputSystem(NtNexus* nexus_ptr) : nexus(nexus_ptr) {};
+    InputSystem(NtNexus* nexus_ptr, NtWindow* ntWindow_ptr) : nexus(nexus_ptr), ntWindow(ntWindow_ptr)
+    {
+        auto* window = ntWindow->getGLFWwindow();
+        glfwSetWindowUserPointer(ntWindow->getGLFWwindow(), this);
+
+        glfwSetKeyCallback(window, [](GLFWwindow* w, int key, int scancode, int action, int mods) {
+                auto* self = static_cast<InputSystem*>(glfwGetWindowUserPointer(w));
+                if (self) self->windowKeyCallback(key, scancode, action, mods);
+            });
+    };
+
     ~InputSystem() {};
       struct KeyMappings {
         int moveLeft = GLFW_KEY_A;
@@ -39,38 +50,29 @@ class InputSystem : public NtSystem
     bool gamepadConnected{false};
     int connectedGamepadId{-1};
 
-    void update(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity, NtEntity playerEntity);
-    void updateCamOrbit(NtWindow* ntWindow, float dt, float mouseScrollY, NtEntity camEntity);
-    void updatePlayerPosition(NtWindow* ntWindow, float dt, NtEntity playerEntity, NtEntity camEntity);
+    void update(float dt, float mouseScrollY);
+    void updateCamControl(float dt, float mouseScrollY);
+    void updatePlayerControl(float dt);
 
     // Gamepad methods
     void checkGamepadConnection();
     bool isGamepadButtonPressed(int button);
     float getGamepadAxis(int axis);
-
     // Runtime configuration methods
-    // void setGamepadSensitivity(float sensitivity) { gamepadSensitivity = sensitivity; }
-    // void setGamepadMoveSpeed(float speed) { gamepadMoveSpeed = speed; }
     void setGamepadDeadzone(float deadzone) { gamepadDeadzone = deadzone; }
-    // void setGamepadZoomSpeed(float speed) { gamepadZoomSpeed = speed; }
-
-    // float getGamepadSensitivity() const { return gamepadSensitivity; }
-    // float getGamepadMoveSpeed() const { return gamepadMoveSpeed; }
     float getGamepadDeadzone() const { return gamepadDeadzone; }
-    // float getGamepadZoomSpeed() const { return gamepadZoomSpeed; }
+
+    bool bShowImGUI = true;
 
 private:
   KeyMappings keys{};
   GamepadMappings gamepad{};
 
-  float distance{2.0f};
-
-  float moveSpeed{25.0f};
-  float lookSpeed{1.5f};
+  void windowKeyCallback(int key, int scancode, int action, int mods);
 
   // const float sensitivity { 0.002f };
-  const float zoomSpeed { 1.5f };
-  const float orbitSpeed { 0.5f };
+  const float zoomSpeed { 2.0f };
+  const float orbitSpeed { 2.0f };
   // const float panSpeed = { 0.005f };
 
   // Gamepad settings (configurable at runtime)
@@ -79,6 +81,7 @@ private:
   float gamepadDeadzone { 0.15f };
   // float gamepadZoomSpeed { 2.0f };
 
+  NtWindow* ntWindow;
   NtNexus* nexus;
 };
 

@@ -13,8 +13,8 @@ void CameraSystem::setPerspectiveProjection() {
     assert(glm::abs(camera.aspect - std::numeric_limits<float>::epsilon()) && "Camera aspect ratio must be non-zero and finite");
     const float tanHalfFovy = tan(glm::radians(camera.fov) / 2.f);
     projectionMatrix = glm::mat4{0.0f};
-    projectionMatrix[0][0] = 1.f / (camera.aspect * tanHalfFovy);
-    projectionMatrix[1][1] = 1.f / (tanHalfFovy);
+    projectionMatrix[0][0] = -1.f / (camera.aspect * tanHalfFovy);
+    projectionMatrix[1][1] = -1.f / (tanHalfFovy);
     projectionMatrix[2][2] = camera.far_clip / (camera.far_clip - camera.near_clip);
     projectionMatrix[2][3] = 1.f;
     projectionMatrix[3][2] = -(camera.far_clip * camera.near_clip) / (camera.far_clip - camera.near_clip);
@@ -116,7 +116,15 @@ void CameraSystem::update(glm::mat4 &UBOprojection, glm::mat4 &UBOview, glm::mat
     }
 
     glm::vec3 cameraPos = { camera.position.translation.x, camera.position.translation.y, camera.position.translation.z };
-    glm::vec3 targetPos = { transform.translation.x + camera.offset.x, transform.translation.y + camera.offset.y, transform.translation.z + camera.offset.z };
+
+    // Transform offset from camera space to world space
+    float yaw = camera.position.rotation.y;
+    glm::vec3 right = glm::vec3(glm::cos(yaw), 0.0f, -glm::sin(yaw));
+    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 forward = glm::vec3(glm::sin(yaw), 0.0f, glm::cos(yaw));
+    glm::vec3 worldOffset = right * camera.offset.x + up * camera.offset.y + forward * camera.offset.z;
+
+    glm::vec3 targetPos = transform.translation + worldOffset;
     setViewTarget(cameraPos, targetPos);
 
     UBOprojection = getProjection();

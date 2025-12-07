@@ -297,8 +297,6 @@ void NtRenderer::beginMainRendering(VkCommandBuffer commandBuffer) {
     VkRect2D scissor{{0, 0}, ntSwapChain->getSwapChainExtent()};
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-
 }
 
 void NtRenderer::endMainRendering(VkCommandBuffer commandBuffer) {

@@ -171,7 +171,11 @@ void AstralApp::run()
     debugSignature.set(Nexus.GetComponentType<cMeta>());
     Nexus.SetSystemSignature<DebugSystem>(debugSignature);
 
-    auto inputSystem = Nexus.RegisterSystem<InputSystem>();
+    auto inputSystem = Nexus.RegisterSystem<InputSystem>(&ntWindow);
+    NtSignature inputSignature;
+    inputSignature.set(Nexus.GetComponentType<cCamera>());
+    inputSignature.set(Nexus.GetComponentType<cPlayerController>());
+    Nexus.SetSystemSignature<InputSystem>(inputSignature);
 
     auto renderSystem = Nexus.RegisterSystem<RenderSystem>(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
             modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
@@ -199,45 +203,45 @@ void AstralApp::run()
     auto MoonlitCafe = Nexus.CreateEntity();
     MoonlitCafe.AddComponent(cMeta{"MoonlitCafe"})
         .AddComponent(cTransform{ glm::vec3(0.0f),
-            glm::vec3(glm::radians(90.0f), 0.0f, 0.0f) })
+            glm::vec3(0.0f, 0.0f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf")) });
 
     auto Cassandra = Nexus.CreateEntity();
     Cassandra.AddComponent(cMeta{"Cassandra"})
-        .AddComponent(cTransform{ glm::vec3(0.0f, -1.5f, 0.0f),
-            glm::vec3(glm::radians(90.0f), glm::radians(90.0f), 0.0f) })
+        .AddComponent(cTransform{ glm::vec3(0.0f, 1.5f, 0.0f),
+            glm::vec3(0.0f, -1.5f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true, true })
         .AddComponent(cAnimator {} )
         .AddComponent(cCamera{ 65.f
             ,ntRenderer.getAspectRatio()
             ,0.1f
             ,1000.f
-            ,glm::vec4(0.0f, -2.5f, 0.0f, 14.1f)
-            ,{ glm::vec3(-11.f, -10.2f, -6.5f), glm::vec3(-0.5f, 4.2f, 0.0f) }})
+            ,glm::vec4(1.5f, 2.5f, 0.0f, 14.1f)
+            ,{ glm::vec3(-11.f, -10.2f, -6.5f), glm::vec3(0.4f, 5.4f, 0.0f) }})
         .AddComponent(cPlayerController{5.0f, 10.0f});
     Cassandra.GetComponent<cAnimator>().play("Idle", true);
 
     auto Mildred = Nexus.CreateEntity();
     Mildred.AddComponent(cMeta{"Mildred"})
-        .AddComponent(cTransform{ glm::vec3(-2.5f, -1.5f, 18.0f),
-            glm::vec3(1.5f, 0.0f, 0.0f) })
+        .AddComponent(cTransform{ glm::vec3(-2.5f, 1.5f, -18.0f),
+            glm::vec3(0.0f, 0.0f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), true, true })
         .AddComponent(cAnimator {} );
     Mildred.GetComponent<cAnimator>().play("Idle", true);
 
     auto BarLight = Nexus.CreateEntity();
     BarLight.AddComponent(cMeta{"Light.Bar"})
-        .AddComponent(cTransform{ glm::vec3(3.5f, -7.5f, -7.2f) })
+        .AddComponent(cTransform{ glm::vec3(3.5f, 7.5f, 7.2f) })
         .AddComponent(cLight{100.0f, glm::vec3(1.0f, 0.65f, 0.33f) });
 
     auto FireplaceLight = Nexus.CreateEntity();
     FireplaceLight.AddComponent(cMeta{"Light.Fireplace"})
-        .AddComponent(cTransform{ glm::vec3(13.0f, -4.2f, 9.9f) })
+        .AddComponent(cTransform{ glm::vec3(13.0f, 4.2f, -9.9f) })
         .AddComponent(cLight{75.0f, glm::vec3(1.0f, 0.3f, 0.03f) });
 
     auto SunShadowCaster = Nexus.CreateEntity();
     SunShadowCaster.AddComponent(cMeta{"Light.Sun"})
-        .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(-0.68, 0.8f, 0.46f) })
+        .AddComponent(cTransform{ glm::vec3(0.0f), glm::vec3(-0.68, -0.8f, -0.46f) })
         .AddComponent(cLight{0.0f, glm::vec3(0.5f, 0.35f, 0.33f), true, eLightType::Directional });
 
 //  Debug stuff
@@ -285,7 +289,7 @@ void AstralApp::run()
     #endif
     io.DisplayFramebufferScale = ImVec2(winScale.x, winScale.y);
 
-    if (ntWindow.getShowImGUI())
+    if (inputSystem->bShowImGUI)
     {
         ImGuiWindowFlags imgui_window_flags = 0;
         ImGui::Begin("(=^-w-^=)", nullptr, imgui_window_flags);
@@ -617,6 +621,27 @@ void AstralApp::run()
                     }
                     ImGui::Spacing();
                 }
+
+                if (Nexus.HasComponent<cPlayerController>(selectedEntityID)) {
+                    auto& plController = Nexus.GetComponent<cPlayerController>(selectedEntityID);
+                    ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "Player Controller");
+                    if (ImGui::BeginTable("PlayerControllerComponent", 2, flags)) {
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Movement Speed");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f", plController.moveSpeed);
+
+                        ImGui::TableNextRow();
+                        ImGui::TableSetColumnIndex(0);
+                        ImGui::TextUnformatted("Rotation Speed");
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%.1f", plController.rotationSpeed);
+
+                        ImGui::EndTable();
+                    }
+                    ImGui::Spacing();
+                }
             }
         }
         ImGui::End();
@@ -625,7 +650,7 @@ void AstralApp::run()
     // ---
 
 // Input update
-    inputSystem->update(&ntWindow, deltaTime, io.MouseWheel, cameraSystem->getActiveCamera(), Cassandra);
+    inputSystem->update(deltaTime, io.MouseWheel);
 
 // Camera update
     cameraSystem->update(ubo.projection, ubo.view, ubo.inverseView);
@@ -668,7 +693,7 @@ void AstralApp::run()
         renderSystem->renderGameObjects(frameInfo);
         // genericRenderSystem.renderLightBillboards(frameInfo);
 
-        if (ntWindow.getShowImGUI()) {
+        if (inputSystem->bShowImGUI) {
             ImGui::Render();
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
         }
@@ -691,8 +716,8 @@ void AstralApp::run()
 
             // Draw a red line showing Cassandra's forward direction
             debugLineSystem->addDirectionLine(
-                glm::vec3(cassandraTransform.translation.x, -0.4f, cassandraTransform.translation.z),
-                -forward,
+                glm::vec3(cassandraTransform.translation.x, 0.5f, cassandraTransform.translation.z),
+                forward,
                 2.0f,  // 2 units long
                 glm::vec3(1.0f, 0.0f, 0.0f)  // Red color
             );
@@ -723,11 +748,11 @@ void AstralApp::run()
 
             // Draw a blue line showing camera direction on the ground
             // Start from Cassandra's position (the orbit center), not the camera's position
-            glm::vec3 startPos = glm::vec3(cameraTransform.translation.x, -1.0f, cameraTransform.translation.z);
+            glm::vec3 startPos = glm::vec3(cameraTransform.translation.x, 1.0f, cameraTransform.translation.z);
 
             debugLineSystem->addDirectionLine(
                 startPos,
-                forward,  // Use the flattened, normalized direction
+                -forward,  // Use the flattened, normalized direction
                 5.0f,  // 5 units long
                 glm::vec3(0.0f, 0.0f, 1.0f)  // Blue color
             );

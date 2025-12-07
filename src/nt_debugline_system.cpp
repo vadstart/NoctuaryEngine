@@ -93,7 +93,7 @@ void NtLineRenderSystem::createPipeline(NtSwapChain &swapChain)
         rasterizationInfo.polygonMode = VK_POLYGON_MODE_FILL;
         rasterizationInfo.lineWidth = 1.0f; // Use 1.0 for compatibility
         rasterizationInfo.cullMode = VK_CULL_MODE_NONE;
-        rasterizationInfo.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+        rasterizationInfo.frontFace = VK_FRONT_FACE_CLOCKWISE;
         rasterizationInfo.depthBiasEnable = VK_FALSE;
 
         VkPipelineMultisampleStateCreateInfo multisampleInfo{};

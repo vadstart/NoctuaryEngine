@@ -21,29 +21,23 @@ namespace nt
 		NtWindow& operator=(const NtWindow&) = delete;
 
 		bool shouldClose() { return glfwWindowShouldClose(window_); }
-    VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
-    bool wasWindowResized() { return framebufferResized; }
-    void resetWindowResizedFlag() { framebufferResized = false; }
+        VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
+        bool wasWindowResized() { return framebufferResized; }
+        void resetWindowResizedFlag() { framebufferResized = false; }
 
-    bool getShowImGUI() { return bShowImGUI; }
-    bool getShowCursor() { return bShowCursor; }
+        void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
+        void assignKeyCallback(void (*keyCallback)(GLFWwindow*, int, int, int, int));
 
-
-    void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
-
-    GLFWwindow* getGLFWwindow() const { return window_; }
+        GLFWwindow* getGLFWwindow() const { return window_; }
 
 	private:
 		void initWindow();
 
 		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
-		static void keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 		int width;
 		int height;
-    bool framebufferResized = false;
-    bool bShowImGUI = true;
-    bool bShowCursor = true;
+        bool framebufferResized = false;
 
 		string windowName;
 		GLFWwindow* window_;

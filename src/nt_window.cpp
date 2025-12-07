@@ -26,8 +26,10 @@ void NtWindow::initWindow()
 	// glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glfwSetWindowUserPointer (window_, this);
 	glfwSetFramebufferSizeCallback(window_, framebufferResizeCallback);
+}
 
-	glfwSetKeyCallback(window_, keyCallback);
+void NtWindow::assignKeyCallback(void (*keyCallback)(GLFWwindow*, int, int, int, int)) {
+   	glfwSetKeyCallback(window_, keyCallback);
 }
 
 void NtWindow::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -35,30 +37,6 @@ void NtWindow::framebufferResizeCallback(GLFWwindow* window, int width, int heig
 	ntWindow->framebufferResized = true;
     ntWindow->width = width;
     ntWindow->height = height;
-}
-
-void NtWindow::keyCallback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-    auto ntWindow = reinterpret_cast<NtWindow *>(glfwGetWindowUserPointer(window));
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-    		glfwSetWindowShouldClose(window, GLFW_TRUE);
-    else if (key == GLFW_KEY_GRAVE_ACCENT  && action == GLFW_PRESS) {
-        if (mods & GLFW_MOD_SHIFT)
-        ntWindow->bShowImGUI = !ntWindow->bShowImGUI;
-    }
-    else if (key == GLFW_KEY_TAB && action == GLFW_PRESS) {
-        if (ntWindow->bShowCursor) {
-            if (glfwRawMouseMotionSupported())
-                glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-            ntWindow->bShowCursor = false;
-        }
-        else {
-            glfwSetInputMode(window, GLFW_RAW_MOUSE_MOTION, GLFW_FALSE);
-            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
-            ntWindow->bShowCursor = true;
-        }
-    }
 }
 
 void NtWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface) {
