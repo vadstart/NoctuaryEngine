@@ -183,10 +183,11 @@ std::unique_ptr<NtImage> NtImage::createTextureFromMemory(NtDevice &device, cons
       const char* error = stbi_failure_reason();
       NT_LOG_ERROR(LogAssets, "STB_Image error: {}\n Data size: {} bytes\n First few bytes:", (error ? error : "unknown"), size);
       const unsigned char* bytes = static_cast<const unsigned char*>(data);
+      std::string hexDump;
       for (size_t i = 0; i < std::min(size, static_cast<size_t>(16)); ++i) {
-          NT_LOG_ERROR(LogAssets, "{} {}", std::hex, static_cast<int>(bytes[i]));
+          hexDump += fmt::format("{:02x} ", static_cast<int>(bytes[i]));
       }
-      NT_LOG_ERROR(LogAssets, "{}", std::dec);
+      NT_LOG_ERROR(LogAssets, "First 16 bytes: {}", hexDump);
       NT_LOG_ERROR(LogAssets, "Failed to load texture image from memory!");
       throw std::runtime_error("failed to load texture image from memory!");
     }
