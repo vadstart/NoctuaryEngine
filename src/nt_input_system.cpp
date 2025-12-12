@@ -143,13 +143,13 @@ void InputSystem::updatePlayerControl(float dt) {
     else if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         x = 1.0f;
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        y = 1.0f;
-    else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         y = -1.0f;
+    else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        y = 1.0f;
 
     if (gamepadConnected) {
         x += getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
-        y += -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
+        y -= -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
     }
 
     // Skip if no input
@@ -157,19 +157,18 @@ void InputSystem::updatePlayerControl(float dt) {
 
     // Get camera to calculate movement direction
     auto& camera = nexus->GetComponent<cCamera>(camEntity);
-    // For orbital camera, calculate forward as direction FROM camera TO player
     auto& playerTransform = nexus->GetComponent<cTransform>(camEntity);
-    glm::vec3 cameraToPlayer = glm::normalize(playerTransform.translation - camera.position.translation);
 
-    // Project onto horizontal plane
-    glm::vec3 forward = glm::vec3(cameraToPlayer.x, 0.0f, cameraToPlayer.z);
-    forward = glm::normalize(forward);
+    float yaw = camera.position.rotation.y;
 
-    // Right vector is perpendicular to forward on horizontal plane
-    glm::vec3 right = glm::normalize(glm::cross(forward, glm::vec3(0.0f, 1.0f, 0.0f)));
+    glm::vec3 forward = glm::vec3(glm::sin(yaw), 0.0f, glm::cos(yaw));
+    glm::vec3 right = glm::vec3(glm::cos(yaw), 0.0f, -glm::sin(yaw));
 
     // Calculate movement direction based on input
     glm::vec3 moveDirection = (forward * y + right * x);
+    if (glm::length(moveDirection) > 0.001f) {
+        moveDirection = glm::normalize(moveDirection);
+    }
     playerTransform.translation += moveDirection * playerController.moveSpeed * dt;
 
     // Rotate player to face movement direction

@@ -16,7 +16,11 @@
 			"name":"Scene",
 			"nodes":[
 				0,
-				1
+				1,
+				2,
+				3,
+				4,
+				5
 			]
 		}
 	],
@@ -28,6 +32,22 @@
 		{
 			"mesh":1,
 			"name":"Ceiling"
+		},
+		{
+			"mesh":2,
+			"name":"BarStand_UE"
+		},
+		{
+			"mesh":3,
+			"name":"Cube.001"
+		},
+		{
+			"mesh":4,
+			"name":"Plane"
+		},
+		{
+			"mesh":5,
+			"name":"Cube.002"
 		}
 	],
 	"materials":[
@@ -183,6 +203,60 @@
 				"metallicFactor":0,
 				"roughnessFactor":0.5527864098548889
 			}
+		},
+		{
+			"doubleSided":true,
+			"extensions":{
+				"KHR_materials_specular":{
+					"specularColorFactor":[
+						0.4000000059604645,
+						0.4000000059604645,
+						0.4000000059604645
+					]
+				}
+			},
+			"name":"Wood",
+			"pbrMetallicRoughness":{
+				"baseColorTexture":{
+					"index":7
+				},
+				"metallicFactor":0,
+				"roughnessFactor":0.5527864098548889
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"Door_small",
+			"pbrMetallicRoughness":{
+				"baseColorTexture":{
+					"index":8
+				},
+				"metallicFactor":0,
+				"roughnessFactor":0.5
+			}
+		},
+		{
+			"doubleSided":true,
+			"name":"Street.cobblestone",
+			"pbrMetallicRoughness":{
+				"baseColorTexture":{
+					"extensions":{
+						"KHR_texture_transform":{
+							"offset":[
+								0,
+								-14
+							],
+							"scale":[
+								15,
+								15
+							]
+						}
+					},
+					"index":9
+				},
+				"metallicFactor":0,
+				"roughnessFactor":0.5
+			}
 		}
 	],
 	"meshes":[
@@ -230,6 +304,67 @@
 					"material":2
 				}
 			]
+		},
+		{
+			"name":"BarStand_UE",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":20,
+						"NORMAL":21,
+						"TEXCOORD_0":22,
+						"TEXCOORD_1":23,
+						"TANGENT":24
+					},
+					"indices":25,
+					"material":3
+				}
+			]
+		},
+		{
+			"name":"Cube",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":26,
+						"NORMAL":27,
+						"TEXCOORD_0":28,
+						"TANGENT":29
+					},
+					"indices":30,
+					"material":4
+				}
+			]
+		},
+		{
+			"name":"Plane",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":31,
+						"NORMAL":32,
+						"TEXCOORD_0":33,
+						"TANGENT":34
+					},
+					"indices":35,
+					"material":5
+				}
+			]
+		},
+		{
+			"name":"Cube.006",
+			"primitives":[
+				{
+					"attributes":{
+						"POSITION":36,
+						"NORMAL":37,
+						"TEXCOORD_0":38,
+						"TANGENT":39
+					},
+					"indices":30,
+					"material":4
+				}
+			]
 		}
 	],
 	"textures":[
@@ -260,6 +395,18 @@
 		{
 			"sampler":0,
 			"source":6
+		},
+		{
+			"sampler":1,
+			"source":7
+		},
+		{
+			"sampler":1,
+			"source":8
+		},
+		{
+			"sampler":1,
+			"source":9
 		}
 	],
 	"images":[
@@ -297,6 +444,21 @@
 			"mimeType":"image/png",
 			"name":"Ceiling_INST_basecolor_512",
 			"uri":"Ceiling_INST_basecolor_512.png"
+		},
+		{
+			"mimeType":"image/png",
+			"name":"Furn_wood_top_basecolor",
+			"uri":"Furn_wood_top_basecolor.png"
+		},
+		{
+			"mimeType":"image/png",
+			"name":"door2",
+			"uri":"door2.png"
+		},
+		{
+			"mimeType":"image/png",
+			"name":"cobblestone",
+			"uri":"cobblestone.png"
 		}
 	],
 	"accessors":[
@@ -449,6 +611,166 @@
 			"componentType":5123,
 			"count":150,
 			"type":"SCALAR"
+		},
+		{
+			"bufferView":20,
+			"componentType":5126,
+			"count":88,
+			"max":[
+				5.792853355407715,
+				1.8786866664886475,
+				9.073402404785156
+			],
+			"min":[
+				-3.380002975463867,
+				-0.0707392692565918,
+				-7.997515678405762
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":21,
+			"componentType":5126,
+			"count":88,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":22,
+			"componentType":5126,
+			"count":88,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":23,
+			"componentType":5126,
+			"count":88,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":24,
+			"componentType":5126,
+			"count":88,
+			"type":"VEC4"
+		},
+		{
+			"bufferView":25,
+			"componentType":5123,
+			"count":210,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":26,
+			"componentType":5126,
+			"count":24,
+			"max":[
+				-24.63727378845215,
+				7.012194633483887,
+				1.9769747257232666
+			],
+			"min":[
+				-25.627031326293945,
+				0.03829169273376465,
+				-1.995361328125
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":27,
+			"componentType":5126,
+			"count":24,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":28,
+			"componentType":5126,
+			"count":24,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":29,
+			"componentType":5126,
+			"count":24,
+			"type":"VEC4"
+		},
+		{
+			"bufferView":30,
+			"componentType":5123,
+			"count":36,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":31,
+			"componentType":5126,
+			"count":4,
+			"max":[
+				43.15039825439453,
+				-0.5139961242675781,
+				43.016815185546875
+			],
+			"min":[
+				-59.32911682128906,
+				-0.5139961242675781,
+				-59.46269989013672
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":32,
+			"componentType":5126,
+			"count":4,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":33,
+			"componentType":5126,
+			"count":4,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":34,
+			"componentType":5126,
+			"count":4,
+			"type":"VEC4"
+		},
+		{
+			"bufferView":35,
+			"componentType":5123,
+			"count":6,
+			"type":"SCALAR"
+		},
+		{
+			"bufferView":36,
+			"componentType":5126,
+			"count":24,
+			"max":[
+				7.258971691131592,
+				7.012194633483887,
+				13.994773864746094
+			],
+			"min":[
+				6.2692131996154785,
+				0.03829169273376465,
+				10.022438049316406
+			],
+			"type":"VEC3"
+		},
+		{
+			"bufferView":37,
+			"componentType":5126,
+			"count":24,
+			"type":"VEC3"
+		},
+		{
+			"bufferView":38,
+			"componentType":5126,
+			"count":24,
+			"type":"VEC2"
+		},
+		{
+			"bufferView":39,
+			"componentType":5126,
+			"count":24,
+			"type":"VEC4"
 		}
 	],
 	"bufferViews":[
@@ -571,17 +893,141 @@
 			"byteLength":300,
 			"byteOffset":41432,
 			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":1056,
+			"byteOffset":41732,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1056,
+			"byteOffset":42788,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":704,
+			"byteOffset":43844,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":704,
+			"byteOffset":44548,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":1408,
+			"byteOffset":45252,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":420,
+			"byteOffset":46660,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":288,
+			"byteOffset":47080,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":288,
+			"byteOffset":47368,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":192,
+			"byteOffset":47656,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":384,
+			"byteOffset":47848,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":72,
+			"byteOffset":48232,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":48,
+			"byteOffset":48304,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":48,
+			"byteOffset":48352,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":32,
+			"byteOffset":48400,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":64,
+			"byteOffset":48432,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":12,
+			"byteOffset":48496,
+			"target":34963
+		},
+		{
+			"buffer":0,
+			"byteLength":288,
+			"byteOffset":48508,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":288,
+			"byteOffset":48796,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":192,
+			"byteOffset":49084,
+			"target":34962
+		},
+		{
+			"buffer":0,
+			"byteLength":384,
+			"byteOffset":49276,
+			"target":34962
 		}
 	],
 	"samplers":[
 		{
 			"magFilter":9728,
 			"minFilter":9984
+		},
+		{
+			"magFilter":9729,
+			"minFilter":9987
 		}
 	],
 	"buffers":[
 		{
-			"byteLength":41732,
+			"byteLength":49660,
 			"uri":"MoonlitCafe.bin"
 		}
 	]
