@@ -345,55 +345,55 @@ for (auto const& entity : entities)
 
 }
 
-// void GenericRenderSystem::renderLightBillboards(FrameInfo &frameInfo) {
-//   billboardPipeline->bind(frameInfo.commandBuffer);
+    // void GenericRenderSystem::renderLightBillboards(FrameInfo &frameInfo) {
+    //   billboardPipeline->bind(frameInfo.commandBuffer);
 
-//   vkCmdBindDescriptorSets(
-//     frameInfo.commandBuffer,
-//     VK_PIPELINE_BIND_POINT_GRAPHICS,
-//     pipelineLayout,
-//     0, 1,
-//     &frameInfo.globalDescriptorSet,
-//     0, nullptr);
+    //   vkCmdBindDescriptorSets(
+    //     frameInfo.commandBuffer,
+    //     VK_PIPELINE_BIND_POINT_GRAPHICS,
+    //     pipelineLayout,
+    //     0, 1,
+    //     &frameInfo.globalDescriptorSet,
+    //     0, nullptr);
 
-//   for (auto& kv: frameInfo.gameObjects) {
-//     auto& obj = kv.second;
-//     if (obj.pointLight == nullptr || obj.model == nullptr) continue;
+    //   for (auto& kv: frameInfo.gameObjects) {
+    //     auto& obj = kv.second;
+    //     if (obj.pointLight == nullptr || obj.model == nullptr) continue;
 
-//     // Bind the material descriptor set for the billboard texture
-//     const auto& materials = obj.model->getMaterials();
-//     if (materials.size() > 0 && materials[0]->getDescriptorSet() != VK_NULL_HANDLE) {
-//       VkDescriptorSet materialDescriptorSet = materials[0]->getDescriptorSet();
-//       vkCmdBindDescriptorSets(
-//         frameInfo.commandBuffer,
-//         VK_PIPELINE_BIND_POINT_GRAPHICS,
-//         pipelineLayout,
-//         1, 1,
-//         &materialDescriptorSet,
-//         0, nullptr);
-//     }
+    //     // Bind the material descriptor set for the billboard texture
+    //     const auto& materials = obj.model->getMaterials();
+    //     if (materials.size() > 0 && materials[0]->getDescriptorSet() != VK_NULL_HANDLE) {
+    //       VkDescriptorSet materialDescriptorSet = materials[0]->getDescriptorSet();
+    //       vkCmdBindDescriptorSets(
+    //         frameInfo.commandBuffer,
+    //         VK_PIPELINE_BIND_POINT_GRAPHICS,
+    //         pipelineLayout,
+    //         1, 1,
+    //         &materialDescriptorSet,
+    //         0, nullptr);
+    //     }
 
-//     NtPushConstantData push{};
-//     push.modelMatrix = obj.transform.mat4();
-//     push.normalMatrix = obj.transform.normalMatrix();
-//     push.hasNormalTexture = 0;
-//     push.hasMetallicRoughnessTexture = 0;
-//     push.metallicFactor = 1.0f;
-//     push.roughnessFactor = 1.0f;
-//     push.lightColor = obj.color;
-//     push.lightIntensity = obj.pointLight->lightIntensity;
-//     push.billboardSize = 0.5f; // Default billboard size
+    //     NtPushConstantData push{};
+    //     push.modelMatrix = obj.transform.mat4();
+    //     push.normalMatrix = obj.transform.normalMatrix();
+    //     push.hasNormalTexture = 0;
+    //     push.hasMetallicRoughnessTexture = 0;
+    //     push.metallicFactor = 1.0f;
+    //     push.roughnessFactor = 1.0f;
+    //     push.lightColor = obj.color;
+    //     push.lightIntensity = obj.pointLight->lightIntensity;
+    //     push.billboardSize = 0.5f; // Default billboard size
 
-//     vkCmdPushConstants(
-//       frameInfo.commandBuffer,
-//       pipelineLayout,
-//       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-//       0,
-//       sizeof(NtPushConstantData),
-//       &push);
+    //     vkCmdPushConstants(
+    //       frameInfo.commandBuffer,
+    //       pipelineLayout,
+    //       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+    //       0,
+    //       sizeof(NtPushConstantData),
+    //       &push);
 
-//     obj.model->drawAll(frameInfo.commandBuffer);
-//   }
-// }
+    //     obj.model->drawAll(frameInfo.commandBuffer);
+    //   }
+    // }
 
-} // namespace nt
+    } // namespace nt
