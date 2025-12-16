@@ -207,11 +207,11 @@ void AstralApp::run()
             glm::vec3(0.0f, 0.0f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf")) });
 
-    auto rainSprite = Nexus.CreateEntity();
-    MoonlitCafe.AddComponent(cMeta{"rainSprite"})
-        .AddComponent(cTransform{ glm::vec3(0.0f),
-            glm::vec3(0.0f, 0.0f, 0.0f) })
-        .AddComponent(cModel{ createPlane(3.0f, getAssetPath("assets/textures/rain.png")), MaterialType::SCROLLING_UV });
+    // auto rainSprite = Nexus.CreateEntity();
+    // MoonlitCafe.AddComponent(cMeta{"rainBillboard"})
+    //     .AddComponent(cTransform{ glm::vec3(0.0f),
+    //         glm::vec3(0.0f, 0.0f, 0.0f) })
+    //     .AddComponent(cModel{ createPlane(3.0f, getAssetPath("assets/textures/rain.png")), MaterialType::SCROLLING_UV });
 
     auto Cassandra = Nexus.CreateEntity();
     Cassandra.AddComponent(cMeta{"Cassandra"})

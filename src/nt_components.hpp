@@ -137,13 +137,12 @@ struct cAnimator {
     }
 };
 
-
-//------------------------------
-
 struct cPlayerController {
     float moveSpeed = 5.0f;
     float rotationSpeed = 10.0f;
 };
+
+//------------------------------
 
 struct cCollider {
 
