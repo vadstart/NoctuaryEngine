@@ -27,7 +27,8 @@ public:
     RenderSystem(const RenderSystem &) = delete;
     RenderSystem &operator=(const RenderSystem &) = delete;\
 
-    void renderGameObjects(FrameInfo &frameInfo, bool bShadowPass = false);
+    void render(FrameInfo& frameInfo);
+    // void renderGameObjects(FrameInfo &frameInfo, bool bShadowPass = false);
     // void renderLightBillboards(FrameInfo &frameInfo);
 
 private:
@@ -35,6 +36,9 @@ private:
                             VkDescriptorSetLayout modelSetLayout,
                             VkDescriptorSetLayout boneSetLayout);
     void createPipelines(NtSwapChain &swapChain);
+
+    void renderBatch(FrameInfo& frameInfo, std::shared_ptr<NtMaterial> material,
+        const std::vector<NtGameObject*>& batch);
 
     NtDevice &ntDevice;
     NtNexus* nexus;

@@ -2,6 +2,7 @@
 
 #include "nt_device.hpp"
 #include "nt_image.hpp"
+#include "nt_pipeline.hpp"
 #include "vulkan/vulkan_core.h"
 #include <glm/glm.hpp>
 #include <memory>

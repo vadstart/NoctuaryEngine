@@ -159,7 +159,7 @@ class NtModel {
 
         bool hasSkeleton() const { return skeleton.has_value(); }
 
-        // std::unique_ptr<NtModel> createGOPlane(float size);
+        static std::unique_ptr<NtModel> createPlane(float size);
         // std::unique_ptr<NtModel> createGOCube(float size);
         // std::unique_ptr<NtModel> createBillboardQuad(float size = 1.0f);
         // std::unique_ptr<NtModel> createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture);

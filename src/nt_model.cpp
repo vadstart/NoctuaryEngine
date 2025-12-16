@@ -974,7 +974,7 @@ void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const st
 }
 
 // Helper functions
-/*std::unique_ptr<NtModel> NtModel::createGOPlane(float size) {
+std::unique_ptr<NtModel> NtModel::createGOPlane(float size) {
   NtModel::Builder modelData{ntDevice};
   modelData.l_meshes.resize(1);
 
@@ -991,7 +991,7 @@ void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const st
   return std::make_unique<NtModel>(ntDevice, modelData);
 }
 
-std::unique_ptr<NtModel> NtModel::createGOCube(float size) {
+/*std::unique_ptr<NtModel> NtModel::createGOCube(float size) {
   NtModel::Builder modelData{ntDevice};
   modelData.l_meshes.resize(1);
 

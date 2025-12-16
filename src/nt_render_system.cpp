@@ -1,6 +1,7 @@
 #include "nt_render_system.hpp"
 #include "nt_device.hpp"
 #include "nt_frame_info.hpp"
+#include "nt_material.hpp"
 #include "nt_pipeline.hpp"
 #include "nt_swap_chain.hpp"
 #include "nt_types.hpp"
@@ -181,167 +182,213 @@ void RenderSystem::createPipelines(NtSwapChain &swapChain) {
     //     "shaders/billboard.frag.spv");
 }
 
-void RenderSystem::renderGameObjects(FrameInfo &frameInfo, bool bShadowPass)
-{
-    if (bShadowPass)
-        shadowMapPipeline->bind(frameInfo.commandBuffer);
-    else pbrPipeline->bind(frameInfo.commandBuffer);
+void RenderSystem::render(FrameInfo& frameInfo) {
+    // Group objects by material type
+    std::unordered_map<MaterialType, std::vector<NtGameObject*>> batches;
 
-  vkCmdBindDescriptorSets(
-    frameInfo.commandBuffer,
-    VK_PIPELINE_BIND_POINT_GRAPHICS,
-    pipelineLayout,
-    0, 1,
-    &frameInfo.globalDescriptorSet,
-    0, nullptr);
+    for (auto& obj : objects) {
+        if (!obj.model || !obj.material) continue;
 
-  for (auto const& entity : entities)
-  {
-    auto& transform = nexus->GetComponent<cTransform>(entity);
-    const auto& model = nexus->GetComponent<cModel>(entity);
-
-    if ((bShadowPass && !model.bDropShadow) || model.bNPRshading) continue;
-
-    // Render each mesh with its own material
-    const auto& materials = model.mesh->getMaterials();
-    for (uint32_t meshIndex = 0; meshIndex < model.mesh->getMeshCount(); ++meshIndex)
-    {
-      // Bind the material descriptor set for this specific mesh
-      uint32_t materialIndex = model.mesh->getMaterialIndex(meshIndex);
-      if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
-        VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
-        vkCmdBindDescriptorSets(
-          frameInfo.commandBuffer,
-          VK_PIPELINE_BIND_POINT_GRAPHICS,
-          pipelineLayout,
-          1, 1,
-          &materialDescriptorSet,
-          0, nullptr);
-      }
-
-      NtPushConstantData push{};
-      push.modelMatrix = transform.mat4();
-      push.normalMatrix = transform.normalMatrix();
-
-      // Bind bone matrices if animated (binding 2)
-      if (model.mesh->hasSkeleton()) {
-        if (nexus->HasComponent<cAnimator>(entity)) {
-            if (model.mesh->getBoneDescriptorSet() != VK_NULL_HANDLE) {
-                vkCmdBindDescriptorSets(
-                    frameInfo.commandBuffer,
-                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                    pipelineLayout,
-                    2,  // Set 2
-                    1,
-                    &model.mesh->getBoneDescriptorSet(),
-                    0, nullptr);
-            }
-            push.isAnimated = true;
-        }
-      }
-
-      // Get the material for this specific mesh
-        push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
-        push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
-        push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
-        push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
-        push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
-        push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
-        push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
-
-      vkCmdPushConstants(
-        frameInfo.commandBuffer,
-        pipelineLayout,
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(NtPushConstantData),
-        &push);
-
-      model.mesh->bind(frameInfo.commandBuffer, meshIndex);
-      model.mesh->draw(frameInfo.commandBuffer, meshIndex);
+        MaterialType type = obj.material->getType();
+        batches[type].push_back(&obj);
     }
-  }
 
-//===================================================
-//  Character stylized Pipeline
-//===================================================
-if(!bShadowPass)
-    nprPipeline->bind(frameInfo.commandBuffer);
+    // Render each material batch
+    for (auto& [materialType, batch] : batches) {
+        if (batch.empty()) continue;
 
-vkCmdBindDescriptorSets(
-    frameInfo.commandBuffer,
-    VK_PIPELINE_BIND_POINT_GRAPHICS,
-    pipelineLayout,
-    0, 1,
-    &frameInfo.globalDescriptorSet,
-    0, nullptr);
+        auto material = batch[0]->material;
 
+        // Bind pipeline once for the entire batch
+        material->bind(frameInfo.commandBuffer);
 
-for (auto const& entity : entities)
-  {
-    auto& transform = nexus->GetComponent<cTransform>(entity);
-    const auto& model = nexus->GetComponent<cModel>(entity);
+        // Render all objects with this material
+        renderBatch(frameInfo, material, batch);
+    }
+}
 
-    if ((bShadowPass && !model.bDropShadow) || !model.bNPRshading) continue;
-
-    // Render each mesh with its own material
-    const auto& materials = model.mesh->getMaterials();
-    for (uint32_t meshIndex = 0; meshIndex < model.mesh->getMeshCount(); ++meshIndex) {
-
-        // Bind the material descriptor set for this specific mesh
-        uint32_t materialIndex = model.mesh->getMaterialIndex(meshIndex);
-        if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
-            VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
+void RenderSystem::renderBatch(FrameInfo& frameInfo, std::shared_ptr<NtMaterial> material,
+    const std::vector<NtGameObject*>& batch) {
+        for (auto* obj : batch) {
             vkCmdBindDescriptorSets(
                 frameInfo.commandBuffer,
                 VK_PIPELINE_BIND_POINT_GRAPHICS,
-                pipelineLayout,
+                material->getPipelineLayout(),
                 1, 1,
-                &materialDescriptorSet,
-                0, nullptr);
+                &obj->descriptorSet,
+                0, nullptr
+            );
+
+            // Update push constants based on material type
+            updatePushConstants(frameInfo.commandBuffer, material, obj);
+
+            // Draw
+            obj->model->bind(frameInfo.commandBuffer);
+            obj->model->draw(frameInfo.commandBuffer);
         }
+}
 
-        NtPushConstantData push{};
-        push.modelMatrix = transform.mat4();
-        push.normalMatrix = transform.normalMatrix();
+// void RenderSystem::renderGameObjects(FrameInfo &frameInfo, bool bShadowPass)
+// {
+//     if (bShadowPass)
+//         shadowMapPipeline->bind(frameInfo.commandBuffer);
+//     else pbrPipeline->bind(frameInfo.commandBuffer);
 
-        if (model.mesh->hasSkeleton()) {
-            if (nexus->HasComponent<cAnimator>(entity)) {
-                if (model.mesh->getBoneDescriptorSet() != VK_NULL_HANDLE) {
-                    vkCmdBindDescriptorSets(
-                        frameInfo.commandBuffer,
-                        VK_PIPELINE_BIND_POINT_GRAPHICS,
-                        pipelineLayout,
-                        2,  // Set 2
-                        1,
-                        &model.mesh->getBoneDescriptorSet(),
-                        0, nullptr);
-                }
-                push.isAnimated = true;
-            }
-        }
+//   vkCmdBindDescriptorSets(
+//     frameInfo.commandBuffer,
+//     VK_PIPELINE_BIND_POINT_GRAPHICS,
+//     pipelineLayout,
+//     0, 1,
+//     &frameInfo.globalDescriptorSet,
+//     0, nullptr);
 
-        // Get the material for this specific mesh
-        push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
-        push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
-        push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
-        push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
-        push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
-        push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
-        push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
+//   for (auto const& entity : entities)
+//   {
+//     auto& transform = nexus->GetComponent<cTransform>(entity);
+//     const auto& model = nexus->GetComponent<cModel>(entity);
 
-        vkCmdPushConstants(
-        frameInfo.commandBuffer,
-        pipelineLayout,
-        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
-        0,
-        sizeof(NtPushConstantData),
-        &push);
+//     if ((bShadowPass && !model.bDropShadow) || model.bNPRshading) continue;
 
-        model.mesh->bind(frameInfo.commandBuffer, meshIndex);
-        model.mesh->draw(frameInfo.commandBuffer, meshIndex);
-    }
-    }
+//     // Render each mesh with its own material
+//     const auto& materials = model.mesh->getMaterials();
+//     for (uint32_t meshIndex = 0; meshIndex < model.mesh->getMeshCount(); ++meshIndex)
+//     {
+//       // Bind the material descriptor set for this specific mesh
+//       uint32_t materialIndex = model.mesh->getMaterialIndex(meshIndex);
+//       if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
+//         VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
+//         vkCmdBindDescriptorSets(
+//           frameInfo.commandBuffer,
+//           VK_PIPELINE_BIND_POINT_GRAPHICS,
+//           pipelineLayout,
+//           1, 1,
+//           &materialDescriptorSet,
+//           0, nullptr);
+//       }
+
+//       NtPushConstantData push{};
+//       push.modelMatrix = transform.mat4();
+//       push.normalMatrix = transform.normalMatrix();
+
+//       // Bind bone matrices if animated (binding 2)
+//       if (model.mesh->hasSkeleton()) {
+//         if (nexus->HasComponent<cAnimator>(entity)) {
+//             if (model.mesh->getBoneDescriptorSet() != VK_NULL_HANDLE) {
+//                 vkCmdBindDescriptorSets(
+//                     frameInfo.commandBuffer,
+//                     VK_PIPELINE_BIND_POINT_GRAPHICS,
+//                     pipelineLayout,
+//                     2,  // Set 2
+//                     1,
+//                     &model.mesh->getBoneDescriptorSet(),
+//                     0, nullptr);
+//             }
+//             push.isAnimated = true;
+//         }
+//       }
+
+//       // Get the material for this specific mesh
+//         push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
+//         push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
+//         push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
+//         push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
+//         push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
+//         push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
+//         push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
+
+//       vkCmdPushConstants(
+//         frameInfo.commandBuffer,
+//         pipelineLayout,
+//         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+//         0,
+//         sizeof(NtPushConstantData),
+//         &push);
+
+//       model.mesh->bind(frameInfo.commandBuffer, meshIndex);
+//       model.mesh->draw(frameInfo.commandBuffer, meshIndex);
+//     }
+//   }
+
+// //===================================================
+// //  Character stylized Pipeline
+// //===================================================
+// if(!bShadowPass)
+//     nprPipeline->bind(frameInfo.commandBuffer);
+
+// vkCmdBindDescriptorSets(
+//     frameInfo.commandBuffer,
+//     VK_PIPELINE_BIND_POINT_GRAPHICS,
+//     pipelineLayout,
+//     0, 1,
+//     &frameInfo.globalDescriptorSet,
+//     0, nullptr);
+
+
+// for (auto const& entity : entities)
+//   {
+//     auto& transform = nexus->GetComponent<cTransform>(entity);
+//     const auto& model = nexus->GetComponent<cModel>(entity);
+
+//     if ((bShadowPass && !model.bDropShadow) || !model.bNPRshading) continue;
+
+//     // Render each mesh with its own material
+//     const auto& materials = model.mesh->getMaterials();
+//     for (uint32_t meshIndex = 0; meshIndex < model.mesh->getMeshCount(); ++meshIndex) {
+
+//         // Bind the material descriptor set for this specific mesh
+//         uint32_t materialIndex = model.mesh->getMaterialIndex(meshIndex);
+//         if (materials.size() > materialIndex && materials[materialIndex]->getDescriptorSet() != VK_NULL_HANDLE) {
+//             VkDescriptorSet materialDescriptorSet = materials[materialIndex]->getDescriptorSet();
+//             vkCmdBindDescriptorSets(
+//                 frameInfo.commandBuffer,
+//                 VK_PIPELINE_BIND_POINT_GRAPHICS,
+//                 pipelineLayout,
+//                 1, 1,
+//                 &materialDescriptorSet,
+//                 0, nullptr);
+//         }
+
+//         NtPushConstantData push{};
+//         push.modelMatrix = transform.mat4();
+//         push.normalMatrix = transform.normalMatrix();
+
+//         if (model.mesh->hasSkeleton()) {
+//             if (nexus->HasComponent<cAnimator>(entity)) {
+//                 if (model.mesh->getBoneDescriptorSet() != VK_NULL_HANDLE) {
+//                     vkCmdBindDescriptorSets(
+//                         frameInfo.commandBuffer,
+//                         VK_PIPELINE_BIND_POINT_GRAPHICS,
+//                         pipelineLayout,
+//                         2,  // Set 2
+//                         1,
+//                         &model.mesh->getBoneDescriptorSet(),
+//                         0, nullptr);
+//                 }
+//                 push.isAnimated = true;
+//             }
+//         }
+
+//         // Get the material for this specific mesh
+//         push.uvScale = materials[materialIndex]->getMaterialData().uvScale;
+//         push.uvOffset = materials[materialIndex]->getMaterialData().uvOffset;
+//         push.uvRotation = materials[materialIndex]->getMaterialData().uvRotation;
+//         push.hasNormalTexture = materials[materialIndex]->hasNormalTexture() ? 1 : 0;
+//         push.hasMetallicRoughnessTexture = materials[materialIndex]->hasMetallicRoughnessTexture() ? 1 : 0;
+//         push.metallicFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.metallicFactor;
+//         push.roughnessFactor = materials[materialIndex]->getMaterialData().pbrMetallicRoughness.roughnessFactor;
+
+//         vkCmdPushConstants(
+//         frameInfo.commandBuffer,
+//         pipelineLayout,
+//         VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT,
+//         0,
+//         sizeof(NtPushConstantData),
+//         &push);
+
+//         model.mesh->bind(frameInfo.commandBuffer, meshIndex);
+//         model.mesh->draw(frameInfo.commandBuffer, meshIndex);
+//     }
+//     }
 
 }
 
@@ -396,4 +443,4 @@ for (auto const& entity : entities)
     //   }
     // }
 
-    } // namespace nt
+} // namespace nt

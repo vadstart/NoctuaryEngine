@@ -1,5 +1,6 @@
 #pragma once
 
+#include "nt_material.hpp"
 #include "nt_model.hpp"
 #include "nt_types.hpp"
 #include "nt_animator.hpp"
@@ -123,8 +124,8 @@ struct cLight {
 
 struct cModel {
     std::shared_ptr<NtModel> mesh;
+    MaterialType matType = MaterialType::PBR;
     bool bDropShadow = false;
-    bool bNPRshading = false;
 };
 
 struct cAnimator {
