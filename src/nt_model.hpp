@@ -108,7 +108,7 @@ class NtModel {
         struct Builder {
           // CPU-side attributes, only needed for loading
           std::vector<Mesh> l_meshes{};
-          std::vector<std::shared_ptr<NtMaterial>> l_materials{};
+          std::vector<MaterialData> l_materialData{};
           std::optional<Skeleton> l_skeleton{};
           std::vector<NtAnimation> l_animations{};
 
@@ -137,17 +137,24 @@ class NtModel {
         NtModel(const NtModel &) = delete;
         NtModel& operator=(const NtModel &) = delete;
 
-        static std::unique_ptr<NtModel> createModelFromFile(NtDevice &device, const std::string &filepath,
+        static std::unique_ptr<NtModel> createModelFromFile(NtDevice &device, const std::string &filepath, MaterialType matType,
             VkDescriptorSetLayout materialLayout,
             VkDescriptorPool materialPool,
             VkDescriptorSetLayout boneLayout = VK_NULL_HANDLE,
             VkDescriptorPool bonePool = VK_NULL_HANDLE);
         uint32_t getMeshCount() const { return static_cast<uint32_t>(meshes.size()); }
-        const std::vector<std::shared_ptr<NtMaterial>>& getMaterials() const { return materials; }
         uint32_t getMaterialIndex(uint32_t meshIndex) const;
         const std::optional<Skeleton>& getSkeleton() const { return skeleton; }
         uint32_t getBonesCount() const { return skeleton.has_value() ? static_cast<uint32_t>(skeleton->bones.size()) : 0; }
         const std::vector<NtAnimation>& getAnimations() const { return animations; }
+
+        MaterialType getMaterialType() const { return materialType; }
+        void setMaterialType(MaterialType type) { materialType = type; }
+
+        void createMaterialDescriptorSets(VkDescriptorSetLayout layout, VkDescriptorPool pool);
+        VkDescriptorSet getMaterialDescriptorSet(uint32_t meshIndex) const;
+        const MaterialData& getMaterialData(uint32_t meshIndex) const;
+        const std::vector<MaterialData>& getMaterialDataList() const { return materialDataList; }
 
         const VkDescriptorSet& getBoneDescriptorSet() const { return boneDescriptorSet; }
         bool hasBoneDescriptor() const { return boneDescriptorSet != VK_NULL_HANDLE; }
@@ -159,10 +166,10 @@ class NtModel {
 
         bool hasSkeleton() const { return skeleton.has_value(); }
 
-        static std::unique_ptr<NtModel> createPlane(float size);
-        // std::unique_ptr<NtModel> createGOCube(float size);
-        // std::unique_ptr<NtModel> createBillboardQuad(float size = 1.0f);
-        // std::unique_ptr<NtModel> createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture);
+        static std::unique_ptr<NtModel> createPlane(NtDevice &device, float size, const std::string &texturePath,
+            MaterialType matType,
+            VkDescriptorSetLayout materialLayout,
+            VkDescriptorPool materialPool);
     private:
         struct MeshBuffers {
           std::unique_ptr<NtBuffer> vertexBuffer;
@@ -184,9 +191,12 @@ class NtModel {
 
         NtDevice &ntDevice;
         std::vector<MeshBuffers> meshes;
-        std::vector<std::shared_ptr<NtMaterial>> materials;
         std::optional<Skeleton> skeleton;
         std::vector<NtAnimation> animations;
+
+        std::vector<MaterialData> materialDataList;
+        std::vector<VkDescriptorSet> materialDescriptorSets;
+        MaterialType materialType = MaterialType::PBR;
 };
 
 }

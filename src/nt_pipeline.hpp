@@ -45,6 +45,7 @@ namespace nt {
       NtPipeline &operator=(const NtPipeline&) = delete;
 
       void bind(VkCommandBuffer commandBuffer);
+      VkPipeline getPipeline() { return graphicsPipeline; }
 
       static void defaultPipelineConfigInfo(PipelineConfigInfo& configInfo, RenderMode pipeRenderMode, NtDevice& device);
 

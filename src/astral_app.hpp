@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nt_ecs.hpp"
+#include "nt_material.hpp"
 #include "nt_shadows.hpp"
 #include "nt_window.hpp"
 #include "nt_device.hpp"
@@ -40,14 +41,24 @@ namespace nt
 
 	private:
     // Helper functions
-    std::unique_ptr<NtModel> createModelFromFile(const std::string &filepath) {
+    std::unique_ptr<NtModel> createModelFromFile(const std::string &filepath, MaterialType type = MaterialType::PBR) {
         return NtModel::createModelFromFile(
             ntDevice,
             filepath,
+            type,
             modelSetLayout->getDescriptorSetLayout(),
             modelPool->getDescriptorPool(),
             boneSetLayout->getDescriptorSetLayout(),
             bonePool->getDescriptorPool());
+    };
+    std::unique_ptr<NtModel> createPlane(float size, const std::string &filepath, MaterialType type = MaterialType::PBR) {
+        return NtModel::createPlane(
+            ntDevice,
+            size,
+            filepath,
+            type,
+            modelSetLayout->getDescriptorSetLayout(),
+            modelPool->getDescriptorPool());
     };
 
     NtWindow ntWindow{ WIDTH, HEIGHT, "🌋 You are wandering through the Astral Realm.." };
@@ -61,6 +72,8 @@ namespace nt
     std::unique_ptr<NtDescriptorSetLayout> modelSetLayout;
     std::unique_ptr<NtDescriptorPool> bonePool{};
     std::unique_ptr<NtDescriptorSetLayout> boneSetLayout;
+
+    std::shared_ptr<NtMaterialLibrary> materialLibrary;
 
     NtShadowMap shadowMap{ntDevice, 1024, 1024};
     VkDescriptorSet imguiShadowMapTexture = VK_NULL_HANDLE;

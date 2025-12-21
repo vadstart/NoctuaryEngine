@@ -2,6 +2,7 @@
 #include "imgui.h"
 #include "nt_descriptors.hpp"
 #include "nt_log.hpp"
+#include "nt_material.hpp"
 #include "nt_utils.hpp"
 #include <memory>
 #include <ostream>
@@ -38,7 +39,7 @@ struct hash<nt::NtModel::Vertex> {
 namespace nt {
 
 NtModel::NtModel(NtDevice &device, NtModel::Builder &builder) : ntDevice{device},
-        materials{std::move(builder.l_materials)},
+        materialDataList{std::move(builder.l_materialData)},
         skeleton{std::move(builder.l_skeleton)},
         animations{std::move(builder.l_animations)}
 {
@@ -54,7 +55,7 @@ NtModel::NtModel(NtDevice &device, NtModel::Builder &builder) : ntDevice{device}
 NtModel::~NtModel() {
 }
 
-std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const std::string &filepath,
+std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const std::string &filepath, MaterialType matType,
     VkDescriptorSetLayout materialLayout,
     VkDescriptorPool materialPool,
     VkDescriptorSetLayout boneLayout,
@@ -72,13 +73,22 @@ std::unique_ptr<NtModel> NtModel::createModelFromFile(NtDevice &device, const st
     throw std::runtime_error("Unsupported file format: " + extension + ". Supported formats are: .gltf, .glb");
   }
 
-  // Initialize material descriptor sets for all loaded materials
-  for (const auto& material : builder.l_materials) {
-    material->updateDescriptorSet(materialLayout, materialPool);
-  }
+  NT_LOG_INFO(LogAssets, "Creating model from file: {}", filepath);
+  NT_LOG_INFO(LogAssets, "Material data count: {}", builder.l_materialData.size());
 
   // Create the model first so we can call its member function
   auto model = std::make_unique<NtModel>(device, builder);
+  model->setMaterialType(matType);
+
+  NT_LOG_INFO(LogAssets, "Model material data count after construction: {}", model->materialDataList.size());
+
+  // Create descriptor sets for material data (textures)
+  if (!model->materialDataList.empty()) {
+      NT_LOG_INFO(LogAssets, "Creating material descriptor sets for {} materials", model->materialDataList.size());
+      model->createMaterialDescriptorSets(materialLayout, materialPool);
+  } else {
+      NT_LOG_WARN(LogAssets, "No material data to create descriptor sets for!");
+  }
 
   // Initialize bone descriptor sets if skeleton exists
   if (boneLayout != VK_NULL_HANDLE && bonePool != VK_NULL_HANDLE && model->boneBuffer) {
@@ -320,7 +330,7 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
   std::string baseDir = filepath.substr(0, filepath.find_last_of('/') + 1);
 
   for (const auto &material : model.materials) {
-    NtMaterial::MaterialData materialData;
+    MaterialData materialData;
     materialData.name = material.name;
 
     NT_LOG_VERBOSE(LogAssets, "Loading material: {}", (material.name.empty() ? "<unnamed>" : material.name));
@@ -441,26 +451,125 @@ void NtModel::Builder::loadGltfMaterials(const tinygltf::Model &model, const std
 
     // Alpha mode
     if (material.alphaMode == "OPAQUE") {
-      materialData.alphaMode = NtMaterial::AlphaMode::Opaque;
+      materialData.alphaMode = AlphaMode::Opaque;
     } else if (material.alphaMode == "MASK") {
-      materialData.alphaMode = NtMaterial::AlphaMode::Mask;
+      materialData.alphaMode = AlphaMode::Mask;
     } else if (material.alphaMode == "BLEND") {
-      materialData.alphaMode = NtMaterial::AlphaMode::Blend;
+      materialData.alphaMode = AlphaMode::Blend;
     }
 
     materialData.alphaCutoff = material.alphaCutoff;
     materialData.doubleSided = material.doubleSided;
 
-    l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, materialData));
+    l_materialData.push_back(materialData);
   }
 
   // Create a default material if none exist
-  if (l_materials.empty()) {
+  if (l_materialData.empty()) {
     NT_LOG_WARN(LogAssets, "No materials found, creating default material");
-    NtMaterial::MaterialData defaultMaterial;
-    defaultMaterial.name = "Default";
-    l_materials.push_back(std::make_shared<NtMaterial>(ntDevice, defaultMaterial));
+    MaterialData defaultMaterialData;
+    defaultMaterialData.name = "Default";
+    l_materialData.push_back(defaultMaterialData);
   }
+}
+
+void NtModel::createMaterialDescriptorSets(VkDescriptorSetLayout layout, VkDescriptorPool pool) {
+    materialDescriptorSets.resize(materialDataList.size());
+
+    NT_LOG_VERBOSE(LogAssets, "Creating descriptor sets for {} materials", materialDataList.size());
+
+    for (size_t i = 0; i < materialDataList.size(); ++i) {
+        auto& matData = materialDataList[i];
+
+        NT_LOG_VERBOSE(LogAssets, "Processing material {}: {}", i, matData.name);
+
+        // Allocate descriptor set
+        VkDescriptorSetAllocateInfo allocInfo{};
+        allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+        allocInfo.descriptorPool = pool;
+        allocInfo.descriptorSetCount = 1;
+        allocInfo.pSetLayouts = &layout;
+
+        if (vkAllocateDescriptorSets(ntDevice.device(), &allocInfo, &materialDescriptorSets[i]) != VK_SUCCESS) {
+            throw std::runtime_error("Failed to allocate descriptor set for material");
+        }
+
+        // Reserve space for image infos to prevent reallocation
+        std::vector<VkDescriptorImageInfo> imageInfos;
+        imageInfos.reserve(3); // Max 3 textures: baseColor, normal, metallicRoughness
+
+        std::vector<VkWriteDescriptorSet> descriptorWrites;
+
+        // Base color texture (binding 0)
+        if (matData.pbrMetallicRoughness.baseColorTexture) {
+            NT_LOG_VERBOSE(LogAssets, "  - Has base color texture");
+            VkDescriptorImageInfo imageInfo{};
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfo.imageView = matData.pbrMetallicRoughness.baseColorTexture->getImageView();
+            imageInfo.sampler = matData.pbrMetallicRoughness.baseColorTexture->getSampler();
+            imageInfos.push_back(imageInfo);
+
+            VkWriteDescriptorSet descriptorWrite{};
+            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrite.dstSet = materialDescriptorSets[i];
+            descriptorWrite.dstBinding = 0;
+            descriptorWrite.dstArrayElement = 0;
+            descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            descriptorWrite.descriptorCount = 1;
+            descriptorWrite.pImageInfo = &imageInfos[imageInfos.size() - 1]; // Point to last element
+            descriptorWrites.push_back(descriptorWrite);
+        }
+
+        // Normal texture (binding 1)
+        if (matData.normalTexture) {
+            NT_LOG_VERBOSE(LogAssets, "  - Has normal texture");
+            VkDescriptorImageInfo imageInfo{};
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfo.imageView = matData.normalTexture->getImageView();
+            imageInfo.sampler = matData.normalTexture->getSampler();
+            imageInfos.push_back(imageInfo);
+
+            VkWriteDescriptorSet descriptorWrite{};
+            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrite.dstSet = materialDescriptorSets[i];
+            descriptorWrite.dstBinding = 1;
+            descriptorWrite.dstArrayElement = 0;
+            descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            descriptorWrite.descriptorCount = 1;
+            descriptorWrite.pImageInfo = &imageInfos[imageInfos.size() - 1]; // Point to last element
+            descriptorWrites.push_back(descriptorWrite);
+        }
+
+        // Metallic-roughness texture (binding 2)
+        if (matData.pbrMetallicRoughness.metallicRoughnessTexture) {
+            NT_LOG_VERBOSE(LogAssets, "  - Has metallic-roughness texture");
+            VkDescriptorImageInfo imageInfo{};
+            imageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+            imageInfo.imageView = matData.pbrMetallicRoughness.metallicRoughnessTexture->getImageView();
+            imageInfo.sampler = matData.pbrMetallicRoughness.metallicRoughnessTexture->getSampler();
+            imageInfos.push_back(imageInfo);
+
+            VkWriteDescriptorSet descriptorWrite{};
+            descriptorWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+            descriptorWrite.dstSet = materialDescriptorSets[i];
+            descriptorWrite.dstBinding = 2;
+            descriptorWrite.dstArrayElement = 0;
+            descriptorWrite.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+            descriptorWrite.descriptorCount = 1;
+            descriptorWrite.pImageInfo = &imageInfos[imageInfos.size() - 1]; // Point to last element
+            descriptorWrites.push_back(descriptorWrite);
+        }
+
+        if (!descriptorWrites.empty()) {
+            NT_LOG_VERBOSE(LogAssets, "  - Updating {} descriptor writes", descriptorWrites.size());
+            vkUpdateDescriptorSets(ntDevice.device(), static_cast<uint32_t>(descriptorWrites.size()),
+                                  descriptorWrites.data(), 0, nullptr);
+        } else {
+            NT_LOG_VERBOSE(LogAssets, "  - No textures to bind for this material");
+        }
+    }
+
+    NT_LOG_INFO(LogAssets, "Successfully created descriptor sets for all materials");
 }
 
 void NtModel::Builder::loadGltfMeshes(const tinygltf::Model &model) {
@@ -913,6 +1022,22 @@ uint32_t NtModel::getMaterialIndex(uint32_t meshIndex) const {
   return meshes[meshIndex].materialIndex;
 }
 
+VkDescriptorSet NtModel::getMaterialDescriptorSet(uint32_t meshIndex) const {
+    uint32_t materialIndex = getMaterialIndex(meshIndex);
+    if (materialIndex >= materialDescriptorSets.size()) {
+        return VK_NULL_HANDLE;
+    }
+    return materialDescriptorSets[materialIndex];
+}
+
+const MaterialData& NtModel::getMaterialData(uint32_t meshIndex) const {
+    uint32_t materialIndex = getMaterialIndex(meshIndex);
+    if (materialIndex >= materialDataList.size()) {
+        throw std::runtime_error("Material index out of range");
+    }
+    return materialDataList[materialIndex];
+}
+
 void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const std::vector<uint32_t>& indices) {
   // Calculate tangents using the method described in "Mathematics for 3D Game Programming and Computer Graphics"
   for (size_t i = 0; i < indices.size(); i += 3) {
@@ -974,135 +1099,37 @@ void NtModel::Builder::calculateTangents(std::vector<Vertex>& vertices, const st
 }
 
 // Helper functions
-std::unique_ptr<NtModel> NtModel::createGOPlane(float size) {
-  NtModel::Builder modelData{ntDevice};
+std::unique_ptr<NtModel> NtModel::createPlane(NtDevice &device, float size, const std::string &texturePath,
+            MaterialType matType,
+            VkDescriptorSetLayout materialLayout,
+            VkDescriptorPool materialPool) {
+  NtModel::Builder modelData{device};
   modelData.l_meshes.resize(1);
 
   // Quad vertices (using a plane in the XZ plane)
   modelData.l_meshes[0].vertices = {
-    {{-size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, 0.0f, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size, 0.0f,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}
+      {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
+      {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
+      {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
+      {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
   };
 
   modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
 
-  return std::make_unique<NtModel>(ntDevice, modelData);
-}
-
-/*std::unique_ptr<NtModel> NtModel::createGOCube(float size) {
-  NtModel::Builder modelData{ntDevice};
-  modelData.l_meshes.resize(1);
-
-  // Cube vertices
-  modelData.l_meshes[0].vertices = {
-    // Front face
-    {{-size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, -size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size,  size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size,  size, size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-
-    // Back face
-    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, -1.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-
-    // Left face
-    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-    {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-    {{-size,  size,  size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, 1.0f, 1.0f}},
-
-    // Right face
-    {{ size, -size,  size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
-    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
-    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {1.0f, 1.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
-    {{ size,  size,  size}, {1.0f, 1.0f, 1.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 1.0f}, {0.0f, 0.0f, -1.0f, 1.0f}},
-
-    // Top face
-    {{-size,  size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size,  size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size,  size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},
-
-    // Bottom face
-    {{-size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, -size, -size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 0.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{ size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {1.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}},
-    {{-size, -size,  size}, {1.0f, 1.0f, 1.0f}, {0.0f, -1.0f, 0.0f}, {0.0f, 1.0f}, {-1.0f, 0.0f, 0.0f, 1.0f}}
-  };
-
-  modelData.l_meshes[0].indices = {
-    // Front face
-    0, 1, 2, 2, 3, 0,
-    // Back face
-    4, 5, 6, 6, 7, 4,
-    // Left face
-    8, 9, 10, 10, 11, 8,
-    // Right face
-    12, 13, 14, 14, 15, 12,
-    // Top face
-    16, 17, 18, 18, 19, 16,
-    // Bottom face
-    20, 21, 22, 22, 23, 20
-  };
-
-  return std::make_unique<NtModel>(ntDevice, modelData);
-  }
-
-std::unique_ptr<NtModel> NtModel::createBillboardQuad(float size) {
-  NtModel::Builder modelData{ntDevice};
-  modelData.l_meshes.resize(1);
-
-  // Billboard quad vertices (facing forward, centered at origin)
-  modelData.l_meshes[0].vertices = {
-    {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
-    {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
-    {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
-    {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
-  };
-
-  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
-
-  modelData.l_materials.resize(1);
-  NtMaterial::MaterialData materialData;
+  // modelData.l_materialData.resize(1);
+  MaterialData materialData;
   materialData.name = "BillboardMaterial";
   materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-  modelData.l_materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
+  materialData.pbrMetallicRoughness.baseColorTexture = NtImage::createTextureFromFile(device, texturePath);;
+  modelData.l_materialData.push_back(materialData);
+  // modelData.l_materialData[0] = std::make_shared<NtMaterial>(device, materialData);
 
-  // Update the material with descriptor set
-  modelData.l_materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
+  auto model = std::make_unique<NtModel>(device, modelData);
+  model->setMaterialType(matType);
+  model->createMaterialDescriptorSets(materialLayout, materialPool);
 
-  return std::make_unique<NtModel>(ntDevice, modelData);
+  return model;
 }
 
-std::unique_ptr<NtModel> NtModel::createBillboardQuadWithTexture(float size, std::shared_ptr<NtImage> texture) {
-  NtModel::Builder modelData{ntDevice};
-  modelData.l_meshes.resize(1);
-
-  // Billboard quad vertices (facing forward, centered at origin)
-  modelData.l_meshes[0].vertices = {
-    {{-size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-left
-    {{ size, -size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Bottom-right
-    {{ size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}},  // Top-right
-    {{-size,  size, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 1.0f}, {0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 1.0f}}   // Top-left
-  };
-
-  modelData.l_meshes[0].indices = {0, 1, 2, 2, 3, 0};
-
-  modelData.l_materials.resize(1);
-  NtMaterial::MaterialData materialData;
-  materialData.name = "BillboardMaterial";
-  materialData.pbrMetallicRoughness.baseColorFactor = glm::vec4(1.0f, 1.0f, 1.0f, 1.0f);
-  materialData.pbrMetallicRoughness.baseColorTexture = texture;
-  modelData.l_materials[0] = std::make_shared<NtMaterial>(ntDevice, materialData);
-
-  // Update the material with descriptor set
-  modelData.l_materials[0]->updateDescriptorSet(modelSetLayout->getDescriptorSetLayout(), modelPool->getDescriptorPool());
-
-  return std::make_unique<NtModel>(ntDevice, modelData);
-  }*/
 
 }

@@ -115,6 +115,13 @@ AstralApp::AstralApp()
     .setMaxSets(100)
     .addPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 500)
     .build();
+
+  materialLibrary = std::make_shared<NtMaterialLibrary>(
+      ntDevice,
+      globalSetLayout->getDescriptorSetLayout(),
+      modelSetLayout->getDescriptorSetLayout(),
+      boneSetLayout->getDescriptorSetLayout(),
+      *ntRenderer.getSwapChain());
 }
 AstralApp::~AstralApp() {
 
@@ -178,8 +185,9 @@ void AstralApp::run()
     inputSignature.set(Nexus.GetComponentType<cPlayerController>());
     Nexus.SetSystemSignature<InputSystem>(inputSignature);
 
-    auto renderSystem = Nexus.RegisterSystem<RenderSystem>(ntDevice, *ntRenderer.getSwapChain(), globalSetLayout->getDescriptorSetLayout(),
-            modelSetLayout->getDescriptorSetLayout(), boneSetLayout->getDescriptorSetLayout());
+    auto renderSystem = Nexus.RegisterSystem<RenderSystem>(ntDevice,
+        *ntRenderer.getSwapChain(),
+        materialLibrary);
     NtSignature renderSignature;
     renderSignature.set(Nexus.GetComponentType<cModel>());
     Nexus.SetSystemSignature<RenderSystem>(renderSignature);
@@ -207,17 +215,38 @@ void AstralApp::run()
             glm::vec3(0.0f, 0.0f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf")) });
 
-    // auto rainSprite = Nexus.CreateEntity();
-    // MoonlitCafe.AddComponent(cMeta{"rainBillboard"})
-    //     .AddComponent(cTransform{ glm::vec3(0.0f),
-    //         glm::vec3(0.0f, 0.0f, 0.0f) })
-    //     .AddComponent(cModel{ createPlane(3.0f, getAssetPath("assets/textures/rain.png")), MaterialType::SCROLLING_UV });
+    auto rainSprite = Nexus.CreateEntity();
+    rainSprite.AddComponent(cMeta{"rainBillboard"})
+        .AddComponent(cTransform{ glm::vec3(14.5f, 7.0f, -23.0f),
+            glm::vec3(0.0f, 0.0f, 0.0f) })
+        .AddComponent(cModel{ createPlane(5.0f, getAssetPath("assets/textures/scrollrain.jpg"), MaterialType::SCROLLING_UV) });
+
+    auto rainSprite2 = Nexus.CreateEntity();
+    rainSprite2.AddComponent(cMeta{"rainBillboard"})
+        .AddComponent(cTransform{ glm::vec3(-0.3f, 7.0f, -27.0f),
+            glm::vec3(0.0f, 0.0f, 0.0f) })
+        .AddComponent(cModel{ createPlane(5.0f, getAssetPath("assets/textures/scrollrain.jpg"), MaterialType::SCROLLING_UV) });
+
+    auto rainSprite3 = Nexus.CreateEntity();
+    rainSprite3.AddComponent(cMeta{"rainBillboard"})
+        .AddComponent(cTransform{ glm::vec3(-23.0f, 7.0f, -13.0f),
+            glm::vec3(0.0f, 1.55f, 0.0f) })
+        .AddComponent(cModel{ createPlane(5.0f, getAssetPath("assets/textures/scrollrain.jpg"), MaterialType::SCROLLING_UV) });
+
+    auto rainSprite4 = Nexus.CreateEntity();
+    rainSprite4.AddComponent(cMeta{"rainBillboard"})
+        .AddComponent(cTransform{ glm::vec3(-23.0f, 7.0f, 12.0f),
+            glm::vec3(0.0f, 1.55f, 0.0f) })
+        .AddComponent(cModel{ createPlane(5.0f, getAssetPath("assets/textures/scrollrain.jpg"), MaterialType::SCROLLING_UV) });
+
+
+    // rainSprite.GetComponent<cModel>().materialParams.scrollSpeed = glm::vec2(0.0f, -0.5f);
 
     auto Cassandra = Nexus.CreateEntity();
     Cassandra.AddComponent(cMeta{"Cassandra"})
         .AddComponent(cTransform{ glm::vec3(0.0f, 1.5f, 0.0f),
             glm::vec3(0.0f, -1.5f, 0.0f) })
-        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), MaterialType::NPR, true })
+        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), MaterialType::NPR), true })
         .AddComponent(cAnimator {} )
         .AddComponent(cCamera{ 65.f
             ,ntRenderer.getAspectRatio()
@@ -232,7 +261,7 @@ void AstralApp::run()
     Mildred.AddComponent(cMeta{"Mildred"})
         .AddComponent(cTransform{ glm::vec3(-2.5f, 1.5f, -18.0f),
             glm::vec3(0.0f, 0.0f, 0.0f) })
-        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf")), MaterialType::NPR, true })
+        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), MaterialType::NPR), true })
         .AddComponent(cAnimator {} );
     Mildred.GetComponent<cAnimator>().play("Idle", true);
 
@@ -268,12 +297,16 @@ void AstralApp::run()
         globalSetLayout->getDescriptorSetLayout()
     );
 
+    auto startTime = std::chrono::high_resolution_clock::now();
+    currentTime = startTime;
+
   // ENGINE LOOP
   while (!ntWindow.shouldClose()) {
     glfwPollEvents();
 
 // Time
     auto newTime = std::chrono::high_resolution_clock::now();
+    float elapsedTime = std::chrono::duration<float>(newTime - startTime).count();
     float deltaTime = std::chrono::duration<float, std::chrono::seconds::period>(newTime - currentTime).count();
     currentTime = newTime;
 
@@ -491,9 +524,19 @@ void AstralApp::run()
 
                         ImGui::TableNextRow();
                         ImGui::TableSetColumnIndex(0);
-                        ImGui::TextUnformatted("NPR shading:");
+                        ImGui::TextUnformatted("Material:");
                         ImGui::TableSetColumnIndex(1);
-                        ImGui::Text("%d", model.bNPRshading);
+                        static std::string matType;
+                        switch (model.mesh->getMaterialType())
+                        {
+                            case MaterialType::PBR:        matType="PBR"; break;
+                            case MaterialType::NPR:        matType="NPR"; break;
+                            case MaterialType::UNLIT:        matType="UNLIT"; break;
+                            case MaterialType::SCROLLING_UV:        matType="SCROLLING_UV"; break;
+                            case MaterialType::SHADOW_MAP:        matType="SHADOW_MAP"; break;
+                            default:                       matType="Unknown"; break;
+                        }
+                        ImGui::Text("%s", matType.c_str());
 
                         if (model.mesh->hasSkeleton()) {
                             ImGui::TableNextRow();
@@ -668,6 +711,7 @@ void AstralApp::run()
       FrameInfo frameInfo {
         frameIndex,
         deltaTime,
+        elapsedTime,
         commandBuffer,
         globalDescriptorSets[frameIndex]
       };
@@ -687,12 +731,12 @@ void AstralApp::run()
 
     // RENDERING
       // PASS 1: Render shadow map
-      // ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
+      ntRenderer.beginShadowRendering(commandBuffer, &shadowMap);
 
-      //   vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
-      //   renderSystem->renderGameObjects(frameInfo, true);
+        vkCmdSetDepthBias(commandBuffer, 1.25f, 0.0f, 1.75f);
+        renderSystem->renderShadows(frameInfo);
 
-      // ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
+      ntRenderer.endShadowRendering(commandBuffer, &shadowMap);
 
       // PASS 2: Sample from it and render main scene
       ntRenderer.beginMainRendering(commandBuffer);

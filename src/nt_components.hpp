@@ -22,7 +22,7 @@ struct cTransform {
 
     // Tait-Bryan angles, Y(1), X(2), Z(3)
     // https://en.wikipedia.org/wiki/Euler_angles#Rotation_matrix
-    glm::mat4 mat4() {
+    glm::mat4 mat4() const {
       const float c3 = glm::cos(rotation.z);
       const float s3 = glm::sin(rotation.z);
       const float c2 = glm::cos(rotation.x);
@@ -51,7 +51,7 @@ struct cTransform {
           {translation.x, translation.y, translation.z, 1.0f}};
       };
 
-    glm::mat3 normalMatrix() {
+    glm::mat3 normalMatrix() const {
       const float c3 = glm::cos(rotation.z);
       const float s3 = glm::sin(rotation.z);
       const float c2 = glm::cos(rotation.x);
@@ -124,8 +124,9 @@ struct cLight {
 
 struct cModel {
     std::shared_ptr<NtModel> mesh;
-    MaterialType matType = MaterialType::PBR;
     bool bDropShadow = false;
+
+    // MaterialType getMaterialType() const { return mesh->getMaterialType(); }
 };
 
 struct cAnimator {

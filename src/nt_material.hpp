@@ -3,6 +3,7 @@
 #include "nt_device.hpp"
 #include "nt_image.hpp"
 #include "nt_pipeline.hpp"
+#include "nt_swap_chain.hpp"
 #include "vulkan/vulkan_core.h"
 #include <glm/glm.hpp>
 #include <memory>
@@ -15,75 +16,51 @@ enum struct MaterialType {
     PBR,
     NPR,
     UNLIT,
-    SCROLLING_UV
+    SCROLLING_UV,
+    SHADOW_MAP
 };
 
-// class NtMaterial {
-// public:
-//     enum class AlphaMode {
-//         Opaque,
-//         Mask,
-//         Blend
-//     };
+// Material Data loaded from the model file
+struct PbrMetallicRoughness {
+    glm::vec4 baseColorFactor{1.0f, 1.0f, 1.0f, 1.0f};
+    float metallicFactor{1.0f};
+    float roughnessFactor{1.0f};
 
-//     struct PbrMetallicRoughness {
-//         glm::vec4 baseColorFactor{1.0f, 1.0f, 1.0f, 1.0f};
-//         float metallicFactor{1.0f};
-//         float roughnessFactor{1.0f};
+    std::shared_ptr<NtImage> baseColorTexture;
+    std::shared_ptr<NtImage> metallicRoughnessTexture;
 
-//         std::shared_ptr<NtImage> baseColorTexture;
-//         std::shared_ptr<NtImage> metallicRoughnessTexture;
+    int baseColorTexCoord{0};
+    int metallicRoughnessTexCoord{0};
+};
 
-//         int baseColorTexCoord{0};
-//         int metallicRoughnessTexCoord{0};
-//     };
+enum class AlphaMode {
+    Opaque,
+    Mask,
+    Blend
+};
 
-//     struct MaterialData {
-//         std::string name;
+struct MaterialData {
+    std::string name;
 
-//         PbrMetallicRoughness pbrMetallicRoughness;
+    PbrMetallicRoughness pbrMetallicRoughness;
 
-//         glm::vec2 uvScale{1.0f, 1.0f};
-//         glm::vec2 uvOffset{0.0f, 0.0f};
-//         float uvRotation{0.0f};
+    glm::vec2 uvScale{1.0f, 1.0f};
+    glm::vec2 uvOffset{0.0f, 0.0f};
+    float uvRotation{0.0f};
 
-//         std::shared_ptr<NtImage> normalTexture;
+    std::shared_ptr<NtImage> normalTexture;
 
-//         float normalScale{1.0f};
+    float normalScale{1.0f};
 
-//         AlphaMode alphaMode{AlphaMode::Opaque};
-//         float alphaCutoff{0.5f};
+    AlphaMode alphaMode{AlphaMode::Opaque};
+    float alphaCutoff{0.5f};
 
-//         bool doubleSided{false};
+    bool doubleSided{false};
 
-//         int normalTexCoord{0};
-//     };
+    int normalTexCoord{0};
+};
 
-//     NtMaterial(NtDevice &device, const MaterialData &materialData);
-//     ~NtMaterial();
-
-//     NtMaterial(const NtMaterial &) = delete;
-//     NtMaterial& operator=(const NtMaterial &) = delete;
-
-//     const MaterialData& getMaterialData() const { return materialData; }
-//     const std::string& getName() const { return materialData.name; }
-
-//     bool hasBaseColorTexture() const { return materialData.pbrMetallicRoughness.baseColorTexture != nullptr; }
-//     bool hasMetallicRoughnessTexture() const { return materialData.pbrMetallicRoughness.metallicRoughnessTexture != nullptr; }
-//     bool hasNormalTexture() const { return materialData.normalTexture != nullptr; }
-
-//     VkDescriptorSet getDescriptorSet() const { return descriptorSet; }
-
-//     void updateDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorPool pool);
-
-// private:
-//     void createDescriptorSet(VkDescriptorSetLayout layout, VkDescriptorPool pool);
-
-//     NtDevice &ntDevice;
-//     MaterialData materialData;
-//     VkDescriptorSet descriptorSet{VK_NULL_HANDLE};
-// };
-
+// Material shader
 class NtMaterial {
 public:
     struct Config {
@@ -95,7 +72,12 @@ public:
         bool depthWrite = true;
     };
 
-    NtMaterial(NtDevice& device, const Config& config);
+    NtMaterial(NtDevice& device, const Config& config, VkDescriptorSetLayout globalSetLayout,
+    VkDescriptorSetLayout modelSetLayout,
+    VkDescriptorSetLayout boneSetLayout,
+    NtSwapChain& swapChain);
+
+    ~NtMaterial();
 
     void bind(VkCommandBuffer commandBuffer);
 
@@ -112,16 +94,22 @@ private:
 
 class NtMaterialLibrary {
 public:
-    NtMaterialLibrary(NtDevice& device, VkRenderPass renderPass);
+    NtMaterialLibrary(NtDevice& device,
+                      VkDescriptorSetLayout globalSetLayout,
+                      VkDescriptorSetLayout modelSetLayout,
+                      VkDescriptorSetLayout boneSetLayout,
+                      NtSwapChain& swapChain);
 
     // Get material by type (or create one if it doesn't exit)
     std::shared_ptr<NtMaterial> getMaterial(MaterialType type);
-
     void registerMaterial(MaterialType type, const NtMaterial::Config& config);
 
 private:
     NtDevice& device;
-    VkRenderPass renderPass;
+    VkDescriptorSetLayout globalSetLayout;
+    VkDescriptorSetLayout modelSetLayout;
+    VkDescriptorSetLayout boneSetLayout;
+    NtSwapChain& swapChain;
     std::unordered_map<MaterialType, std::shared_ptr<NtMaterial>> materials;
 
     void createDefaultMaterials();

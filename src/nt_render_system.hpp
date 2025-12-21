@@ -1,6 +1,7 @@
 #pragma once
 
 #include "nt_ecs.hpp"
+#include "nt_material.hpp"
 #include "nt_pipeline.hpp"
 #include "nt_device.hpp"
 #include "nt_swap_chain.hpp"
@@ -18,38 +19,24 @@ class RenderSystem : public NtSystem
 {
 public:
     RenderSystem(NtNexus* nexus_ptr, NtDevice &device,
-                        NtSwapChain &swapChain,
-                        VkDescriptorSetLayout globalSetLayout,
-                        VkDescriptorSetLayout modelSetLayout,
-                        VkDescriptorSetLayout boneSetLayout);
+                    NtSwapChain &swapChain,
+                    std::shared_ptr<NtMaterialLibrary> matLibrary);
     ~RenderSystem();
 
     RenderSystem(const RenderSystem &) = delete;
-    RenderSystem &operator=(const RenderSystem &) = delete;\
+    RenderSystem &operator=(const RenderSystem &) = delete;
 
     void render(FrameInfo& frameInfo);
-    // void renderGameObjects(FrameInfo &frameInfo, bool bShadowPass = false);
-    // void renderLightBillboards(FrameInfo &frameInfo);
+    void renderShadows(FrameInfo& frameInfo);
 
 private:
-    void createPipelineLayout(VkDescriptorSetLayout globalSetLayout,
-                            VkDescriptorSetLayout modelSetLayout,
-                            VkDescriptorSetLayout boneSetLayout);
-    void createPipelines(NtSwapChain &swapChain);
-
     void renderBatch(FrameInfo& frameInfo, std::shared_ptr<NtMaterial> material,
-        const std::vector<NtGameObject*>& batch);
+        const std::vector<NtEntity>& batch);
 
     NtDevice &ntDevice;
     NtNexus* nexus;
 
-    std::unique_ptr<NtPipeline> shadowMapPipeline;
-    std::unique_ptr<NtPipeline> pbrPipeline;
-    std::unique_ptr<NtPipeline> nprPipeline;
-    // std::unique_ptr<NtPipeline> billboardPipeline;
-    VkPipelineLayout pipelineLayout;
-
-
+    std::shared_ptr<NtMaterialLibrary> materialLibrary;
 };
 
 }
