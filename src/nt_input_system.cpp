@@ -152,9 +152,6 @@ void InputSystem::updatePlayerControl(float dt) {
         y -= -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
     }
 
-    // Skip if no input
-    if (std::abs(x) < 0.001f && std::abs(y) < 0.001f) return;
-
     // Get camera to calculate movement direction
     auto& camera = nexus->GetComponent<cCamera>(camEntity);
     auto& playerTransform = nexus->GetComponent<cTransform>(camEntity);
@@ -169,9 +166,26 @@ void InputSystem::updatePlayerControl(float dt) {
     if (glm::length(moveDirection) > 0.001f) {
         moveDirection = glm::normalize(moveDirection);
     }
-    playerTransform.translation += moveDirection * playerController.moveSpeed * dt;
 
-    // Rotate player to face movement direction
+    // Physics-based movement: Set desired velocity on cCharacterPhysics component
+    if (nexus->HasComponent<cCharacterPhysics>(camEntity)) {
+        auto& charPhys = nexus->GetComponent<cCharacterPhysics>(camEntity);
+
+        // Set desired velocity (physics system will apply it)
+        charPhys.desiredVelocity = moveDirection * playerController.moveSpeed;
+
+        // Handle jump input (Spacebar or gamepad A button)
+        bool jumpPressed = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
+        if (gamepadConnected) {
+            jumpPressed = jumpPressed || isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_A);
+        }
+
+        if (jumpPressed && charPhys.isGrounded) {
+            charPhys.wantsJump = true;
+        }
+    }
+
+    // Rotate player to face movement direction (still controlled by input, not physics)
     if (glm::length(moveDirection) > 0.001f) {
         float targetAngle = std::atan2(moveDirection.x, moveDirection.z);
 

@@ -9,6 +9,9 @@
 #include <cstddef>
 #include <memory>
 
+// Forward declarations for Jolt physics types (must be outside nt namespace)
+namespace JPH { class CharacterVirtual; }
+
 namespace nt {
 
 struct cMeta {
@@ -141,6 +144,41 @@ struct cAnimator {
 struct cPlayerController {
     float moveSpeed = 5.0f;
     float rotationSpeed = 10.0f;
+};
+
+//------------------------------
+// Physics Components
+//------------------------------
+
+struct cCharacterPhysics {
+    // Pointer to Jolt CharacterVirtual (managed by PhysicsSystem)
+    JPH::CharacterVirtual* character = nullptr;
+
+    // Capsule dimensions
+    float capsuleRadius = 0.5;
+    float capsuleHalfHeight = 1.2f;  // Total height ~1.9m with hemispheres
+
+    // Movement settings
+    float maxSlopeAngle = 45.0f;     // degrees
+    float jumpSpeed = 6.0f;
+
+    // Stair/floor settings for ExtendedUpdate
+    glm::vec3 stickToFloorStepDown{0.0f, -0.5f, 0.0f};
+    glm::vec3 walkStairsStepUp{0.0f, 0.4f, 0.0f};
+    float walkStairsMinStepForward = 0.02f;
+    float walkStairsStepForwardTest = 0.15f;
+
+    // Runtime state (updated by PhysicsSystem)
+    glm::vec3 desiredVelocity{0.0f};
+    bool isGrounded = false;
+    bool wantsJump = false;
+};
+
+struct cStaticCollider {
+    // Body ID in Jolt physics system (stored as uint32_t to avoid header dependency)
+    uint32_t bodyIdValue = 0xFFFFFFFF;  // Invalid ID
+    glm::vec3 boxHalfExtents{1.0f};
+    bool isInitialized = false;
 };
 
 //------------------------------

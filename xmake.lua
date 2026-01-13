@@ -13,6 +13,12 @@ target("NoctuaryEngine")
     add_includedirs("src", "$(env VULKAN_SDK)/include") -- Add include directories
     add_linkdirs("$(env VULKAN_SDK)/lib") -- Add Vulkan library directory
 
+    -- Jolt Physics Library (exclude samples)
+    add_files("src/Jolt/*.cpp")  -- Root level files (RegisterTypes.cpp)
+    add_files("src/Jolt/**/*.cpp|temp_samples/**")  -- All subdirectories
+    add_includedirs("src")
+    add_defines("JPH_DEBUG_RENDERER")
+
 
 
     -- Platform-specific settings
@@ -66,6 +72,10 @@ target("NoctuaryEngine")
     add_files("src/imgui/backends/imgui_impl_vulkan.cpp")
     -- Include directories
     add_includedirs("src/imgui", "src/imgui/backends")
+
+    -- im3d debug visualization
+    add_files("src/im3d/im3d.cpp")
+    add_includedirs("src")
 
     -- Add custom rules for shader compilation
     after_build(function (target)

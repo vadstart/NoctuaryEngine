@@ -11,6 +11,7 @@
 #include "nt_material.hpp"
 #include "nt_render_system.hpp"
 #include "nt_anim_system.hpp"
+#include "nt_physics_system.hpp"
 #include "nt_types.hpp"
 #include "nt_utils.hpp"
 #include "nt_components.hpp"
@@ -172,6 +173,8 @@ void AstralApp::run()
     Nexus.RegisterComponent<cAnimator>();
     Nexus.RegisterComponent<cCamera>();
     Nexus.RegisterComponent<cPlayerController>();
+    Nexus.RegisterComponent<cCharacterPhysics>();
+    Nexus.RegisterComponent<cStaticCollider>();
 
     // System setup
     auto debugSystem = Nexus.RegisterSystem<DebugSystem>();
@@ -208,12 +211,26 @@ void AstralApp::run()
     animationSignature.set(Nexus.GetComponentType<cModel>());
     Nexus.SetSystemSignature<AnimationSystem>(animationSignature);
 
+    auto physicsSystem = Nexus.RegisterSystem<NtPhysicsSystem>();
+    NtSignature physicsSignature;
+    physicsSignature.set(Nexus.GetComponentType<cCharacterPhysics>());
+    Nexus.SetSystemSignature<NtPhysicsSystem>(physicsSignature);
+
+    // Initialize Jolt physics
+    physicsSystem->initialize();
+
     // Spawning entities
     auto MoonlitCafe = Nexus.CreateEntity();
     MoonlitCafe.AddComponent(cMeta{"MoonlitCafe"})
         .AddComponent(cTransform{ glm::vec3(0.0f),
             glm::vec3(0.0f, 0.0f, 0.0f) })
-        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf")) });
+        .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/MoonlitCafe/MoonlitCafe.gltf")) })
+        .AddComponent(cStaticCollider{});
+
+    // Create environment collision boxes for MoonlitCafe
+    // Floor - main ground plane
+    physicsSystem->createStaticBoxCollider(MoonlitCafe.GetID(), glm::vec3(30.0f, 0.5f, 30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    // Add more collision boxes as needed for walls, stairs, etc.
 
     auto rainSprite = Nexus.CreateEntity();
     rainSprite.AddComponent(cMeta{"rainBillboard"})
@@ -254,8 +271,12 @@ void AstralApp::run()
             ,1000.f
             ,glm::vec4(1.5f, 2.5f, 0.0f, 14.1f)
             ,{ glm::vec3(-11.f, -10.2f, -6.5f), glm::vec3(0.4f, 5.4f, 0.0f) }})
-        .AddComponent(cPlayerController{5.0f, 10.0f});
+        .AddComponent(cPlayerController{5.0f, 10.0f})
+        .AddComponent(cCharacterPhysics{});
     Cassandra.GetComponent<cAnimator>().play("Idle", true);
+
+    // Create character controller for player
+    physicsSystem->createCharacterController(Cassandra.GetID());
 
     auto Mildred = Nexus.CreateEntity();
     Mildred.AddComponent(cMeta{"Mildred"})
@@ -296,6 +317,15 @@ void AstralApp::run()
         *ntRenderer.getSwapChain(),
         globalSetLayout->getDescriptorSetLayout()
     );
+
+    im3dRenderer = std::make_unique<NtIm3dRenderer>(
+        ntDevice,
+        *ntRenderer.getSwapChain(),
+        globalSetLayout->getDescriptorSetLayout()
+    );
+
+    // Enable physics debug drawing by default (can be toggled via ImGui)
+    physicsSystem->setDebugDrawEnabled(true);
 
     auto startTime = std::chrono::high_resolution_clock::now();
     currentTime = startTime;
@@ -702,6 +732,29 @@ void AstralApp::run()
 // Input update
     inputSystem->update(deltaTime, io.MouseWheel);
 
+// Physics update
+    physicsSystem->update(deltaTime);
+
+// im3d debug visualization frame
+    {
+        // Extract camera position and direction from inverseView matrix
+        glm::vec3 cameraPos = glm::vec3(ubo.inverseView[3]);
+        glm::vec3 cameraDir = -glm::vec3(ubo.inverseView[2]); // Camera looks down -Z
+
+        im3dRenderer->beginFrame(
+            cameraPos,
+            cameraDir,
+            glm::vec2(ntWindow.getExtent().width, ntWindow.getExtent().height),
+            glm::radians(65.0f), // FOV - should match camera
+            deltaTime
+        );
+
+        // Draw physics debug colliders
+        physicsSystem->drawDebugColliders();
+
+        im3dRenderer->endFrame();
+    }
+
 // Camera update
     cameraSystem->update(ubo.projection, ubo.view, ubo.inverseView);
 
@@ -743,6 +796,9 @@ void AstralApp::run()
 
         renderSystem->render(frameInfo);
 
+        // Render im3d debug primitives
+        im3dRenderer->render(frameInfo);
+
         if (inputSystem->bShowImGUI) {
             ImGui::Render();
             ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), ntRenderer.getCurrentCommandBuffer());
@@ -756,6 +812,9 @@ void AstralApp::run()
   }
 
   vkDeviceWaitIdle(ntDevice.device());
+
+  // Physics Cleanup
+  physicsSystem->shutdown();
 
   // IMGUI Cleanup
   ImGui_ImplVulkan_Shutdown();
