@@ -735,26 +735,6 @@ void AstralApp::run()
 // Physics update
     physicsSystem->update(deltaTime);
 
-// im3d debug visualization frame
-    {
-        // Extract camera position and direction from inverseView matrix
-        glm::vec3 cameraPos = glm::vec3(ubo.inverseView[3]);
-        glm::vec3 cameraDir = -glm::vec3(ubo.inverseView[2]); // Camera looks down -Z
-
-        im3dRenderer->beginFrame(
-            cameraPos,
-            cameraDir,
-            glm::vec2(ntWindow.getExtent().width, ntWindow.getExtent().height),
-            glm::radians(65.0f), // FOV - should match camera
-            deltaTime
-        );
-
-        // Draw physics debug colliders
-        physicsSystem->drawDebugColliders();
-
-        im3dRenderer->endFrame();
-    }
-
 // Camera update
     cameraSystem->update(ubo.projection, ubo.view, ubo.inverseView);
 
@@ -808,6 +788,28 @@ void AstralApp::run()
       // ---
 
       ntRenderer.endFrame();
+
+// im3d debug visualization frame
+    {
+        // Extract camera position and direction from inverseView matrix
+        glm::vec3 cameraPos = glm::vec3(ubo.inverseView[3]);
+        glm::vec3 cameraDir = -glm::vec3(ubo.inverseView[2]); // Camera looks down -Z
+
+        im3dRenderer->beginFrame(
+            cameraPos,
+            cameraDir,
+            glm::vec2(ntWindow.getExtent().width, ntWindow.getExtent().height),
+            glm::radians(65.0f), // FOV - should match camera
+            deltaTime
+        );
+
+        // Draw physics debug colliders
+        physicsSystem->drawDebugColliders();
+
+        im3dRenderer->endFrame();
+    }
+    // ---
+
     }
   }
 

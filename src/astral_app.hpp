@@ -78,7 +78,6 @@ namespace nt
 
     NtShadowMap shadowMap{ntDevice, 1024, 1024};
     VkDescriptorSet imguiShadowMapTexture = VK_NULL_HANDLE;
-    std::unique_ptr<NtLineRenderSystem> debugLineSystem;
     std::unique_ptr<NtIm3dRenderer> im3dRenderer;
 
     NtNexus Nexus;
