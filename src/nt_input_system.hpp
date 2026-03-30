@@ -58,6 +58,7 @@ class InputSystem : public NtSystem
     void checkGamepadConnection();
     bool isGamepadButtonPressed(int button);
     float getGamepadAxis(int axis);
+    glm::vec2 getGamepadStick(int axisX, int axisY);
     // Runtime configuration methods
     void setGamepadDeadzone(float deadzone) { gamepadDeadzone = deadzone; }
     float getGamepadDeadzone() const { return gamepadDeadzone; }
@@ -78,8 +79,11 @@ private:
   // Gamepad settings (configurable at runtime)
   // float gamepadSensitivity { 2.0f };
   // float gamepadMoveSpeed { 25.0f };
-  float gamepadDeadzone { 0.15f };
+  float gamepadDeadzone { 0.20f };
   // float gamepadZoomSpeed { 2.0f };
+
+  // Jump button state tracking (to detect press, not hold)
+  bool jumpButtonWasPressedLastFrame = false;
 
   NtWindow* ntWindow;
   NtNexus* nexus;

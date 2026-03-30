@@ -4,6 +4,7 @@
 #include "nt_components.hpp"
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 #include <memory>
 #include <vector>
 
@@ -48,7 +49,8 @@ public:
     void destroyCharacterController(NtEntity entity);
 
     // Static collider creation
-    void createStaticBoxCollider(NtEntity entity, const glm::vec3& halfExtents, const glm::vec3& position);
+    void createStaticBoxCollider(NtEntity entity, const glm::vec3& halfExtents, const glm::vec3& position,
+                                 const glm::quat& rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f));
 
     // Input interface for character movement
     void setCharacterDesiredVelocity(NtEntity entity, const glm::vec3& velocity);
@@ -73,11 +75,16 @@ private:
     struct JoltState;
     std::unique_ptr<JoltState> jolt;
 
-    // Static collider entities (for debug drawing)
-    std::vector<NtEntity> staticColliderEntities;
+    // Per-body info for debug drawing
+    struct StaticBodyInfo {
+        uint32_t bodyIdValue;
+        glm::vec3 halfExtents;
+        glm::quat rotation;
+    };
+    std::vector<StaticBodyInfo> staticBodies;
 
     // Settings
-    glm::vec3 gravity{0.0f, -9.81f, 0.0f};
+    glm::vec3 gravity{0.0f, -27.0f, 0.0f};
     bool bDebugDraw = false;
 
     // Internal helpers

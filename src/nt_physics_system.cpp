@@ -1,6 +1,8 @@
 #include "nt_physics_system.hpp"
 #include "nt_log.hpp"
 
+#include <glm/gtc/quaternion.hpp>
+
 // im3d for debug visualization
 #include <im3d/im3d.h>
 
@@ -235,16 +237,17 @@ void NtPhysicsSystem::createCharacterController(NtEntity entity)
     auto& charPhys = nexus->GetComponent<cCharacterPhysics>(entity);
     auto& transform = nexus->GetComponent<cTransform>(entity);
 
-    // Create capsule shape
-    // The capsule is created standing up along Y axis
-    // We offset it so the bottom of the capsule is at the origin
-    float totalHeight = charPhys.capsuleHalfHeight * 2.0f + charPhys.capsuleRadius * 2.0f;
-    float centerY = charPhys.capsuleRadius + charPhys.capsuleHalfHeight;
+    // Create capsule shape.
+    // capsuleHalfHeight = half of total capsule height (feet to top).
+    // centerY offsets the capsule center above the shape origin (feet).
+    // joltHalfHeight is the cylinder-only half-height that CapsuleShape expects.
+    float centerY = charPhys.capsuleHalfHeight;
+    float joltHalfHeight = charPhys.capsuleHalfHeight - charPhys.capsuleRadius;
 
     RefConst<Shape> standingShape = RotatedTranslatedShapeSettings(
         Vec3(0, centerY, 0),
         Quat::sIdentity(),
-        new CapsuleShape(charPhys.capsuleHalfHeight, charPhys.capsuleRadius)
+        new CapsuleShape(joltHalfHeight, charPhys.capsuleRadius)
     ).Create().Get();
 
     // Create character settings
@@ -309,7 +312,7 @@ void NtPhysicsSystem::destroyCharacterController(NtEntity entity)
     charPhys.character = nullptr;
 }
 
-void NtPhysicsSystem::createStaticBoxCollider(NtEntity entity, const glm::vec3& halfExtents, const glm::vec3& position)
+void NtPhysicsSystem::createStaticBoxCollider(NtEntity entity, const glm::vec3& halfExtents, const glm::vec3& position, const glm::quat& rotation)
 {
     BodyInterface& bodyInterface = jolt->physicsSystem->GetBodyInterface();
 
@@ -325,7 +328,7 @@ void NtPhysicsSystem::createStaticBoxCollider(NtEntity entity, const glm::vec3& 
     BodyCreationSettings bodySettings(
         shapeResult.Get(),
         RVec3(position.x, position.y, position.z),
-        Quat::sIdentity(),
+        Quat(rotation.x, rotation.y, rotation.z, rotation.w),
         EMotionType::Static,
         PhysicsLayers::STATIC
     );
@@ -339,17 +342,8 @@ void NtPhysicsSystem::createStaticBoxCollider(NtEntity entity, const glm::vec3& 
 
     bodyInterface.AddBody(body->GetID(), EActivation::DontActivate);
 
-    // Store body ID in component if it exists
-    if (nexus->HasComponent<cStaticCollider>(entity))
-    {
-        auto& collider = nexus->GetComponent<cStaticCollider>(entity);
-        collider.bodyIdValue = body->GetID().GetIndexAndSequenceNumber();
-        collider.boxHalfExtents = halfExtents;
-        collider.isInitialized = true;
-
-        // Track entity for debug drawing
-        staticColliderEntities.push_back(entity);
-    }
+    // Track per-body info for debug drawing
+    staticBodies.push_back({ body->GetID().GetIndexAndSequenceNumber(), halfExtents, rotation });
 
     NT_LOG_INFO(LogPhysics, "Created static box collider at ({}, {}, {}) with half-extents ({}, {}, {})",
         position.x, position.y, position.z,
@@ -518,17 +512,19 @@ void NtPhysicsSystem::drawDebugColliders()
 
         RVec3 pos = charPhys.character->GetPosition();
         float radius = charPhys.capsuleRadius;
-        float halfHeight = charPhys.capsuleHalfHeight;
+        float halfHeight = charPhys.capsuleHalfHeight; // half total height (feet to top)
+        float joltHalfHeight = halfHeight - radius;    // cylinder-only half-height
 
-        // Capsule bottom and top centers (accounting for hemisphere radius)
+        // GetPosition() returns the shape origin (feet).
+        // Capsule center is at halfHeight above origin; hemispheres are ±joltHalfHeight from center.
         Im3d::Vec3 bottom(
             static_cast<float>(pos.GetX()),
-            static_cast<float>(pos.GetY()) - halfHeight + radius,
+            static_cast<float>(pos.GetY()) + halfHeight - joltHalfHeight,
             static_cast<float>(pos.GetZ())
         );
         Im3d::Vec3 top(
             static_cast<float>(pos.GetX()),
-            static_cast<float>(pos.GetY()) + halfHeight - radius,
+            static_cast<float>(pos.GetY()) + halfHeight + joltHalfHeight,
             static_cast<float>(pos.GetZ())
         );
 
@@ -538,37 +534,35 @@ void NtPhysicsSystem::drawDebugColliders()
 
     // Draw static box colliders (cyan)
     Im3d::PushColor(Im3d::Color_Cyan);
-    for (NtEntity entity : staticColliderEntities)
+    for (const auto& bodyInfo : staticBodies)
     {
-        if (!nexus->HasComponent<cStaticCollider>(entity))
-            continue;
-
-        auto& collider = nexus->GetComponent<cStaticCollider>(entity);
-        if (!collider.isInitialized)
-            continue;
-
-        // Get position from body
         BodyInterface& bodyInterface = jolt->physicsSystem->GetBodyInterface();
-        BodyID bodyId(collider.bodyIdValue);
+        BodyID bodyId(bodyInfo.bodyIdValue);
 
         if (!bodyInterface.IsActive(bodyId) && !bodyInterface.IsAdded(bodyId))
             continue;
 
         RVec3 pos = bodyInterface.GetCenterOfMassPosition(bodyId);
 
-        glm::vec3 halfExtents = collider.boxHalfExtents;
-        Im3d::Vec3 min(
-            static_cast<float>(pos.GetX()) - halfExtents.x,
-            static_cast<float>(pos.GetY()) - halfExtents.y,
-            static_cast<float>(pos.GetZ()) - halfExtents.z
-        );
-        Im3d::Vec3 max(
-            static_cast<float>(pos.GetX()) + halfExtents.x,
-            static_cast<float>(pos.GetY()) + halfExtents.y,
-            static_cast<float>(pos.GetZ()) + halfExtents.z
+        glm::vec3 halfExtents = bodyInfo.halfExtents;
+        glm::mat3 rotMat = glm::mat3_cast(bodyInfo.rotation);
+
+        Im3d::Mat4 transform(
+            Im3d::Vec3(static_cast<float>(pos.GetX()), static_cast<float>(pos.GetY()), static_cast<float>(pos.GetZ())),
+            Im3d::Mat3(
+                Im3d::Vec3(rotMat[0][0], rotMat[0][1], rotMat[0][2]),
+                Im3d::Vec3(rotMat[1][0], rotMat[1][1], rotMat[1][2]),
+                Im3d::Vec3(rotMat[2][0], rotMat[2][1], rotMat[2][2])
+            ),
+            Im3d::Vec3(1.0f, 1.0f, 1.0f)
         );
 
-        Im3d::DrawAlignedBox(min, max);
+        Im3d::PushMatrix(transform);
+        Im3d::DrawAlignedBox(
+            Im3d::Vec3(-halfExtents.x, -halfExtents.y, -halfExtents.z),
+            Im3d::Vec3( halfExtents.x,  halfExtents.y,  halfExtents.z)
+        );
+        Im3d::PopMatrix();
     }
     Im3d::PopColor();
 }

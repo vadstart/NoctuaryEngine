@@ -151,16 +151,14 @@ struct cPlayerController {
 //------------------------------
 
 struct cCharacterPhysics {
-    // Pointer to Jolt CharacterVirtual (managed by PhysicsSystem)
+    // Jolt
     JPH::CharacterVirtual* character = nullptr;
 
-    // Capsule dimensions
-    float capsuleRadius = 0.5;
-    float capsuleHalfHeight = 1.2f;  // Total height ~1.9m with hemispheres
+    float capsuleRadius = 0.7f;
+    float capsuleHalfHeight = 2.2f;  // Half of total capsule height (total = 2 * capsuleHalfHeight)
 
-    // Movement settings
     float maxSlopeAngle = 45.0f;     // degrees
-    float jumpSpeed = 6.0f;
+    float jumpSpeed = 12.0f;
 
     // Stair/floor settings for ExtendedUpdate
     glm::vec3 stickToFloorStepDown{0.0f, -0.5f, 0.0f};
@@ -168,24 +166,20 @@ struct cCharacterPhysics {
     float walkStairsMinStepForward = 0.02f;
     float walkStairsStepForwardTest = 0.15f;
 
-    // Runtime state (updated by PhysicsSystem)
     glm::vec3 desiredVelocity{0.0f};
     bool isGrounded = false;
     bool wantsJump = false;
 };
 
 struct cStaticCollider {
-    // Body ID in Jolt physics system (stored as uint32_t to avoid header dependency)
+    // Body ID in Jolt physics system
     uint32_t bodyIdValue = 0xFFFFFFFF;  // Invalid ID
     glm::vec3 boxHalfExtents{1.0f};
+    glm::quat rotation{1.0f, 0.0f, 0.0f, 0.0f};
     bool isInitialized = false;
 };
 
 //------------------------------
-
-struct cCollider {
-
-};
 
 struct cStats {
 

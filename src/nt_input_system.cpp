@@ -4,6 +4,7 @@
 #include "nt_types.hpp"
 #include <GLFW/glfw3.h>
 #include <glm/geometric.hpp>
+#include <glm/glm.hpp>
 #include <iostream>
 #include <limits>
 #include <cmath>
@@ -147,9 +148,13 @@ void InputSystem::updatePlayerControl(float dt) {
     else if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         y = 1.0f;
 
+    // Gamepad: use radial deadzone on the full 2D stick vector
+    float stickMagnitude = 0.0f;
     if (gamepadConnected) {
-        x += getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_X);
-        y -= -getGamepadAxis(GLFW_GAMEPAD_AXIS_LEFT_Y);
+        glm::vec2 stick = getGamepadStick(GLFW_GAMEPAD_AXIS_LEFT_X, GLFW_GAMEPAD_AXIS_LEFT_Y);
+        x += stick.x;
+        y += stick.y;
+        stickMagnitude = glm::length(stick);
     }
 
     // Get camera to calculate movement direction
@@ -161,35 +166,43 @@ void InputSystem::updatePlayerControl(float dt) {
     glm::vec3 forward = glm::vec3(glm::sin(yaw), 0.0f, glm::cos(yaw));
     glm::vec3 right = glm::vec3(glm::cos(yaw), 0.0f, -glm::sin(yaw));
 
-    // Calculate movement direction based on input
-    glm::vec3 moveDirection = (forward * y + right * x);
-    if (glm::length(moveDirection) > 0.001f) {
-        moveDirection = glm::normalize(moveDirection);
-    }
+    // Calculate movement direction based on input.
+    // For keyboard, x/y are already 0 or ±1 so rawLen will be 1.
+    // For gamepad, stickMagnitude [0,1] is used to scale velocity proportionally.
+    glm::vec3 rawMove = forward * y + right * x;
+    float rawLen = glm::length(rawMove);
+    glm::vec3 moveDirection = (rawLen > 0.001f) ? rawMove / rawLen : glm::vec3(0.0f);
+    float speedScale = (gamepadConnected && stickMagnitude > 0.001f)
+        ? glm::min(stickMagnitude, 1.0f)
+        : glm::min(rawLen, 1.0f);
 
-    // Physics-based movement: Set desired velocity on cCharacterPhysics component
+    // Physics-based movement
     if (nexus->HasComponent<cCharacterPhysics>(camEntity)) {
         auto& charPhys = nexus->GetComponent<cCharacterPhysics>(camEntity);
 
         // Set desired velocity (physics system will apply it)
-        charPhys.desiredVelocity = moveDirection * playerController.moveSpeed;
+        charPhys.desiredVelocity = moveDirection * playerController.moveSpeed * speedScale;
 
-        // Handle jump input (Spacebar or gamepad A button)
-        bool jumpPressed = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
+        // JUMP
+        bool jumpButtonPressed = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
         if (gamepadConnected) {
-            jumpPressed = jumpPressed || isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_A);
+            jumpButtonPressed = jumpButtonPressed || isGamepadButtonPressed(GLFW_GAMEPAD_BUTTON_A);
         }
 
-        if (jumpPressed && charPhys.isGrounded) {
+        // Detect jump button press
+        bool jumpJustPressed = jumpButtonPressed && !jumpButtonWasPressedLastFrame;
+        jumpButtonWasPressedLastFrame = jumpButtonPressed;
+
+        if (jumpJustPressed && charPhys.isGrounded) {
             charPhys.wantsJump = true;
         }
     }
 
-    // Rotate player to face movement direction (still controlled by input, not physics)
+    // Rotate player to face movement direction
     if (glm::length(moveDirection) > 0.001f) {
         float targetAngle = std::atan2(moveDirection.x, moveDirection.z);
 
-        // Smooth rotation (lerp)
+        // Smooth rotation
         float currentAngle = playerTransform.rotation.y;
         float angleDiff = targetAngle - currentAngle;
 
@@ -248,6 +261,24 @@ float InputSystem::getGamepadAxis(int axis) {
         }
     }
     return 0.0f;
+}
+
+glm::vec2 InputSystem::getGamepadStick(int axisX, int axisY) {
+    if (!gamepadConnected) return glm::vec2(0.0f);
+
+    GLFWgamepadstate state;
+    if (!glfwGetGamepadState(connectedGamepadId, &state))
+        return glm::vec2(0.0f);
+
+    glm::vec2 raw(state.axes[axisX], state.axes[axisY]);
+    float magnitude = glm::length(raw);
+
+    if (magnitude < gamepadDeadzone)
+        return glm::vec2(0.0f);
+
+    // Rescale so the usable range is [0, 1] and clamp to unit circle
+    float scaled = glm::min((magnitude - gamepadDeadzone) / (1.0f - gamepadDeadzone), 1.0f);
+    return (raw / magnitude) * scaled;
 }
 
 } // namespace nt

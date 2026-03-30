@@ -1,5 +1,4 @@
 #include "astral_app.hpp"
-#include "nt_debugline_system.hpp"
 #include "nt_log.hpp"
 #include "nt_camera_system.hpp"
 #include "nt_buffer.hpp"
@@ -229,8 +228,13 @@ void AstralApp::run()
 
     // Create environment collision boxes for MoonlitCafe
     // Floor - main ground plane
-    physicsSystem->createStaticBoxCollider(MoonlitCafe.GetID(), glm::vec3(30.0f, 0.5f, 30.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    // Add more collision boxes as needed for walls, stairs, etc.
+    physicsSystem->createStaticBoxCollider(MoonlitCafe.GetID(), glm::vec3(30.0f, 0.0f, 30.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+    // Test wall
+    physicsSystem->createStaticBoxCollider(MoonlitCafe.GetID(), glm::vec3(10.0f, 3.0f, 10.0f), glm::vec3(10.0f, 0.0f, 0.0f));
+    // Slope leading up to the test wall
+    glm::quat slopeRot = glm::angleAxis(glm::radians(20.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    physicsSystem->createStaticBoxCollider(MoonlitCafe.GetID(), glm::vec3(4.0f, 0.4f, 6.0f), glm::vec3(-4.0f, 1.2f, 0.0f), slopeRot);
+
 
     auto rainSprite = Nexus.CreateEntity();
     rainSprite.AddComponent(cMeta{"rainBillboard"})
@@ -261,7 +265,7 @@ void AstralApp::run()
 
     auto Cassandra = Nexus.CreateEntity();
     Cassandra.AddComponent(cMeta{"Cassandra"})
-        .AddComponent(cTransform{ glm::vec3(0.0f, 1.5f, 0.0f),
+        .AddComponent(cTransform{ glm::vec3(0.0f, 3.0f, 0.0f),
             glm::vec3(0.0f, -1.5f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), MaterialType::NPR), true })
         .AddComponent(cAnimator {} )
@@ -283,8 +287,11 @@ void AstralApp::run()
         .AddComponent(cTransform{ glm::vec3(-2.5f, 1.5f, -18.0f),
             glm::vec3(0.0f, 0.0f, 0.0f) })
         .AddComponent(cModel{ createModelFromFile(getAssetPath("assets/meshes/Cassandra/Cassandra_256.gltf"), MaterialType::NPR), true })
-        .AddComponent(cAnimator {} );
+        .AddComponent(cAnimator {} )
+        .AddComponent(cCharacterPhysics{});
     Mildred.GetComponent<cAnimator>().play("Idle", true);
+
+    physicsSystem->createCharacterController(Mildred.GetID());
 
     auto BarLight = Nexus.CreateEntity();
     BarLight.AddComponent(cMeta{"Light.Bar"})
@@ -310,13 +317,6 @@ void AstralApp::run()
     static float OrthoNear = -30.0f;
     static float OrthoFar = 44.0f;
     static int selectedEntityID = -1;
-
-    debugLineSystem = std::make_unique<NtLineRenderSystem>(
-        &Nexus,
-        ntDevice,
-        *ntRenderer.getSwapChain(),
-        globalSetLayout->getDescriptorSetLayout()
-    );
 
     im3dRenderer = std::make_unique<NtIm3dRenderer>(
         ntDevice,
@@ -394,6 +394,15 @@ void AstralApp::run()
         ImGui::PopStyleColor();
 
         ImGui::Text("Current FPS: %.1f", io.Framerate);
+
+        if (ImGui::TreeNode("Physics")) {
+            static bool bPhysicsVisualize = physicsSystem->isDebugDrawEnabled();
+            ImGui::Checkbox("Visualize colliders", &bPhysicsVisualize);
+            if (bPhysicsVisualize != physicsSystem->isDebugDrawEnabled())
+              physicsSystem->setDebugDrawEnabled(bPhysicsVisualize);
+
+          ImGui::TreePop();
+        }
 
         // const char* renderModeItems[] = { "Lit", "Unlit", "Normals", "TangentNormals", "Depth", "Lighting", "LitWireframe", "Wireframe" };
         // static int renderModeCurrent = 0;
