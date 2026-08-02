@@ -20,6 +20,16 @@ void CameraSystem::setPerspectiveProjection() {
     projectionMatrix[3][2] = -(camera.far_clip * camera.near_clip) / (camera.far_clip - camera.near_clip);
 }
 
+void CameraSystem::setAspectRatio(float aspect) {
+    assert(!entities.empty() && "No entities found in the Camera System");
+    auto& camera = nexus->GetComponent<cCamera>(*entities.begin());
+
+    if (glm::abs(camera.aspect - aspect) > std::numeric_limits<float>::epsilon()) {
+        camera.aspect = aspect;
+        camera.projectionDirty = true;
+    }
+}
+
 void CameraSystem::setViewDirection(glm::vec3 position, glm::vec3 direction, glm::vec3 up) {
   assert(glm::length(direction) > std::numeric_limits<float>::epsilon() && "Camera direction must be non-zero");
   assert(glm::length(up) > std::numeric_limits<float>::epsilon() && "Camera up vector must be non-zero");

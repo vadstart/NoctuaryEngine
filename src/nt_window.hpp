@@ -3,6 +3,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <functional>
 #include <string>
 using std::string;
 
@@ -22,11 +23,12 @@ namespace nt
 
 		bool shouldClose() { return glfwWindowShouldClose(window_); }
         VkExtent2D getExtent() { return {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}; }
+        double getAspectRatio() const { return aspectRatio; }
         bool wasWindowResized() { return framebufferResized; }
         void resetWindowResizedFlag() { framebufferResized = false; }
 
         void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
-        void assignKeyCallback(void (*keyCallback)(GLFWwindow*, int, int, int, int));
+        void setKeyCallback(std::function<void(int key, int scancode, int action, int mods)> callback);
 
         GLFWwindow* getGLFWwindow() const { return window_; }
 
@@ -34,12 +36,15 @@ namespace nt
 		void initWindow();
 
 		static void framebufferResizeCallback(GLFWwindow* window, int width, int height);
+		static void keyCallbackTrampoline(GLFWwindow* window, int key, int scancode, int action, int mods);
 
 		int width;
 		int height;
         bool framebufferResized = false;
+        double aspectRatio;
 
 		string windowName;
 		GLFWwindow* window_;
+		std::function<void(int, int, int, int)> keyCallback_;
 	};
 }

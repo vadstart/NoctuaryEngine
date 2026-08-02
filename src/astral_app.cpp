@@ -745,6 +745,9 @@ void AstralApp::run()
     physicsSystem->update(deltaTime);
 
 // Camera update
+    if (ntRenderer.consumeSwapChainRecreated()) {
+        cameraSystem->setAspectRatio(ntRenderer.getAspectRatio());
+    }
     cameraSystem->update(ubo.projection, ubo.view, ubo.inverseView);
 
 // EVERY FRAME

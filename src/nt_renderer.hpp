@@ -27,6 +27,13 @@ namespace nt
     float getAspectRatio() const { return ntSwapChain->extentAspectRatio(); }
     bool isFrameInProgress() const { return isFrameStarted; }
 
+    // Returns true once, the first time it's checked after a swap chain recreation.
+    bool consumeSwapChainRecreated() {
+      bool wasRecreated = swapChainRecreated;
+      swapChainRecreated = false;
+      return wasRecreated;
+    }
+
     VkCommandBuffer getCurrentCommandBuffer() const {
       assert(isFrameStarted && "Cannot get command buffer when frame is not in progress");
       return commandBuffers[currentFrameIndex];
@@ -60,5 +67,6 @@ namespace nt
     uint32_t currentImageIndex;
     int currentFrameIndex{0}; // [0, maxFramesInFlight]
     bool isFrameStarted{false};
+    bool swapChainRecreated{false};
 	};
 }

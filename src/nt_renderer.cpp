@@ -41,6 +41,8 @@ void NtRenderer::recreateSwapChain()
       throw std::runtime_error("Swap chain image (or depth) format has changed!");
     }
   }
+
+  swapChainRecreated = true;
 }
 
 void NtRenderer::createCommandBuffers() {
@@ -69,6 +71,12 @@ void NtRenderer::freeCommandBuffers() {
 
 VkCommandBuffer NtRenderer::beginFrame() {
   assert(!isFrameStarted && "Can't call beginFrame while already in progress");
+
+  if (ntWindow.wasWindowResized()) {
+      ntWindow.resetWindowResizedFlag();
+      recreateSwapChain();
+      return nullptr;
+  }
 
   auto result = ntSwapChain->acquireNextImage(&currentImageIndex);
 
@@ -286,6 +294,8 @@ void NtRenderer::beginMainRendering(VkCommandBuffer commandBuffer) {
     renderingInfo.pDepthAttachment = &depthAttachment;
 
     ntDevice.vkCmdBeginRendering(commandBuffer, &renderingInfo);
+
+    // Letterbox for fullscreen
 
     VkViewport viewport{};
     viewport.x = 0.0f;

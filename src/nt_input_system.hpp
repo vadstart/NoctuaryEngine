@@ -13,13 +13,9 @@ class InputSystem : public NtSystem
   public:
     InputSystem(NtNexus* nexus_ptr, NtWindow* ntWindow_ptr) : nexus(nexus_ptr), ntWindow(ntWindow_ptr)
     {
-        auto* window = ntWindow->getGLFWwindow();
-        glfwSetWindowUserPointer(ntWindow->getGLFWwindow(), this);
-
-        glfwSetKeyCallback(window, [](GLFWwindow* w, int key, int scancode, int action, int mods) {
-                auto* self = static_cast<InputSystem*>(glfwGetWindowUserPointer(w));
-                if (self) self->windowKeyCallback(key, scancode, action, mods);
-            });
+        ntWindow->setKeyCallback([this](int key, int scancode, int action, int mods) {
+            windowKeyCallback(key, scancode, action, mods);
+        });
     };
 
     ~InputSystem() {};

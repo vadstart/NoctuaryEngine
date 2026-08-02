@@ -4,7 +4,7 @@
 
 namespace nt
 {
-NtWindow::NtWindow(int w, int h, string name) : width{w}, height{h}, windowName{name}
+NtWindow::NtWindow(int w, int h, string name) : width{w}, height{h}, aspectRatio{static_cast<double>(w) / static_cast<double>(h)}, windowName{name}
 {
 	initWindow();
 }
@@ -22,14 +22,15 @@ void NtWindow::initWindow()
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
     // glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
 	window_ = glfwCreateWindow(width, height, windowName.c_str(), nullptr, nullptr);
+	glfwSetWindowAspectRatio(window_, width, height);
 
 	// glfwSetInputMode(window_, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 	glfwSetWindowUserPointer (window_, this);
 	glfwSetFramebufferSizeCallback(window_, framebufferResizeCallback);
 }
 
-void NtWindow::assignKeyCallback(void (*keyCallback)(GLFWwindow*, int, int, int, int)) {
-   	glfwSetKeyCallback(window_, keyCallback);
+void NtWindow::setKeyCallback(std::function<void(int, int, int, int)> callback) {
+   	keyCallback_ = std::move(callback);
 }
 
 void NtWindow::framebufferResizeCallback(GLFWwindow* window, int width, int height) {
@@ -37,6 +38,14 @@ void NtWindow::framebufferResizeCallback(GLFWwindow* window, int width, int heig
 	ntWindow->framebufferResized = true;
     ntWindow->width = width;
     ntWindow->height = height;
+}
+
+void NtWindow::keyCallbackTrampoline(GLFWwindow* window, int key, int scancode, int action, int mods) {
+    auto ntWindow = reinterpret_cast<NtWindow *>(glfwGetWindowUserPointer(window));
+
+    if(ntWindow->keyCallback_) {
+        ntWindow->keyCallback_(key, scancode, action, mods);
+    }
 }
 
 void NtWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface) {
